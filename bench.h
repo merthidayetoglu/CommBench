@@ -46,6 +46,7 @@ namespace CommBench
   };
 
   enum heuristic {across, within};
+  enum direction {unidirect, bidirect};
 
   template <typename T>
   class Bench
@@ -140,13 +141,14 @@ namespace CommBench
             sendbuf = new T[count];
             recvbuf = new T[count * (numgroup - 1)];
 #endif
-            int numrecv = 0;
-            for(int sender = 0; sender < numgroup; sender++)
+            for(int sender = 0; sender < numgroup; sender++) {
+              int numrecv = 0;
               for(int recver = 0; recver < numgroup; recver++)
                 if(sender != recver) {
                   transport->add(sendbuf, 0, recvbuf, numrecv * count, count, sender, recver);
                   numrecv++;
                 }
+            }
           }
           break;
         case within:

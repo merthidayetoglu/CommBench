@@ -21,20 +21,20 @@
 
 #include <cassert>
 
-#define ROOT 1
+#define ROOT 0
 
 // HEADERS
- #include <nccl.h>
+// #include <nccl.h>
 // #include <rccl.h>
 
 // PORTS AND CAPS
- #define PORT_CUDA
+// #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
- #define CAP_NCCL
+// #define CAP_NCCL
 
-//#include "comm.h"
-#include "bench.h"
+#include "comm.h"
+//#include "bench.h"
 
 void setup_gpu();
 
@@ -83,46 +83,6 @@ int main(int argc, char *argv[])
   setup_gpu();
 
 #include "test_saturation.h"
-
-  //CommBench::Bench<Type>(MPI_COMM_WORLD, groupsize, CommBench::across, CommBench::MPI, count);
-  //CommBench::Bench<Type>(MPI_COMM_WORLD, 1, CommBench::across, CommBench::MPI, count);
-
-  return 0;
-
-  Type *sendbuf_d;
-  Type *recvbuf_d;
-  Type *recvbuf_2;
-  cudaMalloc(&sendbuf_d, count * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * 2 * numproc *sizeof(Type));
-  cudaMalloc(&recvbuf_2, count * 2 * numproc *sizeof(Type));
-
-  CommBench::Comm<Type> test(MPI_COMM_WORLD, CommBench::MPI);
-
-
-  /*test.add(sendbuf_d, 0, recvbuf_d, 0, count, 1, 2);
-  test.add(sendbuf_d, 0, recvbuf_d, 0, count, 2, 1);
-  test.add(sendbuf_d, 0, recvbuf_d, 0, 20, 2, 1);
-  test.add(sendbuf_d, 0, recvbuf_2, 0, count, 2, 1);
-  test.add(sendbuf_d, 0, recvbuf_2, 0, count, 2, 1);
-  test.add(sendbuf_d, 0, recvbuf_d, 0, count, 1, 2);*/
-
-  for(int sender = 0; sender < numproc; sender++)
-    for(int recver = 0; recver < numproc; recver++)
-      if(sender != recver)
-        test.add(sendbuf_d, 0, recvbuf_d, sender * count, count, sender, recver);
-
-  /*for(int p = 0; p < numproc; p++)
-    if(p != 0)
-      test.add(sendbuf_d, 0, recvbuf_2, p * count, count, p, 0);
-
-  for(int p = 0; p < numproc; p++)
-    if(p != 0)
-      test.add(sendbuf_d, 0, recvbuf_d, p * count, count, 0, p);*/
-
-  test.report();
-
-  test.init();
-  test.wait();
 
   // FINALIZE
   MPI_Finalize();

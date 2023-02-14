@@ -16,7 +16,7 @@
   recvbuf_d = new Type[count * numproc];
 #endif
 
-  CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::MPI);
+  CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::NCCL);
 
   for(int proc = 0; proc < numproc; proc++) {
     int mygroup = proc / groupsize;
@@ -24,8 +24,8 @@
     if(mylocalid < numgpupergroup)
       for(int group = 0; group < numgroup; group++)
         if(group != mygroup) {
-          // for(int p = 0; p < groupsize; p++)
-            int p = mylocalid;
+          for(int p = 0; p < groupsize; p++)
+            // int p = mylocalid;
             bench.add(sendbuf_d, 0, recvbuf_d, proc * count, count, proc, group * groupsize + p);
         }
   }
@@ -39,6 +39,7 @@
   double totalData = 0;
   double totalTime = 0;
   double minTime = 1e9;
+  double minData = 2 * count * (numgroup - 1) * sizeof(Type) / 1.e9 * numgpupergroup * groupsize;
   for (int iter = -warmup; iter < numiter; iter++) {
 #if !defined(PORT_CUDA) && !defined(PORT_HIP)
     memset(sendbuf_d, -1, count * sizeof(Type));
@@ -60,13 +61,12 @@
       if(myid == ROOT)
         printf("start %.2e time: %.2e\n", start, time);
      totalTime += time;
-     totalData += 2 * count * (numgroup - 1) * sizeof(Type) / 1.e9;
+     totalData += minData;
     }
   }
-  double minData = 2 * count * (numgroup - 1) * sizeof(Type) / 1.e9;
   if(myid == ROOT) {
-    printf("minTime %.2e (%.2e s/GB) B/W %.2e GB/s --- MPI\n", minTime, minTime / minData / numgpupergroup, minData / minTime * numgpupergroup);
-    printf("totalTime %.2e s totalData %.2e GB B/W %.2e (%.2e max) GB/s --- MPI\n", totalTime, totalData, totalData / totalTime * numgpupergroup, minData / minTime * numgpupergroup);
+    printf("minTime %.2e minData %.2e MB (%.2e s/GB) B/W %.2e GB/s --- MPI\n", minTime, minData * 1e3, minTime / minData, minData / minTime);
+    printf("totalTime %.2e s totalData %.2e GB B/W %.2e (%.2e max) GB/s --- MPI\n", totalTime, totalData, totalData / totalTime, minData / minTime);
   }
 
 #ifdef PORT_CUDA

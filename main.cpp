@@ -24,14 +24,14 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
+// #include <nccl.h>
 // #include <rccl.h>
 
 // PORTS AND CAPS
- #define PORT_CUDA
+// #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
- #define CAP_NCCL
+// #define CAP_NCCL
 
 #include "comm.h"
 //#include "bench.h"
@@ -82,7 +82,8 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-#include "test_saturation.h"
+  #include "test_library.h"
+//#include "test_saturation.h"
 
   // FINALIZE
   MPI_Finalize();

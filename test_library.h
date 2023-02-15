@@ -23,22 +23,9 @@
 #if !defined(PORT_CUDA) && !defined(PORT_HIP)
     memset(sendbuf_d, -1, count * numproc * sizeof(Type));
 #endif
-
-    int sendcounts[numproc] = {0};
-    int recvcounts[numproc] = {0};
-    for(int p = 0; p < numproc; p++) {
-      if(p > groupsize)
-    }
-    int senddispls[numproc] = 0;
-    int recvdispls[numproc] = 0;
-    for(int p = 0; p < numproc; p++) {
-      senddispls[numproc]
-    }
-    
-
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
-    MPI_Alltoallv(sendbuf_d, count * sizeof(Type), MPI_BYTE, recvbuf_d, count * sizeof(Type), MPI_BYTE, MPI_COMM_WORLD);
+    MPI_Alltoall(sendbuf_d, count * sizeof(Type), MPI_BYTE, recvbuf_d, count * sizeof(Type), MPI_BYTE, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
     time = MPI_Wtime() - time;
     if(iter < 0) {

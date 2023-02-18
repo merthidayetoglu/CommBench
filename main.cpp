@@ -33,7 +33,7 @@
 // #define PORT_SYCL
 // #define CAP_NCCL
 
-#include "bench.h"
+#include "comm.h"
 
 void setup_gpu();
 
@@ -80,6 +80,16 @@ int main(int argc, char *argv[])
   }
 
   setup_gpu();
+
+#define TEST_P2P
+#define TEST_G2G_rail
+#define TEST_G2G_rail_scaling
+#define TEST_P2G
+#define TEST_G2G_full
+#define TEST_G2G_full_scaling
+#define TEST_P2A
+#define TEST_A2A
+#define TEST_CAPABILITY MPI
 
   #include "test_crusher.h"
 //  #include "test_library.h"

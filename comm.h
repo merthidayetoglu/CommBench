@@ -7,7 +7,7 @@ namespace CommBench
   class Comm {
 
     const capability cap;
-    const MPI_Comm comm;
+    const MPI_Comm comm_mpi;
 
     // GPU-Aware MPI
     MPI_Request *sendrequest;
@@ -64,11 +64,11 @@ namespace CommBench
 
     public:
 
-    Comm(const MPI_Comm &comm, capability cap) : comm(comm), cap(cap) {
+    Comm(const MPI_Comm &comm_mpi, capability cap) : comm_mpi(comm_mpi), cap(cap) {
       int myid;
       int numproc;
-      MPI_Comm_rank(comm, &myid);
-      MPI_Comm_size(comm, &numproc);
+      MPI_Comm_rank(comm_mpi, &myid);
+      MPI_Comm_size(comm_mpi, &numproc);
 
       numsend = 0;
       numrecv = 0;
@@ -97,7 +97,7 @@ namespace CommBench
         ncclUniqueId id;
         if(myid == 0)
           ncclGetUniqueId(&id);
-        MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm);
+        MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
         ncclCommInitRank(&comm_nccl, numproc, id, myid);
 #ifdef PORT_CUDA
         cudaStreamCreate(&stream_nccl);
@@ -127,8 +127,8 @@ namespace CommBench
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
       int myid;
       int numproc;
-      MPI_Comm_rank(comm, &myid);
-      MPI_Comm_size(comm, &numproc);
+      MPI_Comm_rank(comm_mpi, &myid);
+      MPI_Comm_size(comm_mpi, &numproc);
       if(myid == ROOT)
         printf("Add CommBench::Comm sendid %d recvid %d count %zu (%.2e MB)\n", sendid, recvid, count, count * sizeof(T) / 1.e6);
       if(myid == sendid) {
@@ -222,10 +222,10 @@ namespace CommBench
                this->recvoffset_ipc = recvoffset_ipc;
             }
             bool duplicate;
-            MPI_Recv(&duplicate, 1, MPI_C_BOOL, recvid, 0, comm, MPI_STATUS_IGNORE);
+            MPI_Recv(&duplicate, 1, MPI_C_BOOL, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
             if(duplicate) {
               int count_temp;
-              MPI_Recv(&count_temp, 1, MPI_INT, recvid, 0, comm, MPI_STATUS_IGNORE);
+              MPI_Recv(&count_temp, 1, MPI_INT, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
               int count = 0;
               for(int send = 0; send < numsend; send++)
                 if(sendproc[send] == recvid) {
@@ -240,17 +240,17 @@ namespace CommBench
             else {
 #ifdef PORT_CUDA
               cudaIpcMemHandle_t memhandle;
-              MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm, MPI_STATUS_IGNORE);
+              MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
               int error = cudaIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, cudaIpcMemLazyEnablePeerAccess);
               assert(error == 0); // CHECK RECEIVER POINTER HEAD
 #elif defined PORT_HIP
               hipIpcMemHandle_t memhandle;
-              MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm, MPI_STATUS_IGNORE);
+              MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
               int error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
               assert(error == 0); // CHECK RECEIVER POINTER HEAD
 #endif
             }
-            MPI_Recv(recvoffset_ipc + numsend, sizeof(size_t), MPI_BYTE, recvid, 0, comm, MPI_STATUS_IGNORE);
+            MPI_Recv(recvoffset_ipc + numsend, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
             break;
         } // switch(cap)
         numsend++;
@@ -303,21 +303,21 @@ namespace CommBench
                 else
                   count++;
               }
-            MPI_Send(&duplicate, 1, MPI_C_BOOL, sendid, 0, comm);
+            MPI_Send(&duplicate, 1, MPI_C_BOOL, sendid, 0, comm_mpi);
             if(duplicate)
-              MPI_Send(&count, 1, MPI_INT, sendid, 0, comm);
+              MPI_Send(&count, 1, MPI_INT, sendid, 0, comm_mpi);
             else {
 #ifdef PORT_CUDA
               cudaIpcMemHandle_t myhandle;
               cudaIpcGetMemHandle(&myhandle, recvbuf);
-              MPI_Send(&myhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, sendid, 0, comm);
+              MPI_Send(&myhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #elif defined PORT_HIP
               hipIpcMemHandle_t myhandle;
               hipIpcGetMemHandle(&myhandle, recvbuf);
-              MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm);
+              MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #endif
             }
-            MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm);
+            MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
             break;
         }
         numrecv++;
@@ -327,15 +327,72 @@ namespace CommBench
     void init();
     void wait();
 
+    void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void report();
   };
+
+  template <typename T>
+  void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime) {
+
+    double times[numiter];
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+
+    for (int iter = -warmup; iter < numiter; iter++) {
+      for(int send = 0; send < numsend; send++) {
+#if defined(PORT_CUDA)
+        cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
+#elif defined PORT_HIP
+        hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
+#else
+        memset(sendbuf[send], -1, count * sizeof(T));
+#endif
+      }
+      MPI_Barrier(MPI_COMM_WORLD);
+      double time = MPI_Wtime();
+      this->init();
+      double start = MPI_Wtime() - time;
+      this->wait();
+      MPI_Barrier(MPI_COMM_WORLD);
+      time = MPI_Wtime() - time;
+      if(iter < 0) {
+        if(myid == ROOT)
+          printf("start %.2e warmup: %.2e\n", start, time);
+      }
+      else {
+        times[iter] = time;
+      }
+    }
+    std::sort(times, times + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
+
+    if(myid == ROOT)
+      for(int iter = 0; iter < numiter; iter++) {
+        printf("time: %.4e", times[iter]);
+        if(iter == 0)
+          printf(" -> min\n");
+        else if(iter == numiter / 2)
+          printf(" -> median\n");
+        else if(iter == numiter - 1)
+          printf(" -> max\n");
+        else
+          printf("\n");
+      }
+
+    minTime = times[0];
+    medTime = times[numiter / 2];
+    maxTime = times[numiter - 1];
+    avgTime = 0;
+    for(int iter = 0; iter < numiter; iter++)
+      avgTime += times[iter];
+    avgTime /= numiter;
+  }
 
   template <typename T>
   void Comm<T>::report() {
     int myid;
     int numproc;
-    MPI_Comm_rank(comm, &myid);
-    MPI_Comm_size(comm, &numproc);
+    MPI_Comm_rank(comm_mpi, &myid);
+    MPI_Comm_size(comm_mpi, &numproc);
 
     int sendmatrix[numproc][numproc];
     int recvmatrix[numproc][numproc];
@@ -346,8 +403,8 @@ namespace CommBench
     for(int recv = 0; recv < numrecv; recv++)
       recvmatrix[myid][recvproc[recv]]++;
 
-    MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm);
-    MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm);
+    MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
 
     if(myid == ROOT) {
       printf("recv matrix\n");
@@ -362,6 +419,21 @@ namespace CommBench
           printf("%d ", sendmatrix[recv][send]);
         printf("\n");
       }
+    }
+
+    double sendTotal = 0;
+    double recvTotal = 0;
+    for(int send = 0; send < numsend; send++)
+       sendTotal += sendcount[send] * sizeof(T);
+    for(int recv = 0; recv < numrecv; recv++)
+       recvTotal += recvcount[recv] * sizeof(T);
+
+    MPI_Allreduce(MPI_IN_PLACE, &sendTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
+
+    if(myid == ROOT) {
+      printf("Total Send Data Footprint: %e Bytes\n", sendTotal);
+      printf("Total Recv Data Footprint: %e Bytes\n", recvTotal);
     }
   }
 
@@ -379,11 +451,9 @@ namespace CommBench
         break;
       case MPI:
         for (int send = 0; send < numsend; send++)
-          MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm, sendrequest + send);
-          // MPI_Send(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm);
+          MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm_mpi, sendrequest + send);
         for (int recv = 0; recv < numrecv; recv++)
-          MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm, recvrequest + recv);
-          // MPI_Recv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm, MPI_STATUS_IGNORE);
+          MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, recvrequest + recv);
         break;
       case MPI_staged:
         break;
@@ -398,8 +468,6 @@ namespace CommBench
         break;
 #endif
       case IPC:
-        int myid;
-        MPI_Comm_rank(comm, &myid);
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
           cudaMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
@@ -444,7 +512,7 @@ namespace CommBench
           hipStreamSynchronize(stream_ipc[send]);
 #endif
         }
-        MPI_Barrier(comm);
+        MPI_Barrier(comm_mpi);
         break;
     }
   } // Comm::wait()

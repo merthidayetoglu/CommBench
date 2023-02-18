@@ -25,16 +25,15 @@
 
 // HEADERS
 // #include <nccl.h>
-// #include <rccl.h>
+ #include <rccl.h>
 
 // PORTS AND CAPS
 // #define PORT_CUDA
-// #define PORT_HIP
+ #define PORT_HIP
 // #define PORT_SYCL
 // #define CAP_NCCL
 
-#include "comm.h"
-//#include "bench.h"
+#include "bench.h"
 
 void setup_gpu();
 
@@ -82,8 +81,9 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-  #include "test_library.h"
-//#include "test_saturation.h"
+  #include "test_crusher.h"
+//  #include "test_library.h"
+// #include "test_saturation.h"
 
   // FINALIZE
   MPI_Finalize();

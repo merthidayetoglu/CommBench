@@ -79,11 +79,11 @@ namespace CommBench
 #ifdef PORT_CUDA
         printf("CUDA ");
 #elif defined PORT_HIP
-        printf("HIP ");
+        printf("HIP, ");
 #else
-        printf("CPU ");
+        printf("CPU, ");
 #endif
-        printf("Capability: ");
+        printf("Library: ");
         switch(cap) {
           case MEMCPY    : printf("memcpy\n");         break;
           case MPI       : printf("GPU-Aware MPI\n");  break;
@@ -379,9 +379,11 @@ namespace CommBench
         break;
       case MPI:
         for (int send = 0; send < numsend; send++)
-           MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm, sendrequest + send);
+          MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm, sendrequest + send);
+          // MPI_Send(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm);
         for (int recv = 0; recv < numrecv; recv++)
           MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm, recvrequest + recv);
+          // MPI_Recv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm, MPI_STATUS_IGNORE);
         break;
       case MPI_staged:
         break;

@@ -18,14 +18,29 @@
   double totalData = 0;
   double totalTime = 0;
   double minTime = 1e9;
-  double minData = 2 * count * (numgroup - 1) * sizeof(Type) / 1.e9 * groupsize * groupsize;
+  double minData = 2 * count * (numgroup - 1) * sizeof(Type) / 1.e9;// * groupsize * groupsize;
   for (int iter = -warmup; iter < numiter; iter++) {
 #if !defined(PORT_CUDA) && !defined(PORT_HIP)
     memset(sendbuf_d, -1, count * numproc * sizeof(Type));
 #endif
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
-    MPI_Alltoall(sendbuf_d, count * sizeof(Type), MPI_BYTE, recvbuf_d, count * sizeof(Type), MPI_BYTE, MPI_COMM_WORLD);
+
+    MPI_Request sendrequest;
+    MPI_Request recvrequest;
+    if(myid == 0) {
+      //MPI_Sendrecv(sendbuf_d, count * sizeof(Type), MPI_BYTE, groupsize, 0, recvbuf_d, count * sizeof(Type), MPI_BYTE, groupsize, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Isend(sendbuf_d, count * sizeof(Type), MPI_BYTE, groupsize, 0, MPI_COMM_WORLD, &sendrequest);
+      MPI_Irecv(recvbuf_d, count * sizeof(Type), MPI_BYTE, groupsize, 0, MPI_COMM_WORLD, &recvrequest);
+      MPI_Wait(&recvrequest, MPI_STATUS_IGNORE);
+    }
+    if(myid == groupsize) {
+      //MPI_Sendrecv(sendbuf_d, count * sizeof(Type), MPI_BYTE, 0, 0, recvbuf_d, count * sizeof(Type), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);*/
+      MPI_Isend(sendbuf_d, count * sizeof(Type), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &sendrequest);
+      MPI_Irecv(recvbuf_d, count * sizeof(Type), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &recvrequest);
+      MPI_Wait(&recvrequest, MPI_STATUS_IGNORE);
+    }
+    // MPI_Alltoall(sendbuf_d, count * sizeof(Type), MPI_BYTE, recvbuf_d, count * sizeof(Type), MPI_BYTE, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
     time = MPI_Wtime() - time;
     if(iter < 0) {

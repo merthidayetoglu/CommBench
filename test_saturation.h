@@ -1,7 +1,7 @@
 {
   int numgroup = numproc / groupsize;
 
-  int numgpupergroup = groupsize;
+  int numgpupergroup = 6;
 
   Type *sendbuf_d;
   Type *recvbuf_d;
@@ -18,13 +18,13 @@
 
   CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::MPI);
 
-  for(int proc = 0; proc < numproc; proc++) {
+  for(int proc = 0; proc < numgpupergroup; proc++) {
     int mygroup = proc / groupsize;
     int mylocalid = proc % groupsize;
     if(mylocalid < numgpupergroup)
       for(int group = 0; group < numgroup; group++)
         if(group != mygroup) {
-          for(int p = 0; p < groupsize; p++)
+          for(int p = 0; p < numgpupergroup; p++)
             //int p = mylocalid;
             bench.add(sendbuf_d, 0, recvbuf_d, proc * count, count, proc, group * groupsize + p);
         }
@@ -39,7 +39,7 @@
   double totalData = 0;
   double totalTime = 0;
   double minTime = 1e9;
-  double minData = 2 * count * (numgroup - 1) * sizeof(Type) / 1.e9 * numgpupergroup * groupsize;
+  double minData = 2 * count * (numgroup - 1) * sizeof(Type) / 1.e9 * numgpupergroup * numgpupergroup;
   for (int iter = -warmup; iter < numiter; iter++) {
 #if !defined(PORT_CUDA) && !defined(PORT_HIP)
     memset(sendbuf_d, -1, count * sizeof(Type));

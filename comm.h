@@ -345,7 +345,7 @@ namespace CommBench
 #elif defined PORT_HIP
         hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #else
-        memset(sendbuf[send], -1, count * sizeof(T));
+        memset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #endif
       }
       MPI_Barrier(MPI_COMM_WORLD);

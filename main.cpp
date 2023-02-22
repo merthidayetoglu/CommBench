@@ -16,6 +16,7 @@
 #include <stdio.h> // for printf
 #include <stdlib.h> // for atoi
 #include <cstring> // for memcpy
+#include <algorithm> // for sort
 #include <mpi.h>
 #include <omp.h>
 
@@ -81,17 +82,17 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-#define TEST_P2P
+//#define TEST_P2P
 #define TEST_G2G_rail
-#define TEST_G2G_rail_scaling
-#define TEST_P2G
-#define TEST_G2G_full
-#define TEST_G2G_full_scaling
-#define TEST_P2A
-#define TEST_A2A
-#define TEST_CAPABILITY MPI
+//#define TEST_G2G_rail_scaling
+//#define TEST_P2G
+//#define TEST_G2G_full
+//#define TEST_G2G_full_scaling
+//#define TEST_P2A
+//#define TEST_A2A
 
-  #include "test_crusher.h"
+#define TEST_CAPABILITY MPI
+#include "test_crusher.h"
 //  #include "test_library.h"
 // #include "test_saturation.h"
 

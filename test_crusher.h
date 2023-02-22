@@ -18,14 +18,15 @@
 #ifdef TEST_P2P
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::TEST_CAPABILITY);
-    for(int send = 0; send < 1; send++) {
+    int numsend = 1;
+    for(int send = 0; send < numsend; send++) {
         int sender = send;
         int recver = groupsize + send;
         bench.add(sendbuf_d, 0, recvbuf_d, sender * count, count, sender, recver);
         bench.add(sendbuf_d, 0, recvbuf_d, recver * count, count, recver, sender);
       }
     bench.report();
-    double data = 2 * count * sizeof(Type) / 1.e9;
+    double data = 2 * count * sizeof(Type) / 1.e9 * numsend;
     double minTime, medTime, maxTime, avgTime;
     bench.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
     if(myid == ROOT) {
@@ -40,7 +41,7 @@
 #endif
 
 #ifdef TEST_G2G_rail_scaling
-  for(int numsend = 2; numsend < groupsize; numsend += 2)
+  for(int numsend = 1; numsend < groupsize; numsend++)
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::TEST_CAPABILITY);
     for(int send = 0; send < numsend; send++) {
@@ -91,7 +92,8 @@
 #ifdef TEST_P2G
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::TEST_CAPABILITY);
-    for(int send = 0; send < 1; send++)
+    int numsend = 1;
+    for(int send = 0; send < numsend; send++)
       for(int recv = 0; recv < groupsize; recv++) {
         int sender = send;
         int recver = groupsize + recv;
@@ -99,7 +101,7 @@
         bench.add(sendbuf_d, 0, recvbuf_d, recver * count, count, recver, sender);
       }
     bench.report();
-    double data = 2 * count * sizeof(Type) / 1.e9 * groupsize;
+    double data = 2 * count * sizeof(Type) / 1.e9 * groupsize * numsend;
     double minTime, medTime, maxTime, avgTime;
     bench.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
     if(myid == ROOT) {
@@ -114,7 +116,7 @@
 #endif
 
 #ifdef TEST_G2G_full_scaling
-  for(int numsend = 2; numsend < groupsize; numsend += 2)
+  for(int numsend = 1; numsend < groupsize; numsend++)
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::TEST_CAPABILITY);
     for(int send = 0; send < numsend; send++)

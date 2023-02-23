@@ -80,10 +80,21 @@ int main(int argc, char *argv[])
     printf("\n");
   }
 
+  return 0;
+
   setup_gpu();
 
-//#define TEST_P2P
-#define TEST_G2G_rail
+#define TEST_CAPABILITY MPI
+#define TEST_UNIDIRECTIONAL
+//#define TEST_BIDIRECTIONAL
+
+#include "test_P2P.h"
+//#include "test_G2G_rail.h"
+//#include "test_P2G.h"
+//#include "test_G2G_full.h"
+
+// define TEST_P2P
+//#define TEST_G2G_rail
 //#define TEST_G2G_rail_scaling
 //#define TEST_P2G
 //#define TEST_G2G_full
@@ -91,8 +102,7 @@ int main(int argc, char *argv[])
 //#define TEST_P2A
 //#define TEST_A2A
 
-#define TEST_CAPABILITY MPI
-#include "test_crusher.h"
+//#include "test_crusher.h"
 //  #include "test_library.h"
 // #include "test_saturation.h"
 

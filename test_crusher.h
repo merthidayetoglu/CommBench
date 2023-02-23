@@ -92,13 +92,13 @@
 #ifdef TEST_P2G
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::TEST_CAPABILITY);
-    int numsend = 1;
+    int numsend = 4;
     for(int send = 0; send < numsend; send++)
       for(int recv = 0; recv < groupsize; recv++) {
         int sender = send;
         int recver = groupsize + recv;
-        bench.add(sendbuf_d, 0, recvbuf_d, sender * count, count, sender, recver);
-        bench.add(sendbuf_d, 0, recvbuf_d, recver * count, count, recver, sender);
+        bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+        bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
       }
     bench.report();
     double data = 2 * count * sizeof(Type) / 1.e9 * groupsize * numsend;

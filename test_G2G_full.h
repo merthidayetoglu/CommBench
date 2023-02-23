@@ -7,13 +7,13 @@
 
 #ifdef PORT_CUDA
   cudaMalloc(&sendbuf_d, count * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * sizeof(Type) * (numgroup - 1)) * groupsize;
+  cudaMalloc(&recvbuf_d, count * sizeof(Type));// * (numgroup - 1)) * groupsize;
 #elif defined PORT_HIP
   hipMalloc(&sendbuf_d, count * sizeof(Type));
-  hipMalloc(&recvbuf_d, count * sizeof(Type) * (numgroup - 1) * groupsize);
+  hipMalloc(&recvbuf_d, count * sizeof(Type));// * (numgroup - 1) * groupsize);
 #else
   sendbuf_d = new Type[count];
-  recvbuf_d = new Type[count * (numgroup - 1) * groupsize];
+  recvbuf_d = new Type[count];// * (numgroup - 1) * groupsize];
 #endif
 
   {
@@ -27,7 +27,7 @@
             for(int send = 0; send < numsend; send++) {
               int sender = sendgroup * groupsize + send;
               int recver = recvgroup * groupsize + recv;
-              bench.add(sendbuf_d, 0, recvbuf_d, count * numrecv, count, sender, recver);
+              bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               numrecv++;
             }
       }

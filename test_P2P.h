@@ -8,13 +8,13 @@
 #ifdef TEST_BIDIRECTIONAL
 #ifdef PORT_CUDA
   cudaMalloc(&sendbuf_d, count * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * sizeof(Type) * (numgroup - 1));
+  cudaMalloc(&recvbuf_d, count * sizeof(Type));// * (numgroup - 1));
 #elif defined PORT_HIP
   hipMalloc(&sendbuf_d, count * sizeof(Type));
-  hipMalloc(&recvbuf_d, count * sizeof(Type) * (numgroup - 1));
+  hipMalloc(&recvbuf_d, count * sizeof(Type));// * (numgroup - 1));
 #else
   sendbuf_d = new Type[count];
-  recvbuf_d = new Type[count * (numgroup - 1)];
+  recvbuf_d = new Type[count];// * (numgroup - 1)];
 #endif
 #endif
 
@@ -41,7 +41,7 @@
         int sender = send;
         int recver = recvgroup * groupsize + send;
         bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
-        bench.add(sendbuf_d, 0, recvbuf_d, numrecv * count, count, recver, sender);
+        bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
         numrecv++;
       }
     }

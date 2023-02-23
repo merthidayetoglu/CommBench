@@ -1,19 +1,34 @@
 {
   int numgroup = numproc / groupsize;
-  int numsend = numgroup;
+  int numsend = groupsize;
 
   Type *sendbuf_d;
   Type *recvbuf_d;
 
+#ifdef TEST_BIDIRECTIONAL
 #ifdef PORT_CUDA
   cudaMalloc(&sendbuf_d, count * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * (numgroup - 1) * sizeof(Type));
+  cudaMalloc(&recvbuf_d, count * sizeof(Type) * (numgroup - 1)) * groupsize;
 #elif defined PORT_HIP
   hipMalloc(&sendbuf_d, count * sizeof(Type));
-  hipMalloc(&recvbuf_d, count * (numgroup - 1) * sizeof(Type));
+  hipMalloc(&recvbuf_d, count * sizeof(Type) * (numgroup - 1) * groupsize);
 #else
   sendbuf_d = new Type[count];
-  recvbuf_d = new Type[count * (numgroup - 1)];
+  recvbuf_d = new Type[count * (numgroup - 1) * groupsize];
+#endif
+#endif
+
+#ifdef TEST_UNIDIRECTIONAL
+#ifdef PORT_CUDA
+  cudaMalloc(&sendbuf_d, count * sizeof(Type));
+  cudaMalloc(&recvbuf_d, count * sizeof(Type));
+#elif defined PORT_HIP
+  hipMalloc(&sendbuf_d, count * sizeof(Type));
+  hipMalloc(&recvbuf_d, count * sizeof(Type));
+#else
+  sendbuf_d = new Type[count];
+  recvbuf_d = new Type[count];
+#endif
 #endif
 
   {
@@ -22,23 +37,23 @@
     for(int recvgroup = 0; recvgroup < numgroup; recvgroup++)
       for(int recv = 0; recv < numsend; recv++) {
         int numrecv = 0;
-        for(int sendgroup = 0; sendgroup < numgroup; sendgroup++) {
-          if(sendgroup != recvgroup) {
-            int recver = recvgroup * groupsize + recv;
-            int sender = sendgroup * groupsize + recv;
-            bench.add(sendbuf_d, 0, recvbuf_d, numrecv * count, count, sender, recver);
-            numrecv++;
-          }
-        }
+        for(int sendgroup = 0; sendgroup < numgroup; sendgroup++)
+          if(sendgroup != recvgroup)
+            for(int send = 0; send < numsend; send++) {
+              int sender = sendgroup * groupsize + send;
+              int recver = recvgroup * groupsize + recv;
+              bench.add(sendbuf_d, 0, recvbuf_d, count * numrecv, count, sender, recver);
+              numrecv++;
+            }
       }
+    double data = 2 * count * sizeof(Type) / 1.e9 * numsend * (numgroup - 1) * groupsize;
 
     bench.report();
 
-    double data = 2 * count * sizeof(Type) / 1.e9 * numsend * (numgroup - 1);
     double minTime, medTime, maxTime, avgTime;
     bench.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
     if(myid == ROOT) {
-      printf("TEST_G2G_rail (%d)\n", numsend);
+     printf("TEST_G2G_rail\n");
       printf("data: %.4e MB\n", data * 1e3);
       printf("minTime: %.4e s, %.4e s/GB, %.4e GB/s\n", minTime, minTime / data, data / minTime);
       printf("medTime: %.4e s, %.4e s/GB, %.4e GB/s\n", medTime, medTime / data, data / medTime);

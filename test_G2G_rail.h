@@ -1,6 +1,6 @@
 {
   int numgroup = numproc / groupsize;
-  int numsend = numgroup;
+  int numsend = groupsize;
 
   Type *sendbuf_d;
   Type *recvbuf_d;

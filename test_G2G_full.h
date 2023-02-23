@@ -5,7 +5,6 @@
   Type *sendbuf_d;
   Type *recvbuf_d;
 
-#ifdef TEST_BIDIRECTIONAL
 #ifdef PORT_CUDA
   cudaMalloc(&sendbuf_d, count * sizeof(Type));
   cudaMalloc(&recvbuf_d, count * sizeof(Type) * (numgroup - 1)) * groupsize;
@@ -15,20 +14,6 @@
 #else
   sendbuf_d = new Type[count];
   recvbuf_d = new Type[count * (numgroup - 1) * groupsize];
-#endif
-#endif
-
-#ifdef TEST_UNIDIRECTIONAL
-#ifdef PORT_CUDA
-  cudaMalloc(&sendbuf_d, count * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * sizeof(Type));
-#elif defined PORT_HIP
-  hipMalloc(&sendbuf_d, count * sizeof(Type));
-  hipMalloc(&recvbuf_d, count * sizeof(Type));
-#else
-  sendbuf_d = new Type[count];
-  recvbuf_d = new Type[count];
-#endif
 #endif
 
   {

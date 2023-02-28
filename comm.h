@@ -340,7 +340,7 @@ namespace CommBench
 
     for (int iter = -warmup; iter < numiter; iter++) {
       for(int send = 0; send < numsend; send++) {
-#if defined(PORT_CUDA)
+#if defined PORT_CUDA
         cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #elif defined PORT_HIP
         hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
@@ -348,12 +348,12 @@ namespace CommBench
         memset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #endif
       }
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
       this->init();
       double start = MPI_Wtime() - time;
       this->wait();
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(comm_mpi);
       time = MPI_Wtime() - time;
       if(iter < 0) {
         if(myid == ROOT)

@@ -25,14 +25,14 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
+ #include <nccl.h>
 // #include <rccl.h>
 
 // PORTS AND CAPS
-// #define PORT_CUDA
+ #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
-// #define CAP_NCCL
+ #define CAP_NCCL
 
 #include "comm.h"
 
@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
   int warmup = atoi(argv[2]);
   int numiter = atoi(argv[3]);
   int groupsize = atoi(argv[4]);
+  int subgroupsize = atoi(argv[5]);
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
   {
@@ -80,20 +81,19 @@ int main(int argc, char *argv[])
     printf("\n");
   }
 
-  return 0;
-
   setup_gpu();
 
-#define TEST_CAPABILITY MPI
-#define TEST_UNIDIRECTIONAL
-//#define TEST_BIDIRECTIONAL
+#define TEST_CAPABILITY MEMCPY
+//#define TEST_UNIDIRECTIONAL
+#define TEST_BIDIRECTIONAL
 
-#include "test_P2P.h"
-//#include "test_G2G_rail.h"
+#include "test_self.h"
+//#include "test_P2P.h"
 //#include "test_P2G.h"
+//#include "test_G2G_rail.h"
 //#include "test_G2G_full.h"
 
-// define TEST_P2P
+//#define TEST_P2P
 //#define TEST_G2G_rail
 //#define TEST_G2G_rail_scaling
 //#define TEST_P2G

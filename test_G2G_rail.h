@@ -6,18 +6,19 @@
 
 #ifdef PORT_CUDA
   cudaMalloc(&sendbuf_d, count * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * sizeof(Type)); // * (numgroup - 1));
+  cudaMalloc(&recvbuf_d, count * sizeof(Type));
 #elif defined PORT_HIP
   hipMalloc(&sendbuf_d, count * sizeof(Type));
-  hipMalloc(&recvbuf_d, count * sizeof(Type)); // * (numgroup - 1));
+  hipMalloc(&recvbuf_d, count * sizeof(Type));
 #else
   sendbuf_d = new Type[count];
-  recvbuf_d = new Type[count]; // * (numgroup - 1));
+  recvbuf_d = new Type[count];
 #endif
 
   {
-    CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::TEST_CAPABILITY);
+    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::capability) cap);
 
+#ifdef TEST_BIDIRECTIONAL
     for(int recvgroup = 0; recvgroup < numgroup; recvgroup++)
       for(int recv = 0; recv < subgroupsize; recv++) {
         int numrecv = 0;
@@ -30,6 +31,7 @@
           }
         }
       }
+#endif
 
     bench.report();
 

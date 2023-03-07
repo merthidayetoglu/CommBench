@@ -60,11 +60,12 @@ int main(int argc, char *argv[])
   if(omp_get_thread_num() == 0)
     numthread = omp_get_num_threads();
 
-  size_t count = atoi(argv[1]);
-  int warmup = atoi(argv[2]);
-  int numiter = atoi(argv[3]);
-  int groupsize = atoi(argv[4]);
-  int subgroupsize = atoi(argv[5]);
+  int cap = atoi(argv[1]);
+  size_t count = atoi(argv[2]);
+  int warmup = atoi(argv[3]);
+  int numiter = atoi(argv[4]);
+  int groupsize = atoi(argv[5]);
+  int subgroupsize = atoi(argv[6]);
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
   {
@@ -83,13 +84,12 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-#define TEST_CAPABILITY MEMCPY
 //#define TEST_UNIDIRECTIONAL
 #define TEST_BIDIRECTIONAL
 
-#include "test_self.h"
+//#include "test_self.h"
 //#include "test_P2P.h"
-//#include "test_P2G.h"
+#include "test_P2G.h"
 //#include "test_G2G_rail.h"
 //#include "test_G2G_full.h"
 
@@ -103,8 +103,8 @@ int main(int argc, char *argv[])
 //#define TEST_A2A
 
 //#include "test_crusher.h"
-//  #include "test_library.h"
-// #include "test_saturation.h"
+//#include "test_library.h"
+//#include "test_saturation.h"
 
   // FINALIZE
   MPI_Finalize();

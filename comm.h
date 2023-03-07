@@ -1,7 +1,7 @@
 
 namespace CommBench
 {
-  enum capability {MPI, MPI_staged, NCCL, IPC, MEMCPY};
+  enum capability {MEMCPY, MPI, NCCL, IPC};
 
   template <typename T>
   class Comm {
@@ -87,7 +87,6 @@ namespace CommBench
         switch(cap) {
           case MEMCPY    : printf("memcpy\n");         break;
           case MPI       : printf("GPU-Aware MPI\n");  break;
-          case MPI_staged: printf("CPU-Staged MPI\n"); break;
           case NCCL      : printf("NCCL\n");           break;
           case IPC       : printf("IPC\n");            break;
         }
@@ -186,7 +185,6 @@ namespace CommBench
             if(numsend) delete[] sendrequest;
             sendrequest = new MPI_Request[numsend + 1];
             break;
-          case MPI_staged: break;
           case NCCL: break;
           case IPC:
             assert(sendid != recvid); // SENDER AND RECEIVER HAS TO BE DISTINCT
@@ -289,7 +287,6 @@ namespace CommBench
             if(numrecv) delete[] recvrequest;
             recvrequest = new MPI_Request[numrecv + 1];
             break;
-          case MPI_staged: break;
           case NCCL: break;
           case IPC:
             bool duplicate = false;
@@ -455,8 +452,6 @@ namespace CommBench
         for (int recv = 0; recv < numrecv; recv++)
           MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, recvrequest + recv);
         break;
-      case MPI_staged:
-        break;
       case NCCL:
 #ifdef CAP_NCCL
         ncclGroupStart(); 
@@ -494,8 +489,6 @@ namespace CommBench
       case MPI:
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
-        break;
-      case MPI_staged:
         break;
       case NCCL:
 #ifdef PORT_CUDA

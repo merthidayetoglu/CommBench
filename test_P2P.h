@@ -31,7 +31,7 @@
 #endif
 
   {
-    CommBench::Comm<Type> bench(MPI_COMM_WORLD, CommBench::TEST_CAPABILITY);
+    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::capability) cap);
 
 #ifdef TEST_BIDIRECTIONAL
     for(int send = 0; send < subgroupsize; send++) {

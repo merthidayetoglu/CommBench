@@ -28,10 +28,10 @@
       MPI_Barrier(MPI_COMM_WORLD);
       double time = MPI_Wtime();
 
-      //MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);
+      // MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);
       MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);
-      //MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, 0, MPI_COMM_WORLD);
-      //MPI_Bcast(sendbuf_d, count, MPI_FLOAT, 0, MPI_COMM_WORLD);
+      // MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, 0, MPI_COMM_WORLD);
+      // MPI_Bcast(sendbuf_d, count, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
       MPI_Barrier(MPI_COMM_WORLD);
       time = MPI_Wtime() - time;

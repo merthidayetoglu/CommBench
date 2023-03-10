@@ -29,8 +29,19 @@
     double data = count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize;
 #endif
 
-
 #ifdef TEST_BIDIRECTIONAL
+    for(int send = 0; send < subgroupsize; send++)
+      for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
+        for(int recv = 0; recv < subgroupsize; recv++) {
+          int sender = send;
+          int recver = recvgroup * groupsize + recv;
+          bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+          bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
+        }
+    double data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize;
+#endif
+
+#ifdef TEST_OMNIDIRECTIONAL
     for(int recvgroup = 0; recvgroup < numgroup; recvgroup++)
       for(int recv = 0; recv < subgroupsize; recv++) {
         for(int sendgroup = 0; sendgroup < numgroup; sendgroup++)

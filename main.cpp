@@ -25,11 +25,11 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
+ #include <nccl.h>
 // #include <rccl.h>
 
 // PORTS AND CAPS
-// #define PORT_CUDA
+ #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 // #define CAP_NCCL

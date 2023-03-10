@@ -4,38 +4,47 @@
   Type *sendbuf_d;
   Type *recvbuf_d;
 
+  int mylocalid = myid % groupsize;
+
+  if(mylocalid < subgroupsize) {
 #ifdef PORT_CUDA
-  cudaMalloc(&sendbuf_d, count * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * sizeof(Type));
+    cudaMalloc(&sendbuf_d, count * sizeof(Type));
+    cudaMalloc(&recvbuf_d, count * sizeof(Type));
 #elif defined PORT_HIP
-  hipMalloc(&sendbuf_d, count * sizeof(Type));
-  hipMalloc(&recvbuf_d, count * sizeof(Type));
+    hipMalloc(&sendbuf_d, count * sizeof(Type));
+    hipMalloc(&recvbuf_d, count * sizeof(Type));
 #else
-  sendbuf_d = new Type[count];
-  recvbuf_d = new Type[count];
+    sendbuf_d = new Type[count];
+    recvbuf_d = new Type[count];
 #endif
+  }
 
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::capability) cap);
 
-#ifdef TEST_BIDIRECTIONAL
-    for(int recvgroup = 0; recvgroup < numgroup; recvgroup++)
-      for(int recv = 0; recv < subgroupsize; recv++) {
-        int numrecv = 0;
-        for(int sendgroup = 0; sendgroup < numgroup; sendgroup++) {
-          if(sendgroup != recvgroup) {
-            int recver = recvgroup * groupsize + recv;
-            int sender = sendgroup * groupsize + recv;
-            bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
-            numrecv++;
-          }
-        }
+#ifdef TEST_UNIDIRECTIONAL 
+    for(int send = 0; send < subgroupsize; send++)
+      for(int recvgroup = 1; recvgroup < numgroup; recvgroup++) {
+        int sender = send;
+        int recver = recvgroup * groupsize + send;
+        bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
       }
+    double data = count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1);
+#endif
+
+#ifdef TEST_BIDIRECTIONAL
+    for(int send = 0; send < subgroupsize; send++)
+      for(int recvgroup = 1; recvgroup < numgroup; recvgroup++) {
+        int sender = send;
+        int recver = recvgroup * groupsize + send;
+        bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+        bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
+      }
+    double data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1);
 #endif
 
     bench.report();
 
-    double data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1);
     double minTime, medTime, maxTime, avgTime;
     bench.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
     if(myid == ROOT) {
@@ -48,14 +57,16 @@
     }
   }
 
+  if(mylocalid < subgroupsize) {
 #ifdef PORT_CUDA
-  cudaFree(sendbuf_d);
-  cudaFree(recvbuf_d);
+    cudaFree(sendbuf_d);
+    cudaFree(recvbuf_d);
 #elif defined PORT_HIP
-  hipFree(sendbuf_d);
-  hipFree(recvbuf_d);
+    hipFree(sendbuf_d);
+    hipFree(recvbuf_d);
 #else
-  delete[] sendbuf_d;
-  delete[] recvbuf_d;
+    delete[] sendbuf_d;
+    delete[] recvbuf_d;
 #endif
+  }
 }

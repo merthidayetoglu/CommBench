@@ -321,7 +321,7 @@ namespace CommBench
       }
     };
 
-    void init();
+    void launch();
     void wait();
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
@@ -347,7 +347,7 @@ namespace CommBench
       }
       MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
-      this->init();
+      this->launch();
       double start = MPI_Wtime() - time;
       this->wait();
       MPI_Barrier(comm_mpi);
@@ -435,7 +435,7 @@ namespace CommBench
   }
 
   template <typename T>
-  void Comm<T>::init() {
+  void Comm<T>::launch() {
     switch(cap) {
       case MEMCPY:
         for(int send = 0; send < numsend; send++) {
@@ -472,7 +472,7 @@ namespace CommBench
         }
         break;
     }
-  } // Comm::init
+  } // Comm::launch
 
   template <typename T>
   void Comm<T>::wait() { 

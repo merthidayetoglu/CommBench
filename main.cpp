@@ -25,14 +25,14 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
+// #include <nccl.h>
 // #include <rccl.h>
 
 // PORTS AND CAPS
- #define PORT_CUDA
+// #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
- #define CAP_NCCL
+// #define CAP_NCCL
 
 #include "comm.h"
 
@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
   int numiter = atoi(argv[4]);
   int groupsize = atoi(argv[5]);
   int subgroupsize = atoi(argv[6]);
+
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
   {
@@ -75,6 +76,7 @@ int main(int argc, char *argv[])
     printf("Number of warmup %d\n", warmup);
     printf("Number of iterations %d\n", numiter);
     printf("Group Size: %d\n", groupsize);
+    printf("Subgroup Size: %d\n", subgroupsize);
 
     printf("Bytes per Type %lu\n", sizeof(Type));
     printf("Peer-to-peer count %ld ( %ld Bytes)\n", count, count * sizeof(Type));
@@ -84,12 +86,14 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
+#include "test_allgather.h"
+
 //#define TEST_UNIDIRECTIONAL
-#define TEST_BIDIRECTIONAL
+//#define TEST_BIDIRECTIONAL
 
 //#include "test_self.h"
 //#include "test_P2P.h"
-#include "test_P2G.h"
+//#include "test_P2G.h"
 //#include "test_G2G_rail.h"
 //#include "test_G2G_full.h"
 

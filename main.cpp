@@ -25,16 +25,17 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
+// #include <nccl.h>
 // #include <rccl.h>
+ #include <sycl.hpp>
 
 // PORTS AND CAPS
- #define PORT_CUDA
+// #define PORT_CUDA
 // #define PORT_HIP
-// #define PORT_SYCL
-// #define CAP_NCCL
+#define PORT_SYCL
 
 #include "comm.h"
+
 
 void setup_gpu();
 
@@ -59,6 +60,10 @@ int main(int argc, char *argv[])
   #pragma omp parallel
   if(omp_get_thread_num() == 0)
     numthread = omp_get_num_threads();
+  char machine_name[MPI_MAX_PROCESSOR_NAME];
+  int name_len = 0;
+  MPI_Get_processor_name(machine_name, &name_len);
+  printf("myid %d %s\n",myid, machine_name);
 
   int cap = atoi(argv[1]);
   size_t count = atoi(argv[2]);
@@ -86,10 +91,101 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-#include "test_allgather.h"
+
+//#define TEST_UNIDIRECTIONAL
+#define TEST_BIDIRECTIONAL
+
+#include "test_P2P.h"
+//#include "test_RAIL.h"
+//#include "test_FULL.h"
+//#include "test_FAN.h"
+
+  return 0;
+
+  //char zemask[256];
+  //snprintf(zemask, sizeof(zemask), "ZE_AFFINITY_MASK=%d", myid % 6);
+  //putenv(zemask);
+
+
+  {
+    // where do I set device?
+    sycl::queue q(sycl::gpu_selector_v);
+    std::cout << "Running on " << q.get_device().get_info<sycl::info::device::name>() << "\n";
+    // this gives me the same device name for all ranks
+    //
+
+    int *sendbuf_h = sycl::malloc_host<int>(count, q);
+    int *recvbuf_h = sycl::malloc_host<int>(count, q);
+    for(int i = 0; i < count; i++)
+      sendbuf_h[i] = i;
+
+
+    int *sendbuf_d = sycl::malloc_device<int>(count, q);
+    int *recvbuf_d = sycl::malloc_device<int>(count, q);
+
+    q.memcpy(sendbuf_d, sendbuf_h, sizeof(int) * count).wait();
+
+    CommBench::Comm<int> comm(MPI_COMM_WORLD, (CommBench::capability) cap);
+
+    comm.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, 2);
+    comm.add(sendbuf_d, 0, recvbuf_d, 0, count, 1, 3);
+    comm.add(sendbuf_d, 0, recvbuf_d, 0, count, 2, 0);
+    comm.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, 1);
+
+    comm.report();
+
+    double data = 4 * count * sizeof(int) / 1.e9;
+    double minTime, medTime, maxTime, avgTime;
+    comm.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
+    if(myid == ROOT) {
+      printf("TEST_G2G_rail (%d)\n", subgroupsize);
+      printf("data: %.4e MB\n", data * 1e3);
+      printf("minTime: %.4e s, %.4e s/GB, %.4e GB/s\n", minTime, minTime / data, data / minTime);
+      printf("medTime: %.4e s, %.4e s/GB, %.4e GB/s\n", medTime, medTime / data, data / medTime);
+      printf("maxTime: %.4e s, %.4e s/GB, %.4e GB/s\n", maxTime, maxTime / data, data / maxTime);
+      printf("avgTime: %.4e s, %.4e s/GB, %.4e GB/s\n", avgTime, avgTime / data, data / avgTime);
+    }
+
+    /*MPI_Barrier(MPI_COMM_WORLD);
+    double time = MPI_Wtime();
+    //MPI_Request sendrequest[numproc];
+    if(myid == 0)
+      MPI_Send(sendbuf_d, count, MPI_INT, 1, 0, MPI_COMM_WORLD);
+    if(myid == 1)
+      MPI_Recv(recvbuf_d, count, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    //MPI_Alltoall(sendbuf_d, count * sizeof(int), MPI_BYTE, recvbuf_d, count * sizeof(int), MPI_BYTE, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+    time = MPI_Wtime() - time;
+
+
+    if(myid == 0)
+      printf("time: %e B/W %e GB/s\n", time, count * sizeof(int) / time / 1.e9);*/
+
+    q.memcpy(recvbuf_h, recvbuf_d, sizeof(int) * count).wait();
+  
+    /*if(myid == 1)
+      for(int i = 0; i < count; i++)
+        if(recvbuf_h[i] != i)
+          printf("ERROR!!!\n");*/
+    
+
+      //printf("myid %d recvbuf_h[i] = %d\n", myid, recvbuf_h[i].data[0]);
+
+    sycl::free(sendbuf_d, q);
+    sycl::free(recvbuf_d, q);
+    sycl::free(sendbuf_h, q);
+    sycl::free(recvbuf_h, q);
+  }
+
+//#include "test_allgather.h"
 
 //#define TEST_UNIDIRECTIONAL
 //#define TEST_BIDIRECTIONAL
+
+//#include "test_RAIL.h"
+//#include "test_FULL.h"
+//#include "test_FAN.h"
 
 //#include "test_self.h"
 //#include "test_P2P.h"
@@ -169,6 +265,13 @@ void setup_gpu() {
   // REPORT
   if(myid == ROOT)
     system("rocm-smi");
+#elif defined PORT_SYCL
+  if(myid == ROOT)
+    printf("SYCL PORT\n");
+  // set affinity through ZE_AFFINITY_MASK
+  // REPORT
+  char *test = getenv("ZE_AFFINITY_MASK");
+  printf("myid %d ZE_AFFINITY_MASK %s\n", myid, test);
 #else
   if(myid == ROOT)
     printf("CPU VERSION\n");

@@ -1,3 +1,6 @@
+#if defined(PORT_CUDA) || defined(PORT_HIP)
+#define CAP_NCCL
+#endif
 
 namespace CommBench
 {
@@ -24,6 +27,8 @@ namespace CommBench
 #elif defined PORT_HIP
     hipStream_t *sendstream;
     hipStream_t *recvstream;
+#elif defined PORT_SYCL
+    sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
 #endif
 
 #ifdef CAP_NCCL
@@ -80,6 +85,8 @@ namespace CommBench
         printf("CUDA ");
 #elif defined PORT_HIP
         printf("HIP, ");
+#elif defined PORT_SYCL
+        printf("SYCL, ");
 #else
         printf("CPU, ");
 #endif
@@ -120,6 +127,9 @@ namespace CommBench
         delete[] recvcount;
         delete[] recvoffset;
       }
+#ifdef PORT_SYCL
+      delete q;
+#endif
 
     };
 
@@ -341,6 +351,8 @@ namespace CommBench
         cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #elif defined PORT_HIP
         hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
+#elif defined PORT_SYCL
+	q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
 #else
         memset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #endif

@@ -92,10 +92,10 @@ int main(int argc, char *argv[])
   setup_gpu();
 
 //#define TEST_UNIDIRECTIONAL
-//#define TEST_BIDIRECTIONAL
+#define TEST_BIDIRECTIONAL
 //#define TEST_OMNIDIRECTIONAL
 
-//#include "test_P2P.h"
+#include "test_P2P.h"
 //#include "test_RAIL.h"
 //#include "test_FAN.h"
 //#include "test_FULL.h"

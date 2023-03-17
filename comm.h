@@ -16,21 +16,11 @@ namespace CommBench
     MPI_Request *sendrequest;
     MPI_Request *recvrequest;
 
-    // CPU-Staged MPI
-    T sendbuf_h;
-    T recvbuf_h;
-    bool *sendcomplete;
-    bool *recvcomplete;
-#ifdef PORT_CUDA
-    cudaStream_t *sendstream;
-    cudaStream_t *recvstream;
-#elif defined PORT_HIP
-    hipStream_t *sendstream;
-    hipStream_t *recvstream;
 #elif defined PORT_SYCL
     sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
 #endif
 
+    // NCCL
 #ifdef CAP_NCCL
     ncclComm_t comm_nccl;
 #endif
@@ -200,7 +190,7 @@ namespace CommBench
                this->recvoffset_ipc = recvoffset_ipc;
             }
             recvoffset_ipc[numsend] = recvoffset;
-	    if(sendind == recvid)
+	    if(sendid == recvid)
               recvbuf_ipc[numsend] = recvbuf;
 	    else {
               bool duplicate;

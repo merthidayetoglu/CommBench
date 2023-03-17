@@ -43,6 +43,18 @@
     double data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1);
 #endif
 
+#ifdef TEST_OMNIDIRECTIONAL
+    for(int sendgroup = 0; sendgroup < numgroup; sendgroup++)
+      for(int recvgroup = 0; recvgroup < numgroup; recvgroup++)
+        if(sendgroup != recvgroup)
+          for(int send = 0; send < subgroupsize; send++) {
+            int sender = sendgroup * groupsize + send;
+            int recver = recvgroup * groupsize + send;
+            bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+          }
+    double data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1);
+#endif
+
     bench.report();
 
     double minTime, medTime, maxTime, avgTime;

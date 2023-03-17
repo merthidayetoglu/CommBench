@@ -6,9 +6,22 @@ date
 
 module -t list
 
-for count in 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456
+library=3
+
+for p in 8
 do
-  mpirun --display-map --display-allocation -hostfile ${COBALT_NODEFILE} -n 16 -N 8 Alltoall $count 30 8
+for g in 1
+do
+for k in 1
+do
+
+#for count in 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456
+for count in 268435456
+do
+  mpirun --display-map --display-allocation -hostfile ${COBALT_NODEFILE} -n $p -N $p Alltoall $library $count 30 20 $g $k
+done
+done
+done
 done
 
 date

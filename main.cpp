@@ -64,12 +64,13 @@ int main(int argc, char *argv[])
   printf("myid %d %s\n",myid, machine_name);
 
   int cap = atoi(argv[1]);
-  int direction = atoi(argv[2]);
-  size_t count = atoi(argv[3]);
-  int warmup = atoi(argv[4]);
-  int numiter = atoi(argv[5]);
-  int groupsize = atoi(argv[6]);
-  int subgroupsize = atoi(argv[7]);
+  int pattern = atoi(argv[2]);
+  int direction = atoi(argv[3]);
+  size_t count = atoi(argv[4]);
+  int warmup = atoi(argv[5]);
+  int numiter = atoi(argv[6]);
+  int groupsize = atoi(argv[7]);
+  int subgroupsize = atoi(argv[8]);
 
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
@@ -90,10 +91,14 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
+  if(pattern == 0)
 #include "test_P2P.h"
-//#include "test_RAIL.h"
-//#include "test_FULL.h"
-//#include "test_FAN.h"
+  if(pattern == 1)
+#include "test_RAIL.h"
+  if(pattern == 2)
+#include "test_FULL.h"
+  if(pattern == 3)
+#include "test_FAN.h"
 
   /*{
     Type *sendbuf_d;

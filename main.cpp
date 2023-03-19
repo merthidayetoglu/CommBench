@@ -25,12 +25,12 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
+ #include <nccl.h>
 // #include <rccl.h>
 // #include <sycl.hpp>
 
 // PORTS
-// #define PORT_CUDA
+ #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 
@@ -58,17 +58,18 @@ int main(int argc, char *argv[])
   #pragma omp parallel
   if(omp_get_thread_num() == 0)
     numthread = omp_get_num_threads();
-  //char machine_name[MPI_MAX_PROCESSOR_NAME];
-  //int name_len = 0;
-  //MPI_Get_processor_name(machine_name, &name_len);
-  //printf("myid %d %s\n",myid, machine_name);
+  char machine_name[MPI_MAX_PROCESSOR_NAME];
+  int name_len = 0;
+  MPI_Get_processor_name(machine_name, &name_len);
+  printf("myid %d %s\n",myid, machine_name);
 
   int cap = atoi(argv[1]);
-  size_t count = atoi(argv[2]);
-  int warmup = atoi(argv[3]);
-  int numiter = atoi(argv[4]);
-  int groupsize = atoi(argv[5]);
-  int subgroupsize = atoi(argv[6]);
+  int direction = atoi(argv[2]);
+  size_t count = atoi(argv[3]);
+  int warmup = atoi(argv[4]);
+  int numiter = atoi(argv[5]);
+  int groupsize = atoi(argv[6]);
+  int subgroupsize = atoi(argv[7]);
 
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
@@ -89,14 +90,38 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-#define TEST_UNIDIRECTIONAL
-//#define TEST_BIDIRECTIONAL
-//#define TEST_OMNIDIRECTIONAL
-
 #include "test_P2P.h"
 //#include "test_RAIL.h"
 //#include "test_FULL.h"
 //#include "test_FAN.h"
+
+  /*{
+    Type *sendbuf_d;
+    Type *recvbuf_d;
+    cudaMalloc(&sendbuf_d, count * sizeof(Type));
+    cudaMalloc(&recvbuf_d, count * sizeof(Type));
+
+    CommBench::Comm<Type> comm(MPI_COMM_WORLD, (CommBench::capability)cap);
+
+    comm.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, 1);
+
+    comm.report();
+
+    double data = count * sizeof(Type) / 1.e9;
+    double minTime, medTime, maxTime, avgTime;
+    comm.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
+    if(myid == ROOT) {
+      printf("TEST_P2P (%d)\n", subgroupsize);
+      printf("data: %.4e MB\n", data * 1e3);
+      printf("minTime: %.4e s, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
+      printf("medTime: %.4e s, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
+      printf("maxTime: %.4e s, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
+      printf("avgTime: %.4e s, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
+    }
+
+    cudaFree(sendbuf_d);
+    cudaFree(recvbuf_d);
+  }*/
 
   /*{
     sycl::queue q(sycl::gpu_selector_v);

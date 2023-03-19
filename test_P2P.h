@@ -22,16 +22,17 @@
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::capability) cap);
 
-#ifdef TEST_UNIDIRECTIONAL 
-    bench.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, p);
-    double data = count * sizeof(Type) / 1.e9;
-#endif
+    double data = 0;
+    if(direction == 1) {
+      bench.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, p);
+      data = count * sizeof(Type) / 1.e9;
+    }
 
-#ifdef TEST_BIDIRECTIONAL
-    bench.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, p);
-    bench.add(sendbuf_d, 0, recvbuf_d, 0, count, p, 0);
-    double data = 2 * count * sizeof(Type) / 1.e9;
-#endif
+    if(direction == 2) {
+      bench.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, p);
+      bench.add(sendbuf_d, 0, recvbuf_d, 0, count, p, 0);
+      data = 2 * count * sizeof(Type) / 1.e9;
+    }
 
     bench.report();
 

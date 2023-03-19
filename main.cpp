@@ -27,12 +27,12 @@
 // HEADERS
 // #include <nccl.h>
 // #include <rccl.h>
- #include <sycl.hpp>
+// #include <sycl.hpp>
 
 // PORTS
 // #define PORT_CUDA
 // #define PORT_HIP
- #define PORT_SYCL
+// #define PORT_SYCL
 
 #include "comm.h"
 
@@ -89,8 +89,8 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-//#define TEST_UNIDIRECTIONAL
-#define TEST_BIDIRECTIONAL
+#define TEST_UNIDIRECTIONAL
+//#define TEST_BIDIRECTIONAL
 //#define TEST_OMNIDIRECTIONAL
 
 #include "test_P2P.h"

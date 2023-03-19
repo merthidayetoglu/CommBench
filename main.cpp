@@ -25,17 +25,16 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
+// #include <nccl.h>
 // #include <rccl.h>
-// #include <sycl.hpp>
+ #include <sycl.hpp>
 
 // PORTS
-#define PORT_CUDA
+// #define PORT_CUDA
 // #define PORT_HIP
-// #define PORT_SYCL
+ #define PORT_SYCL
 
 #include "comm.h"
-
 
 void setup_gpu();
 
@@ -49,7 +48,6 @@ struct Type
 
 int main(int argc, char *argv[])
 {
-
   // INITIALIZE MPI+OPENMP
   int myid;
   int numproc;
@@ -60,10 +58,10 @@ int main(int argc, char *argv[])
   #pragma omp parallel
   if(omp_get_thread_num() == 0)
     numthread = omp_get_num_threads();
-  char machine_name[MPI_MAX_PROCESSOR_NAME];
-  int name_len = 0;
-  MPI_Get_processor_name(machine_name, &name_len);
-  printf("myid %d %s\n",myid, machine_name);
+  //char machine_name[MPI_MAX_PROCESSOR_NAME];
+  //int name_len = 0;
+  //MPI_Get_processor_name(machine_name, &name_len);
+  //printf("myid %d %s\n",myid, machine_name);
 
   int cap = atoi(argv[1]);
   size_t count = atoi(argv[2]);
@@ -97,8 +95,29 @@ int main(int argc, char *argv[])
 
 #include "test_P2P.h"
 //#include "test_RAIL.h"
-//#include "test_FAN.h"
 //#include "test_FULL.h"
+//#include "test_FAN.h"
+
+  /*{
+    sycl::queue q(sycl::gpu_selector_v);
+    int *sendbuf_d = sycl::malloc_device<int>(count, q);
+    int *recvbuf_d = sycl::malloc_device<int>(count, q);
+
+    for(int iter = -warmup; iter < numiter; iter++) {
+      MPI_Barrier(MPI_COMM_WORLD);
+      double time = MPI_Wtime();
+      if(myid == 0)
+        MPI_Send(sendbuf_d, count, MPI_INT, 11, 0, MPI_COMM_WORLD);
+      if(myid == 11)
+        MPI_Recv(recvbuf_d, count, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Barrier(MPI_COMM_WORLD);
+      time = MPI_Wtime() - time;
+      if(myid == 0) printf("time %e bandwidth %e\n", time, count * sizeof(int) / 1.e9 / time);
+    }
+
+    sycl::free(sendbuf_d, q);
+    sycl::free(recvbuf_d, q);
+  }*/
 
   // FINALIZE
   MPI_Finalize();
@@ -164,8 +183,8 @@ void setup_gpu() {
     printf("SYCL PORT\n");
   // set affinity through ZE_AFFINITY_MASK
   // REPORT
-  char *test = getenv("ZE_AFFINITY_MASK");
-  printf("myid %d ZE_AFFINITY_MASK %s\n", myid, test);
+  //char *test = getenv("ZE_AFFINITY_MASK");
+  //printf("myid %d ZE_AFFINITY_MASK %s\n", myid, test);
 #else
   if(myid == ROOT)
     printf("CPU VERSION\n");

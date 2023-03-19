@@ -12,12 +12,13 @@
     hipMalloc(&recvbuf_d, count * sizeof(Type));
 #elif defined PORT_SYCL
     sycl::queue q(sycl::gpu_selector_v);
-    int *sendbuf_d = sycl::malloc_device<Type>(count, q);
-    int *recvbuf_d = sycl::malloc_device<Type>(count, q);
+    sendbuf_d = sycl::malloc_device<Type>(count, q);
+    recvbuf_d = sycl::malloc_device<Type>(count, q);
 #else
     sendbuf_d = new Type[count];
     recvbuf_d = new Type[count];
 #endif
+
 
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::capability) cap);

@@ -17,6 +17,7 @@
   recvbuf_d = new Type[count];
 #endif
 
+
   for(int p = 0; p < numproc; p++)
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::capability) cap);

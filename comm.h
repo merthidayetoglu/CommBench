@@ -16,10 +16,9 @@ namespace CommBench
     MPI_Request *sendrequest;
     MPI_Request *recvrequest;
 
-#elif defined PORT_SYCL
+#ifdef PORT_SYCL
     sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
 #endif
-
     // NCCL
 #ifdef CAP_NCCL
     ncclComm_t comm_nccl;
@@ -102,17 +101,20 @@ namespace CommBench
         delete[] sendproc;
         delete[] sendcount;
         delete[] sendoffset;
+	if(cap == MPI)
+          delete[] sendrequest;
       }
       if(numrecv) {
         delete[] recvbuf;
         delete[] recvproc;
         delete[] recvcount;
         delete[] recvoffset;
+	if(cap == MPI)
+          delete[] recvrequest;
       }
 #ifdef PORT_SYCL
       delete q;
 #endif
-
     };
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
@@ -161,38 +163,19 @@ namespace CommBench
             {
                T **recvbuf_ipc = new T*[numsend + 1];
                size_t *recvoffset_ipc = new size_t[numsend + 1];
-#ifdef PORT_CUDA
-               cudaStream_t *stream_ipc = new cudaStream_t[numsend + 1];
-               cudaStreamCreate(stream_ipc + numsend);
-               if(numsend) {
+	       if(numsend) {
                  memcpy(recvbuf_ipc, this->recvbuf_ipc, numsend * sizeof(T*));
                  memcpy(recvoffset_ipc, this->recvoffset_ipc, numsend * sizeof(size_t));
-                 memcpy(stream_ipc, this->stream_ipc, numsend * sizeof(cudaStream_t));
-                 delete[] this->stream_ipc;
                  delete[] this->recvbuf_ipc;
                  delete[] this->recvoffset_ipc;
                }
-               this->stream_ipc = stream_ipc;
-#elif defined PORT_HIP
-               hipStream_t *stream_ipc = new hipStream_t[numsend + 1];
-               hipStreamCreate(stream_ipc + numsend);
-               if(numsend) {
-                 memcpy(recvbuf_ipc, this->recvbuf_ipc, numsend * sizeof(T*));
-                 memcpy(recvoffset_ipc, this->recvoffset_ipc, numsend * sizeof(size_t));
-                 memcpy(stream_ipc, this->stream_ipc, numsend * sizeof(hipStream_t));
-                 delete[] this->stream_ipc;
-                 delete[] this->recvbuf_ipc;
-                 delete[] this->recvoffset_ipc;
-               }
-               this->stream_ipc = stream_ipc;
-#endif
                this->recvbuf_ipc = recvbuf_ipc;
                this->recvoffset_ipc = recvoffset_ipc;
             }
-            recvoffset_ipc[numsend] = recvoffset;
-	    if(sendid == recvid)
+            if(sendid == recvid) {
               recvbuf_ipc[numsend] = recvbuf;
-	    else {
+	      recvoffset_ipc[numsend] = recvoffset;
+            } else {
               bool duplicate;
               MPI_Recv(&duplicate, 1, MPI_C_BOOL, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
               if(duplicate) {
@@ -220,9 +203,31 @@ namespace CommBench
                 MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
                 int error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
                 assert(error == 0); // CHECK RECEIVER POINTER HEAD
+#elif defined PORT_SYCL
+                MPI_Recv(recvbuf_ipc + numsend, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
 #endif
               }
+	      MPI_Recv(recvoffset_ipc + numsend, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
 	    }
+	    {
+#ifdef PORT_CUDA
+               cudaStream_t *stream_ipc = new cudaStream_t[numsend + 1];
+               cudaStreamCreate(stream_ipc + numsend);
+               if(numsend) {
+                 memcpy(stream_ipc, this->stream_ipc, numsend * sizeof(cudaStream_t));
+                 delete[] this->stream_ipc;
+               }
+               this->stream_ipc = stream_ipc;
+#elif defined PORT_HIP
+               hipStream_t *stream_ipc = new hipStream_t[numsend + 1];
+               hipStreamCreate(stream_ipc + numsend);
+               if(numsend) {
+                 memcpy(stream_ipc, this->stream_ipc, numsend * sizeof(hipStream_t));
+                 delete[] this->stream_ipc;
+               }
+               this->stream_ipc = stream_ipc;
+#endif
+            }
             break;
         } // switch(cap)
         numsend++;
@@ -287,8 +292,11 @@ namespace CommBench
                 hipIpcMemHandle_t myhandle;
                 hipIpcGetMemHandle(&myhandle, recvbuf);
                 MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
+#elif defined PORT_SYCL
+                MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi);
 #endif
               }
+	      MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
             }
             break;
         }
@@ -317,7 +325,7 @@ namespace CommBench
 #elif defined PORT_HIP
         hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #elif defined PORT_SYCL
-	q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
+	//q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
 #else
         memset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #endif
@@ -436,6 +444,8 @@ namespace CommBench
           cudaMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
+#elif defined PORT_SYCL
+	  //q->memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T)).wait();
 #endif
         }
         break;

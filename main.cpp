@@ -58,10 +58,10 @@ int main(int argc, char *argv[])
   #pragma omp parallel
   if(omp_get_thread_num() == 0)
     numthread = omp_get_num_threads();
-  char machine_name[MPI_MAX_PROCESSOR_NAME];
-  int name_len = 0;
-  MPI_Get_processor_name(machine_name, &name_len);
-  printf("myid %d %s\n",myid, machine_name);
+  //char machine_name[MPI_MAX_PROCESSOR_NAME];
+  //int name_len = 0;
+  //MPI_Get_processor_name(machine_name, &name_len);
+  //printf("myid %d %s\n",myid, machine_name);
 
   int cap = atoi(argv[1]);
   int pattern = atoi(argv[2]);
@@ -82,6 +82,10 @@ int main(int argc, char *argv[])
     printf("Number of iterations %d\n", numiter);
     printf("Group Size: %d\n", groupsize);
     printf("Subgroup Size: %d\n", subgroupsize);
+
+    printf("Library: %d\n", cap);
+    printf("Pattern: %d\n", pattern);
+    printf("Direction: %d\n", direction);
 
     printf("Bytes per Type %lu\n", sizeof(Type));
     printf("Peer-to-peer count %ld ( %ld Bytes)\n", count, count * sizeof(Type));

@@ -15,10 +15,10 @@ namespace CommBench
     // GPU-Aware MPI
     MPI_Request *sendrequest;
     MPI_Request *recvrequest;
-
 #ifdef PORT_SYCL
     sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
 #endif
+
     // NCCL
 #ifdef CAP_NCCL
     ncclComm_t comm_nccl;
@@ -103,6 +103,8 @@ namespace CommBench
         delete[] sendoffset;
 	if(cap == MPI)
           delete[] sendrequest;
+	if(cap == IPC)
+          delete[] stream_ipc;
       }
       if(numrecv) {
         delete[] recvbuf;
@@ -111,6 +113,10 @@ namespace CommBench
         delete[] recvoffset;
 	if(cap == MPI)
           delete[] recvrequest;
+        if(cap == IPC) {
+          delete[] recvbuf_ipc;
+	  delete[] recvoddset_ipc;
+	}
       }
 #ifdef PORT_SYCL
       delete q;

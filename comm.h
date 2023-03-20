@@ -103,8 +103,6 @@ namespace CommBench
         delete[] sendoffset;
 	if(cap == MPI)
           delete[] sendrequest;
-	if(cap == IPC)
-          delete[] stream_ipc;
       }
       if(numrecv) {
         delete[] recvbuf;
@@ -113,10 +111,6 @@ namespace CommBench
         delete[] recvoffset;
 	if(cap == MPI)
           delete[] recvrequest;
-        if(cap == IPC) {
-          delete[] recvbuf_ipc;
-	  delete[] recvoddset_ipc;
-	}
       }
 #ifdef PORT_SYCL
       delete q;
@@ -451,7 +445,7 @@ namespace CommBench
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_SYCL
-	  //q->memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T)).wait();
+	  q->memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T)).wait();
 #endif
         }
         break;

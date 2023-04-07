@@ -1,5 +1,5 @@
 {
-  int numgroup = numproc / groupsize;
+  int numgroup = numgpu / groupsize;
 
   Type *sendbuf_d;
   Type *recvbuf_d;

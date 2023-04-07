@@ -1,5 +1,5 @@
 {
-  int numgroup = numproc / groupsize;
+  int numgroup = numgpu / groupsize;
 
   Type *sendbuf_d;
   Type *recvbuf_d;
@@ -41,6 +41,18 @@
           }
         data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize;
 	break;
+      case 3:
+        for(int sendgroup = 0; sendgroup < numgroup; sendgroup++)
+          for(int recvgroup = 0; recvgroup < numgroup; recvgroup++)
+            if(sendgroup != recvgroup)
+              for(int send = 0; send < subgroupsize; send++)
+                for(int recv = 0; recv < subgroupsize; recv++) {
+                  int sender = sendgroup * groupsize + send;
+                  int recver = recvgroup * groupsize + recv;
+                bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+              }
+            data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize;
+        break;
     }
 
     bench.report();

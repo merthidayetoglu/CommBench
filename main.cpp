@@ -69,8 +69,9 @@ int main(int argc, char *argv[])
   size_t count = atoi(argv[4]);
   int warmup = atoi(argv[5]);
   int numiter = atoi(argv[6]);
-  int groupsize = atoi(argv[7]);
-  int subgroupsize = atoi(argv[8]);
+  int numgpu = atoi(argv[7]);
+  int groupsize = atoi(argv[8]);
+  int subgroupsize = atoi(argv[9]);
 
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
@@ -80,6 +81,7 @@ int main(int argc, char *argv[])
     printf("Number of threads per proc: %d\n", numthread);
     printf("Number of warmup %d\n", warmup);
     printf("Number of iterations %d\n", numiter);
+    printf("Number of GPUs %d\n", numgpu);
     printf("Group Size: %d\n", groupsize);
     printf("Subgroup Size: %d\n", subgroupsize);
 
@@ -95,13 +97,14 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-  if(pattern == 0)
+
+    if(pattern == 0)
 #include "test_P2P.h"
-  if(pattern == 1)
+    if(pattern == 1)
 #include "test_RAIL.h"
-  if(pattern == 2)
+    if(pattern == 2)
 #include "test_FULL.h"
-  if(pattern == 3)
+    if(pattern == 3)
 #include "test_FAN.h"
 
   /*{

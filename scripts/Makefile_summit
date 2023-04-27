@@ -5,7 +5,7 @@ NVCCFLAGS = -lineinfo -O3 -std=c++14 -gencode arch=compute_70,code=sm_70 -ccbin=
 
 LD_FLAGS = -ccbin=mpicxx -Xcompiler -fopenmp -lnccl
 
-TARGETS = Alltoall
+TARGETS = CommBench
 OBJECTS = main.o 
 
 # ----- Make Rules -----
@@ -15,7 +15,7 @@ all:	$(TARGETS)
 %.o : %.cpp
 	${NVCC} ${NVCCFLAGS} $< -c -o $@
 
-Alltoall: $(OBJECTS)
+CommBench: $(OBJECTS)
 	$(NVCC) -o $@ $(OBJECTS) $(LD_FLAGS)
 
 clean:

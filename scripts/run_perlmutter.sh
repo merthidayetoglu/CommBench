@@ -21,7 +21,7 @@ export SLURM_CPU_BIND="cores"
 warmup=5
 numiter=10
 
-for library in 1 2 #0:IPC 1:MPI 2:NCCL
+for library in 1 #0:IPC 1:MPI 2:NCCL
 do
 for direction in 1 2 #1:uni-directional 2:bi-directional 3:omni-directional
 do

@@ -1,5 +1,5 @@
 {
-  int numgroup = numproc / groupsize;
+  int numgroup = numgpu / groupsize;
 
   Type *sendbuf_d;
   Type *recvbuf_d;
@@ -16,7 +16,7 @@
 #endif
 
   {
-    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::capability) cap);
+    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) lib);
 
     double data = 0;
     switch(direction) {
@@ -48,7 +48,7 @@
     double minTime, medTime, maxTime, avgTime;
     bench.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
     if(myid == ROOT) {
-     printf("TEST_FAN (%d, %d)\n", groupsize, subgroupsize);
+     printf("TEST_FAN (%d, %d, %d)\n", numgpu, groupsize, subgroupsize);
       printf("data: %.4e MB\n", data * 1e3);
       printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
       printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);

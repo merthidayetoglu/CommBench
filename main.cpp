@@ -26,12 +26,12 @@
 
 // HEADERS
 // #include <nccl.h>
-// #include <rccl.h>
+ #include <rccl.h>
 // #include <sycl.hpp>
 
 // PORTS
 // #define PORT_CUDA
-// #define PORT_HIP
+ #define PORT_HIP
 // #define PORT_SYCL
 
 #include "comm.h"
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
   //MPI_Get_processor_name(machine_name, &name_len);
   //printf("myid %d %s\n",myid, machine_name);
 
-  int cap = atoi(argv[1]);
+  int lib = atoi(argv[1]);
   int pattern = atoi(argv[2]);
   int direction = atoi(argv[3]);
   size_t count = atoi(argv[4]);
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
     printf("Group Size: %d\n", groupsize);
     printf("Subgroup Size: %d\n", subgroupsize);
 
-    printf("Library: %d\n", cap);
+    printf("Library: %d\n", lib);
     printf("Pattern: %d\n", pattern);
     printf("Direction: %d\n", direction);
 
@@ -97,64 +97,14 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-
-    if(pattern == 0)
+  if(pattern == 0)
 #include "test_P2P.h"
-    if(pattern == 1)
+  if(pattern == 1)
 #include "test_RAIL.h"
-    if(pattern == 2)
-#include "test_FULL.h"
-    if(pattern == 3)
+  if(pattern == 2)
+#include "test_DENSE.h"
+  if(pattern == 3)
 #include "test_FAN.h"
-
-  /*{
-    Type *sendbuf_d;
-    Type *recvbuf_d;
-    cudaMalloc(&sendbuf_d, count * sizeof(Type));
-    cudaMalloc(&recvbuf_d, count * sizeof(Type));
-
-    CommBench::Comm<Type> comm(MPI_COMM_WORLD, (CommBench::capability)cap);
-
-    comm.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, 1);
-
-    comm.report();
-
-    double data = count * sizeof(Type) / 1.e9;
-    double minTime, medTime, maxTime, avgTime;
-    comm.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
-    if(myid == ROOT) {
-      printf("TEST_P2P (%d)\n", subgroupsize);
-      printf("data: %.4e MB\n", data * 1e3);
-      printf("minTime: %.4e s, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
-      printf("medTime: %.4e s, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
-      printf("maxTime: %.4e s, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
-      printf("avgTime: %.4e s, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
-    }
-
-    cudaFree(sendbuf_d);
-    cudaFree(recvbuf_d);
-  }*/
-
-  /*{
-    sycl::queue q(sycl::gpu_selector_v);
-    int *sendbuf_d = sycl::malloc_device<int>(count, q);
-    int *recvbuf_d = sycl::malloc_device<int>(count, q);
-
-    for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(MPI_COMM_WORLD);
-      double time = MPI_Wtime();
-      if(myid == 0)
-        MPI_Send(sendbuf_d, count, MPI_INT, 11, 0, MPI_COMM_WORLD);
-      if(myid == 11)
-        MPI_Recv(recvbuf_d, count, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      MPI_Barrier(MPI_COMM_WORLD);
-      time = MPI_Wtime() - time;
-      if(myid == 0) printf("time %e bandwidth %e\n", time, count * sizeof(int) / 1.e9 / time);
-    }
-
-    sycl::free(sendbuf_d, q);
-    sycl::free(recvbuf_d, q);
-  }*/
 
   // FINALIZE
   MPI_Finalize();
@@ -177,7 +127,6 @@ void setup_gpu() {
   cudaGetDeviceCount(&deviceCount);
   int device = myid % deviceCount;
   cudaSetDevice(device);
-  // DONE
   // REPORT
   if(myid == ROOT){
     system("nvidia-smi");
@@ -211,20 +160,14 @@ void setup_gpu() {
   if(myid == ROOT)
     printf("deviceCount: %d\n", deviceCount);
   hipSetDevice(device);
-  // DONE
   // REPORT
   if(myid == ROOT)
     system("rocm-smi");
 #elif defined PORT_SYCL
   if(myid == ROOT)
     printf("SYCL PORT\n");
-  // set affinity through ZE_AFFINITY_MASK
-  // REPORT
-  //char *test = getenv("ZE_AFFINITY_MASK");
-  //printf("myid %d ZE_AFFINITY_MASK %s\n", myid, test);
 #else
   if(myid == ROOT)
     printf("CPU VERSION\n");
-  // DONE
 #endif
 }

@@ -17,9 +17,9 @@
   recvbuf_d = new Type[count];
 #endif
 
-  for(int p = 0; p < numproc; p++)
+  for(int p = 0; p < numgpu; p++)
   {
-    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::capability) cap);
+    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) lib);
 
     double data = 0;
     if(direction == 1) {

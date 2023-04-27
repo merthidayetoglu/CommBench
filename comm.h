@@ -4,12 +4,12 @@
 
 namespace CommBench
 {
-  enum capability {IPC, MPI, NCCL};
+  enum library {IPC, MPI, NCCL};
 
   template <typename T>
   class Comm {
 
-    const capability cap;
+    const library lib;
     const MPI_Comm comm_mpi;
 
     // GPU-Aware MPI
@@ -51,7 +51,7 @@ namespace CommBench
 
     public:
 
-    Comm(const MPI_Comm &comm_mpi, capability cap) : comm_mpi(comm_mpi), cap(cap) {
+    Comm(const MPI_Comm &comm_mpi, library lib) : comm_mpi(comm_mpi), lib(lib) {
       int myid;
       int numproc;
       MPI_Comm_rank(comm_mpi, &myid);
@@ -73,13 +73,13 @@ namespace CommBench
         printf("CPU, ");
 #endif
         printf("Library: ");
-        switch(cap) {
+        switch(lib) {
           case MPI       : printf("GPU-Aware MPI\n");  break;
           case NCCL      : printf("NCCL\n");           break;
           case IPC       : printf("IPC\n");            break;
         }
       }
-      if(cap == NCCL) {
+      if(lib == NCCL) {
 #ifdef CAP_NCCL
         ncclUniqueId id;
         if(myid == 0)
@@ -101,7 +101,7 @@ namespace CommBench
         delete[] sendproc;
         delete[] sendcount;
         delete[] sendoffset;
-	if(cap == MPI)
+	if(lib == MPI)
           delete[] sendrequest;
       }
       if(numrecv) {
@@ -109,7 +109,7 @@ namespace CommBench
         delete[] recvproc;
         delete[] recvcount;
         delete[] recvoffset;
-	if(cap == MPI)
+	if(lib == MPI)
           delete[] recvrequest;
       }
 #ifdef PORT_SYCL
@@ -153,7 +153,7 @@ namespace CommBench
         this->sendoffset[numsend] = sendoffset;
 
         // SETUP CAPABILITY
-        switch(cap) {
+        switch(lib) {
           case MPI:
             if(numsend) delete[] sendrequest;
             sendrequest = new MPI_Request[numsend + 1];
@@ -229,7 +229,7 @@ namespace CommBench
 #endif
             }
             break;
-        } // switch(cap)
+        } // switch(lib)
         numsend++;
       }
       if(myid == recvid) {
@@ -259,8 +259,8 @@ namespace CommBench
         this->recvproc[numrecv] = sendid;
         this->recvcount[numrecv] = count;
         this->recvoffset[numrecv] = recvoffset;
-        // SETUP CAPABILITY
-        switch(cap) {
+        // SETUP LIBRARY
+        switch(lib) {
           case MPI:
             if(numrecv) delete[] recvrequest;
             recvrequest = new MPI_Request[numrecv + 1];
@@ -421,7 +421,7 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::launch() {
-    switch(cap) {
+    switch(lib) {
       case MPI:
         for (int send = 0; send < numsend; send++)
           MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm_mpi, sendrequest + send);
@@ -454,7 +454,7 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::wait() { 
-    switch(cap) {
+    switch(lib) {
       case MPI:
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);

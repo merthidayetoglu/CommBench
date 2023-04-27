@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
   //int name_len = 0;
   //MPI_Get_processor_name(machine_name, &name_len);
   //printf("myid %d %s\n",myid, machine_name);
-
+  
   int lib = atoi(argv[1]);
   int pattern = atoi(argv[2]);
   int direction = atoi(argv[3]);

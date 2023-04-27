@@ -31,7 +31,7 @@ export PAMI_IBV_DEVICE_NAME_1="mlx5_3:1,mlx5_0:1"
 warmup=5
 numiter=10
 
-for library in 1 2
+for library in 1
 do
 for direction in 1 2
 do

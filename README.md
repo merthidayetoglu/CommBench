@@ -17,13 +17,13 @@ omnidirectional
 4. count: number of 4-byte elements
 5. warmup: number of warmup rounds
 6. numiter: number of measurement rounds
-7. p: number of GPUs
-8. g: group size
-9. k: subgroup size
+7. $p$: number of GPUs
+8. $g$: group size
+9. $k$: subgroup size
 
 When the pattern variable is set to 0, CommBench performs point-to-point (P2P) scan and the g and k parameters are insignificant.
 
-The best practice for using CommBench is to prepare a run script that sweeps over the desired parameters and directs the output into a file. Then, the user can ```grep``` the desired output for further analysis and plotting. Each system requires a special care considering the modules, environment variables, and configuration parameters. To compile and run CommBench out-of-the-box on six systems, we include Make files and run scripts in our repository as displayed below.
+The best practice for using CommBench is to prepare a run script that sweeps over the desired parameters and directs the output into a file. Then, the user can "grep" the desired output for further analysis and plotting. Each system requires a special care considering the modules, environment variables, and configuration parameters. To compile and run CommBench out-of-the-box on six systems, we include Make files and run scripts in our repository as displayed below.
 
 | System | Make File | Run Script |
 | :---| :--- | :--- |

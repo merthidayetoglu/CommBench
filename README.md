@@ -1,7 +1,5 @@
 # CommBench
 
-Preconfigured Make files and run scripts are located in the ```/scripts``` folder. The systems we test include Delta, Summit, Perlmutter, ThetaGPU, Frontier, and Sunspot.
-
 CommBench takes in nine command line parameters. This tool runs like
 ```cpp
 mpirun ./CommBench library pattern direction count warmup numiter p g k
@@ -18,3 +16,5 @@ omnidirectional
 9. ```k```: subgroup size
 
 When ```pattern``` is set to 0, CommBench performs point-to-point (P2P) scan and ```g``` and ```k``` are insignificant.
+
+CommBench has a minimal design. Preconfigured Make files and run scripts are located in the ```/scripts``` folder. The systems we test include Delta, Summit, Perlmutter, ThetaGPU, Frontier, and Sunspot.

@@ -27,9 +27,9 @@ The best practice for using CommBench is to prepare a run script that sweeps ove
 
 | System | Make File | Run Script |
 | :---| :--- | :--- |
-| Delta | Makefile_delta | run_delta.sh  |
-| Summit | Makefile_summit | run_summit.sh |
-| Perlmutter | Makefile_perlmutter | run_perlmutter.sh |
-| ThetaGPU | Makefile_thetagpu | run_thetagpu.sh |
-| Frontier | Makefile_frontier | run_frontier.sh |
-| Sunspot | Makefile_sunspot | run_sunspot.sh |
+| Delta | `Makefile_delta` | `run_delta.sh`  |
+| Summit | `Makefile_summit` | `run_summit.sh` |
+| Perlmutter | `Makefile_perlmutter` | `run_perlmutter.sh` |
+| ThetaGPU | `Makefile_thetagpu` | `run_thetagpu.sh` |
+| Frontier | `Makefile_frontier` | `run_frontier.sh` |
+| Sunspot | `Makefile_sunspot` | `run_sunspot.sh` |

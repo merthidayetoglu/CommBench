@@ -9,7 +9,7 @@ mpirun ./CommBench library pattern direction count warmup numiter p g k
 1. ```library```: 0 for IPC, 1 for MPI, 2 for NCCL
 2. ```pattern```: 1 for Rail, 2 for Dense, 3 for Fan
 3. ```direction```: 1 for unidirectional, 2 for bidirectional, 3 for
-omnidirectional (see Figure 5)
+omnidirectional
 4. ```count```: number of 4-byte elements
 5. ```warmup```: number of warmup rounds
 6. ```numiter```: number of measurement rounds
@@ -17,4 +17,4 @@ omnidirectional (see Figure 5)
 8. ```g```: group size
 9. ```k```: subgroup size
 
-When ```library``` is set to 0, CommBench performs point-to-point (P2P) scan and ```g``` and ```k``` are insignificant.
+When ```pattern``` is set to 0, CommBench performs point-to-point (P2P) scan and ```g``` and ```k``` are insignificant.

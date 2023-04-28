@@ -1,9 +1,10 @@
 # CommBench
 
-CommBench takes in nine command line parameters. This tool runs like
+CommBench takes in nine command line parameters. To run the executable:
 ```cpp
 mpirun ./CommBench library pattern direction count warmup numiter p g k
 ```
+where
 1. ```library```: 0 for IPC, 1 for MPI, 2 for NCCL
 2. ```pattern```: 1 for Rail, 2 for Dense, 3 for Fan
 3. ```direction```: 1 for unidirectional, 2 for bidirectional, 3 for

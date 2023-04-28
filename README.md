@@ -20,7 +20,11 @@ When ```pattern``` is set to 0, CommBench performs point-to-point (P2P) scan and
 
 The best practice for using CommBench is to prepare a run script that sweeps over the desired parameters and directs the output into a file. Then, the user can ```grep``` the desired output for further analysis and plotting. Each system requires a special care considering the modules, environment variables, and configuration parameters. To compile and run CommBench out-of-the-box on six systems, we include Make files and run scripts in our repository as displayed below.
 
-| System        | Make File        | Run Script    |
-| ------------- | -------------    | ------------- |
-| Delta         | Makefile_delta   | run_delta.sh  |
-| Summit        | Makefile_summit  | run_summit.sh |
+| System | Make File | Run Script |
+| :---| :--- | :--- |
+| Delta | Makefile_delta | run_delta.sh  |
+| Summit | Makefile_summit | run_summit.sh |
+| Perlmutter | Makefile_perlmutter | run_perlmutter.sh |
+| ThetaGPU | Makefile_thetagpu | run_thetagpu.sh |
+| Frontier | Makefile_frontier | run_frontier.sh |
+| Sunspot | Makefile_sunspot | run_sunspot.sh |

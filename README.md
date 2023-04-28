@@ -16,3 +16,5 @@ omnidirectional (see Figure 5)
 7. ```p```: number of GPUs
 8. ```g```: group size
 9. ```k```: subgroup size
+
+When ```library``` is set to 0, CommBench performs point-to-point (P2P) scan and ```g``` and ```k``` are insignificant.

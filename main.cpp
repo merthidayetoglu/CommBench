@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
   //MPI_Get_processor_name(machine_name, &name_len);
   //printf("myid %d %s\n",myid, machine_name);
 
-  if(argc != 10) {print_args(); MPI_Finalize(); return 0}
+  if(argc != 10) {print_args(); MPI_Finalize(); return 0;}
   // INPUT PARAMETERS
   int lib = atoi(argv[1]);
   int pattern = atoi(argv[2]);

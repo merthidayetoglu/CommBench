@@ -20,8 +20,6 @@
 #include <mpi.h>
 #include <omp.h>
 
-#include <cassert>
-
 #define ROOT 0
 
 // HEADERS
@@ -37,6 +35,7 @@
 #include "comm.h"
 
 void setup_gpu();
+void print_args();
 
 // USER DEFINED TYPE
 struct Type
@@ -63,6 +62,12 @@ int main(int argc, char *argv[])
   //MPI_Get_processor_name(machine_name, &name_len);
   //printf("myid %d %s\n",myid, machine_name);
 
+  if(argc != 10) {
+    print_args();
+    MPI_Finalize();
+    return 0;
+  }
+  // INPUT PARAMETERS
   int lib = atoi(argv[1]);
   int pattern = atoi(argv[2]);
   int direction = atoi(argv[3]);
@@ -170,4 +175,29 @@ void setup_gpu() {
   if(myid == ROOT)
     printf("CPU VERSION\n");
 #endif
+}
+
+void print_args() {
+
+  int myid;
+  int numproc;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  MPI_Comm_size(MPI_COMM_WORLD, &numproc);
+
+  if(myid == ROOT) {
+    printf("\n");
+    printf("CommBench requires nine arguments:\n");
+    printf("1. library: 0 for IPC, 1 for MPI, 2 for NCCL or RCCL\n");
+    printf("2. pattern: 1 for Rail, 2 for Dense, 3 for Fan\n");
+    printf("3. direction: 1 for unidirectional, 2 for bidirectional, 3 for omnidirectional\n");
+    printf("4. count: number of 4-byte elements\n");
+    printf("5. warmup: number of warmup rounds\n");
+    printf("6. numiter: number of measurement rounds\n");
+    printf("7. p: number of processors\n");
+    printf("8. g: group size\n");
+    printf("9. k: subgroup size\n");
+    printf("where on can run CommBench as\n");
+    printf("mpirun ./CommBench library pattern direction count warmup numiter p g k\n");
+    printf("\n");
+  }
 }

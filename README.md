@@ -2,10 +2,7 @@
 
 CommBench is a portable software tool for benchmarking HPC networks involving multi-GPU, multi-NIC nodes. We integrate MPI, NCCL, and IPC capabilities, provide an API for users to compose desired communication patterns, take measurements, and offer ports for benchmarking on Nvidia, AMD, and Intel GPUs.
 
-To describe the performance behavior of multi-NIC communications, we define group-to-group patterns (i.e., Rail, Fan, and Dense). For gradually varying the number of NICs involved in communication with various ways, we parameterize these patterns with configuration control variables $(p, g, k)$. We use CommBench to confirm the theoretical model behavior against empirical measurements.
-
-
-To run CommBench, one needs to set nine command line parameters as
+To describe the performance behavior of multi-NIC communications, we define group-to-group patterns (i.e., Rail, Fan, and Dense). For gradually varying the number of NICs involved in communication with various ways, we parameterize these patterns with configuration control variables $(p, g, k)$. To run CommBench, one needs to set a total of nine command line parameters as
 ```cpp
 mpirun ./CommBench library pattern direction count warmup numiter p g k
 ```

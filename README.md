@@ -30,3 +30,5 @@ The best practice for using CommBench is to prepare a run script that sweeps ove
 | ALCF | ThetaGPU | `Makefile_thetagpu` | `run_thetagpu.sh` |
 | OLCF | Frontier | `Makefile_frontier` | `run_frontier.sh` |
 | ALCF | Sunspot | `Makefile_sunspot` | `run_sunspot.sh` |
+
+CommBench is the second (and final) iteration of the communication benchmarking tool. See https://github.com/merthidayetoglu/Bisection_Bandwidth_Tester for more information.

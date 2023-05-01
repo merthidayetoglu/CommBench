@@ -318,6 +318,8 @@ namespace CommBench
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
 
+    if(myid == ROOT)
+      printf("%d warmup iterations (in order):\n", warmup);
     for (int iter = -warmup; iter < numiter; iter++) {
       for(int send = 0; send < numsend; send++) {
 #if defined PORT_CUDA
@@ -339,7 +341,7 @@ namespace CommBench
       time = MPI_Wtime() - time;
       if(iter < 0) {
         if(myid == ROOT)
-          printf("start %.2e warmup: %.2e\n", start, time);
+          printf("startup %.2e warmup: %.2e\n", start, time);
       }
       else {
         times[iter] = time;
@@ -347,7 +349,8 @@ namespace CommBench
     }
     std::sort(times, times + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
 
-    if(myid == ROOT)
+    if(myid == ROOT) {
+      printf("%d measurement iterations (sorted):\n", numiter);
       for(int iter = 0; iter < numiter; iter++) {
         printf("time: %.4e", times[iter]);
         if(iter == 0)
@@ -359,6 +362,8 @@ namespace CommBench
         else
           printf("\n");
       }
+      printf("\n");
+    }
 
     minTime = times[0];
     medTime = times[numiter / 2];
@@ -384,18 +389,12 @@ namespace CommBench
       sendmatrix[sendproc[send]][myid]++;
     for(int recv = 0; recv < numrecv; recv++)
       recvmatrix[myid][recvproc[recv]]++;
-
-    MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
     MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
 
     if(myid == ROOT) {
-      printf("recv matrix\n");
-      for(int recv = 0; recv < numproc; recv++) {
-        for(int send = 0; send < numproc; send++)
-          printf("%d ", recvmatrix[recv][send]);
-        printf("\n");
-      }
-      printf("send matrix\n");
+      printf("\n");
+      printf("communication matrix\n");
       for(int recv = 0; recv < numproc; recv++) {
         for(int send = 0; send < numproc; send++)
           printf("%d ", sendmatrix[recv][send]);
@@ -416,6 +415,7 @@ namespace CommBench
     if(myid == ROOT) {
       printf("Total Send Data Footprint: %e Bytes\n", sendTotal);
       printf("Total Recv Data Footprint: %e Bytes\n", recvTotal);
+      printf("\n");
     }
   }
 

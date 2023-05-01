@@ -25,12 +25,13 @@
 // HEADERS
 // #include <nccl.h>
 // #include <rccl.h>
-// #include <sycl.hpp>
+ #include <sycl.hpp>
+ #include <ze_api.h>
 
 // PORTS
 // #define PORT_CUDA
 // #define PORT_HIP
-// #define PORT_SYCL
+ #define PORT_SYCL
 
 #include "comm.h"
 
@@ -167,6 +168,56 @@ void setup_gpu() {
 #elif defined PORT_SYCL
   if(myid == ROOT)
     printf("SYCL PORT\n");
+  // Initialize the driver
+  zeInit(0);
+  // Discover all the driver instances
+  uint32_t driverCount = 0;
+  zeDriverGet(&driverCount, nullptr);
+  ze_driver_handle_t* allDrivers = new ze_driver_handle_t[driverCount];
+  zeDriverGet(&driverCount, allDrivers);
+  // Find a driver instance with a GPU device
+  ze_driver_handle_t hDriver = nullptr;
+  ze_device_handle_t hDevice = nullptr;
+  for(int i = 0; i < driverCount; ++i) {
+    uint32_t deviceCount = 0;
+    zeDeviceGet(allDrivers[i], &deviceCount, nullptr);
+    ze_device_handle_t* allDevices = new ze_device_handle_t[deviceCount];
+    zeDeviceGet(allDrivers[i], &deviceCount, allDevices);
+    for(int d = 0; d < deviceCount; ++d) {
+      ze_device_properties_t device_properties {};
+      device_properties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+      zeDeviceGetProperties(allDevices[d], &device_properties);
+      if(myid == ROOT)
+      {
+        if(ZE_DEVICE_TYPE_GPU == device_properties.type)
+          printf("driverCount %d deviceCount %d GPU\n", driverCount, deviceCount);
+        else
+          printf("GPU not found!\n");
+        printf("type %d\n", device_properties.type);
+        printf("vendorId %d\n", device_properties.vendorId);
+        printf("deviceId %d\n", device_properties.deviceId);
+        printf("flags %d\n", device_properties.flags);
+        printf("subdeviceId %d\n", device_properties.subdeviceId);
+        printf("coreClockRate %d\n", device_properties.coreClockRate);
+        printf("maxMemAllocSize %ld\n", device_properties.maxMemAllocSize);
+        printf("maxHardwareContexts %d\n", device_properties.maxHardwareContexts);
+        printf("maxCommandQueuePriority %d\n", device_properties.maxCommandQueuePriority);
+        printf("numThreadsPerEU %d\n", device_properties.numThreadsPerEU);
+        printf("physicalEUSimdWidth %d\n", device_properties.physicalEUSimdWidth);
+        printf("numSubslicesPerSlice %d\n", device_properties.numEUsPerSubslice);
+        printf("numSlices %d\n", device_properties.numSlices);
+        printf("timerResolution %ld\n", device_properties.timerResolution);
+        printf("timestampValidBits %d\n", device_properties.timestampValidBits);
+        printf("kernelTimestampValidBits %d\n", device_properties.kernelTimestampValidBits);
+        //for(int j = 0; j < ZE_MAX_DEVICE_UUID_SIZE; j++)
+	//  printf("uuid %d\n", device_properties.uuid.id[j]);
+	printf("name %s\n", device_properties.name);
+        printf("\n");
+      }
+    }
+    delete[] allDevices;
+  }
+  delete[] allDrivers;
 #else
   if(myid == ROOT)
     printf("CPU VERSION\n");

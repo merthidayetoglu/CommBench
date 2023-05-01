@@ -184,8 +184,7 @@ void setup_gpu() {
     ze_device_handle_t* allDevices = new ze_device_handle_t[deviceCount];
     zeDeviceGet(allDrivers[i], &deviceCount, allDevices);
     for(int d = 0; d < deviceCount; ++d) {
-      ze_device_properties_t device_properties {};
-      device_properties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+      ze_device_properties_t device_properties;
       zeDeviceGetProperties(allDevices[d], &device_properties);
       if(myid == ROOT)
       {

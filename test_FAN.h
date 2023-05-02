@@ -16,7 +16,7 @@
 #endif
 
   {
-    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) lib);
+    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) library);
 
     double data = 0;
     switch(direction) {

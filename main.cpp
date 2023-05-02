@@ -24,13 +24,13 @@
 
 // HEADERS
 // #include <nccl.h>
-#include <rccl.h>
+// #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
 // #define PORT_CUDA
- #define PORT_HIP
+// #define PORT_HIP
 // #define PORT_SYCL
 
 #include "comm.h"
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 
   if(argc != 10) {print_args(); MPI_Finalize(); return 0;}
   // INPUT PARAMETERS
-  int lib = atoi(argv[1]);
+  int library = atoi(argv[1]);
   int pattern = atoi(argv[2]);
   int direction = atoi(argv[3]);
   size_t count = atoi(argv[4]);
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     printf("Group Size: %d\n", groupsize);
     printf("Subgroup Size: %d\n", subgroupsize);
 
-    printf("Library: %d\n", lib);
+    printf("Library: %d\n", library);
     printf("Pattern: %d\n", pattern);
     printf("Direction: %d\n", direction);
 

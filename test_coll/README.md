@@ -4,7 +4,7 @@ We made benchmarking *standard* collective communication functions easy with **C
 
 To compile and run, one can use the CommBench's Make files and run scripts in the ```CommBench/scripts``` folder with minimal changes. There is a total of five required command line parameters as
 ```cpp
-mpirun ./CommBench library pattern count warmup numiter
+mpirun ./CollBench library pattern count warmup numiter
 ```
 where
 1. library: 0 for IPC, 1 for MPI, 2 for NCCL

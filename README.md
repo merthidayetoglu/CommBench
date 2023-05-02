@@ -7,18 +7,9 @@ To describe the performance behavior of multi-NIC communications, we define grou
 mpirun ./CommBench library pattern direction count warmup numiter p g k
 ```
 where
-1. library:
-  - 0 for IPC
-  - 1 for MPI
-  - 2 for NCCL
-2. pattern
-  - 1 for Rail
-  - 2 for Dense
-  - 3 for Fan
-3. direction:
-  - 1 for unidirectional
-  - 2 for bidirectional
-  - 3 for omnidirectional
+1. library: 0 for IPC, 1 for MPI, and 2 for NCCL
+2. pattern: 1 for Rail, 2 for Dense, and 3 for Fan
+3. direction: 1 for unidirectional, 2 for bidirectional, and 3 for omnidirectional
 4. count: number of 4-byte elements
 5. warmup: number of warmup rounds
 6. numiter: number of measurement rounds

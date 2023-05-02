@@ -112,6 +112,10 @@ int main(int argc, char *argv[])
   recvbuf_d = new float[count * numproc];
 #endif
 
+  int recvcounts[numproc];
+  for(int p = 0; p < numproc; p++)
+    recvcounts[p] = count;
+
   double times[numiter];
   if(myid == ROOT)
     printf("%d warmup iterations (in order):\n", warmup);
@@ -121,21 +125,24 @@ int main(int argc, char *argv[])
     switch(library) {
       case 1:
         switch(pattern) {
-          case 1: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
+          case 1: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
           case 2: MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
-          case 3: MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD); break;
-          case 4: MPI_Bcast(sendbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
-          case 5: MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD); break;
-          case 6: MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD); break;
-          case 7: MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD); break;
+          case 3: MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD);           break;
+          case 4: MPI_Bcast(sendbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                                break;
+          case 5: MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);      break;
+          case 6: MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);              break;
+          case 7: MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
+          case 8: MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
         } break;
 #ifdef CAP_NCCL
       case 2:
         switch(pattern) {
-          case 3: ncclReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, ROOT, comm_nccl, 0); break;
-          case 4: ncclBcast(sendbuf_d, count, ncclFloat32, ROOT, comm_nccl, 0); break;
-          case 6: ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0); break;
-          case 7: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0); break;
+          case 3: ncclReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, ROOT, comm_nccl, 0);  break;
+          case 4: ncclBcast(sendbuf_d, count, ncclFloat32, ROOT, comm_nccl, 0);                       break;
+          case 6: ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);     break;
+          case 7: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);              break;
+          case 8: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0); break;
+          default: return 0;
         }
         cudaStreamSynchronize(0);
         break;
@@ -185,6 +192,7 @@ int main(int argc, char *argv[])
           case 5: printf("MPI_Alltoall\n"); break;
           case 6: printf("MPI_Allreduce\n"); break;
           case 7: printf("MPI_Allgather\n"); break;
+          case 8: printf("MPI_Reduce_scatter\n"); break;
         } break;
 #ifdef CAP_NCCL
       case 2:
@@ -193,6 +201,7 @@ int main(int argc, char *argv[])
           case 4: printf("ncclBcast\n"); break;
           case 6: printf("ncclAllReduce\n"); break;
           case 7: printf("ncclAllGather\n"); break;
+          case 8: printf("ncclReduceScatter\n"); break;
         } break;
 #endif
     }

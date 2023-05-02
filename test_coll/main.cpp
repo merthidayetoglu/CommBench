@@ -33,6 +33,10 @@
 // #define PORT_HIP
 // #define PORT_SYCL
 
+#if defined(PORT_CUDA) || defined(PORT_HIP)
+#define CAP_NCCL
+#endif
+
 void setup_gpu();
 void print_args();
 
@@ -79,6 +83,16 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
+  // SETUP NCCL
+#ifdef CAP_NCCL
+    ncclComm_t comm_nccl;
+    ncclUniqueId id;
+    if(myid == 0)
+      ncclGetUniqueId(&id);
+    MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
+    ncclCommInitRank(&comm_nccl, numproc, id, myid);
+#endif
+
   float *sendbuf_d;
   float *recvbuf_d;
 
@@ -103,28 +117,26 @@ int main(int argc, char *argv[])
   for (int iter = -warmup; iter < numiter; iter++) {
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
-    switch(pattern) {
+    switch(library) {
       case 1:
-        MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);
-        break;
+        switch(pattern) {
+          case 1: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
+          case 2: MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
+          case 3: MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD); break;
+          case 4: MPI_Bcast(sendbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
+          case 5: MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD); break;
+          case 6: MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD); break;
+          case 7: MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD); break;
+        } break;
       case 2:
-        MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);
-        break;
-      case 3:
-        MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD);
-        break;
-      case 4:
-        MPI_Bcast(sendbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);
-        break;
-      case 5:
-        MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);
-        break;
-      case 6:
-        MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-        break;
-      case 7:
-        MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);
-        break;
+        switch(pattern) {
+#ifdef CAP_NCCL
+          case 3: ncclReduce(); break;
+          case 4: ncclBcast(); break;
+          case 6: ncclAllreduce(); break;
+          case 7: ncclAllgather(); break;
+#endif
+        } break;
     }
     MPI_Barrier(MPI_COMM_WORLD);
     time = MPI_Wtime() - time;
@@ -180,6 +192,9 @@ int main(int argc, char *argv[])
 #else
   delete[] sendbuf_d;
   delete[] recvbuf_d;
+#endif
+
+#ifdef CAP_NCCL
 #endif
 
   // FINALIZE

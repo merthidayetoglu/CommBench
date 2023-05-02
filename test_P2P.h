@@ -60,5 +60,4 @@
   delete[] sendbuf_d;
   delete[] recvbuf_d;
 #endif
-
 }

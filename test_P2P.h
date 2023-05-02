@@ -19,7 +19,7 @@
 
   for(int p = 0; p < numgpu; p++)
   {
-    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) lib);
+    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) library);
 
     double data = 0;
     if(direction == 1) {
@@ -48,17 +48,17 @@
   }
 
 #ifdef PORT_CUDA
-   cudaFree(sendbuf_d);
-   cudaFree(recvbuf_d);
+  cudaFree(sendbuf_d);
+  cudaFree(recvbuf_d);
 #elif defined PORT_HIP
-   hipFree(sendbuf_d);
-   hipFree(recvbuf_d);
+  hipFree(sendbuf_d);
+  hipFree(recvbuf_d);
 #elif defined PORT_SYCL
-   sycl::free(sendbuf_d, q);
-   sycl::free(recvbuf_d, q);
+  sycl::free(sendbuf_d, q);
+  sycl::free(recvbuf_d, q);
 #else
-   delete[] sendbuf_d;
-   delete[] recvbuf_d;
+  delete[] sendbuf_d;
+  delete[] recvbuf_d;
 #endif
 
 }

@@ -30,4 +30,6 @@ The best practice for using CommBench is to prepare a run script that sweeps ove
 | OLCF | Frontier | `Makefile_frontier` | `run_frontier.sh` |
 | ALCF | Sunspot | `Makefile_sunspot` | `run_sunspot.sh` |
 
+There is an extension of CommBench for standard collectives in the ```CommBench/test_coll``` folder.
+
 CommBench is the second (and final) iteration of the communication benchmarking tool. See https://github.com/merthidayetoglu/Bisection_Bandwidth_Tester for the previous version.

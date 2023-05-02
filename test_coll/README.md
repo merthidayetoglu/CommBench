@@ -1,21 +1,25 @@
 ### CollBench
 
-This folder includes an extension for benchmarking standard collective functions with CPU-only MPI, GPU-aware MPI, and NCCL. To compile and run, one can use the Make files and run scripts in the ```CommBench/scripts``` folder. To run CommBench, one needs to set a total of five command line parameters as
+We made benchmarking *standard* collective communication functions easy with **CollBench: An extension to CommBench for standard collectives**. The main purpose (of CollBench) is providing a baseline for *nonstandard* collectives, such as those provided by CommBench.
+
+To compile and run, one can use the CommBench's Make files and run scripts in the ```CommBench/scripts``` folder with minimal changes. There is a total of five required command line parameters as
 ```cpp
 mpirun ./CommBench library pattern count warmup numiter
 ```
 where
 1. library: 0 for IPC, 1 for MPI, 2 for NCCL
 2. pattern:
-  - 1 for Gather
-  - 2 for Scatter
-  - 3 for Reduce
-  - 4 for Broadcast
-  - 5 for All-to-all
-  - 6 for All-reduce
-  - 7 for All-gather
-  - 8 for Reduce-scatter
+  - 1 for Gather, as in MPI_Gather
+  - 2 for Scatter, as in MPI_Scatter
+  - 3 for Reduce, as in MPI_Reduce and ncclReduce
+  - 4 for Broadcast, as in MPI_Bcast and ncclBcast
+  - 5 for All-to-all, as in MPI_Alltoall
+  - 6 for All-reduce, as in MPI_Allreduce and ncclAllReduce
+  - 7 for All-gather, as in MPI_Allgather and ncclAllGather
+  - 8 for Reduce-scatter, as in MPI_Reduce_scattern and ncclReduceScatter
 3. count: number of 4-byte elements
 4. warmup: number of warmup rounds
 5. numiter: number of measurement rounds
-6. groupsize: optional parameter to report B/W per group.
+6. groupsize (optional): optional parameter to report B/W per group.
+
+Notice that NCCL implements only five collective functions, whereas MPI does implement many more collective functions. Nevertheless, We only consider eight MPI and five NCCL functions to cover the most important ones.

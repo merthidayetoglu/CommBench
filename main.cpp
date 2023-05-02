@@ -24,14 +24,14 @@
 
 // HEADERS
 // #include <nccl.h>
-// #include <rccl.h>
- #include <sycl.hpp>
- #include <ze_api.h>
+#include <rccl.h>
+// #include <sycl.hpp>
+// #include <ze_api.h>
 
 // PORTS
 // #define PORT_CUDA
-// #define PORT_HIP
- #define PORT_SYCL
+ #define PORT_HIP
+// #define PORT_SYCL
 
 #include "comm.h"
 
@@ -163,8 +163,35 @@ void setup_gpu() {
     printf("deviceCount: %d\n", deviceCount);
   hipSetDevice(device);
   // REPORT
-  if(myid == ROOT)
+  if(myid == ROOT) {
     system("rocm-smi");
+    int deviceCount;
+    int device;
+    hipGetDevice(&device);
+    hipGetDeviceCount(&deviceCount);
+    printf("Device %d Count: %d\n", device, deviceCount);
+    hipDeviceProp_t deviceProp;
+    hipGetDeviceProperties(&deviceProp,0);
+    printf("Device %d name: %s\n",0,deviceProp.name);
+    printf("Maximum global memory size: %lu\n",deviceProp.totalGlobalMem);
+    printf("Maximum shared memory size per block: %lu\n",deviceProp.sharedMemPerBlock);
+    printf("32-bit Reg. per block: %d\n",deviceProp.regsPerBlock); 
+    printf("Warp size: %d\n",deviceProp.warpSize);
+    printf("Maximum threads per block: %d\n",deviceProp.maxThreadsPerBlock);
+    printf("Maximum block dimensions: %dx%dx%d\n",deviceProp.maxThreadsDim[0],deviceProp.maxThreadsDim[1],deviceProp.maxThreadsDim[2]);
+    printf("Maximum grid dimensions: %dx%dx%d\n",deviceProp.maxGridSize[0],deviceProp.maxGridSize[1],deviceProp.maxGridSize[2]);
+    printf("Clock frequency: %d khz\n",deviceProp.clockRate);
+    printf("Global memory frequency: %d khz\n", deviceProp.memoryClockRate);
+    printf("Global memory bus width: %d bits\n", deviceProp.memoryBusWidth);
+    printf("Maximum constant memory size: %lu\n",deviceProp.totalConstMem);
+    printf("Compute capability: %d.%d\n", deviceProp.major, deviceProp.minor);
+    printf("Number of multi-processors: %d\n", deviceProp.multiProcessorCount);
+    printf("L2 cache size: %d\n", deviceProp.l2CacheSize);
+    printf("Max. threads per multi-processor: %d\n", deviceProp.maxThreadsPerMultiProcessor);
+    printf("Compute mode: %d\n", deviceProp.computeMode);
+    printf("Device-side clock instruction rate: %d khz\n", deviceProp.clockInstructionRate);
+    printf("\n");
+  }
 #elif defined PORT_SYCL
   if(myid == ROOT)
     printf("SYCL PORT\n");

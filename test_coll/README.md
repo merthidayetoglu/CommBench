@@ -7,7 +7,7 @@ The collective tests is designed so that one can use the ```main.cpp``` herein w
 mpirun ./CommBench library pattern count warmup numiter
 ```
 where
-1. library: 0 for IPC, 1 for MPI, 2 for NCCL
+1. library: 1 for MPI, 2 for NCCL
 2. pattern:
   - 1 for Gather, as in MPI_Gather
   - 2 for Scatter, as in MPI_Scatter

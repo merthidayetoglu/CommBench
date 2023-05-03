@@ -23,3 +23,5 @@ where
 6. groupsize (optional): optional parameter to report B/W per group.
 
 Notice that NCCL implements only five collective functions, whereas MPI does implement many more collective functions. Nevertheless, We only consider eight MPI and five NCCL functions to cover the most important ones.
+
+#### Relation to Group-to-Group Patterns

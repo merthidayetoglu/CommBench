@@ -1,10 +1,10 @@
 ### Standard Collective Tests
 
-We made benchmarking *standard* collective communication functions easy with **an extension to CommBench for standard collectives**. The main purpose (of CollBench) is providing a baseline for *nonstandard* collectives, such as those provided by CommBench.
+We made benchmarking *standard* collective communication functions easy with **an extension to CommBench for standard collectives**. The main purpose of this test is providing a baseline for *nonstandard* collectives, such as those provided by CommBench.
 
-CommBench is desined so that one can use CommBench's Make files and run scripts in the ```CommBench/scripts``` folder with minimal changes. There is a total of five required command line parameters as
+The collective tests is designed so that one can use CommBench's Make files and run scripts in the ```CommBench/scripts``` folder with minimal changes. There is a total of five required command line parameters as
 ```cpp
-mpirun ./CollBench library pattern count warmup numiter
+mpirun ./CommBench library pattern count warmup numiter
 ```
 where
 1. library: 0 for IPC, 1 for MPI, 2 for NCCL

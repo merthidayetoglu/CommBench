@@ -33,6 +33,7 @@ double time = MPI_Wtime();
 MPI_Scatter(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 MPI_Barrier(MPI_COMM_WORLD);
 time = MPI_Wtime() - time;
+```
 
 On two nodes of frontier, where there are eight GPUs per node, we can isolate the communication across nodes unidirectional Fan (16, 8, 1) pattern which discards the intra-node communications. We can implemented this pattern easily with MPI using CommBench.
 ```cpp

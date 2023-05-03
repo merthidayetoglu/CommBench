@@ -59,7 +59,6 @@ time = MPI_Wtime() - time;
 
 As a second example, we consider *Scatter* collective as in `ncclScatter`:
 ```cpp
-// NCCL version
 MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
 ncclScatter(sendbuf, recvbuf, count, ncclFloat64, 0, comm_nccl, 0);

@@ -26,11 +26,26 @@ Notice that NCCL implements only five collective functions, whereas MPI does imp
 
 ### Relation to Group-to-Group Patterns
 
+Example unidirectional Fan (16, 8, 1) pattern implemented with MPI using CommBench.
 ```cpp
 CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::MPI);
 
 for(int j = 0; j < 8; j++)
-  bench.add(sendbuf_d, j * count, recvbuf_d, 0, count, 0, 8 + j); // 0 -> 8 + j
+  bench.add(sendbuf, j * count, recvbuf, 0, count, 0, 8 + j); // 0 -> 8 + j
   
-bench.measure();
+MPI_Barrier(MPI_COMM_WORLD);
+double time = MPI_Wtime();
+bench.start();
+bench.wait();
+MPI_Barrier(MPI_COMM_WORLD);
+time = MPI_Wtime() - time;
+```
+
+Equivalent MPI_Scatter collective function.
+```cpp
+MPI_Barrier(MPI_COMM_WORLD);
+double time = MPI_Wtime();
+MPI_Scatter(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+MPI_Barrier(MPI_COMM_WORLD);
+time = MPI_Wtime() - time;
 ```

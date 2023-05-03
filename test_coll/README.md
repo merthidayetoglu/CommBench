@@ -56,7 +56,7 @@ time = MPI_Wtime() - time;
 
 #### Example 2
 
-As a second example, we consider *Scatter* collective as in `ncclScatter`:
+As a second example, we consider *Scatter* collective as in `ncclScatter`. In Frontier, NCCL will run RCCL.
 ```cpp
 MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();

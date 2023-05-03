@@ -2,7 +2,7 @@
 
 We made benchmarking *standard* collective communication functions easy with **an extension to CommBench for standard collectives**. The main purpose of this test is providing a baseline for *nonstandard* collectives, such as those provided by CommBench.
 
-The collective tests is designed so that one can use CommBench's Make files and run scripts in the ```CommBench/scripts``` folder with minimal changes. There is a total of five required command line parameters as
+The collective tests is designed so that one can use the ```main.cpp``` herein with minimal changes to the CommBench's Make files and run scripts in the ```CommBench/scripts``` folder. There is a total of five required command line parameters as
 ```cpp
 mpirun ./CommBench library pattern count warmup numiter
 ```

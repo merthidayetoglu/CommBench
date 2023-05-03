@@ -25,9 +25,16 @@ Notice that NCCL implements only five collective functions, whereas MPI does imp
 
 ### Relation to Group-to-Group Patterns
 
-As an example we consider *Scatter* collective as in `MPI_Scatter` and `ncclScatter`.
+As an example we consider *Scatter* collective as in `MPI_Scatter`:
+```cpp
+// MPI version
+MPI_Barrier(MPI_COMM_WORLD);
+double time = MPI_Wtime();
+MPI_Scatter(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+MPI_Barrier(MPI_COMM_WORLD);
+time = MPI_Wtime() - time;
 
-Example unidirectional Fan (16, 8, 1) pattern implemented with MPI using CommBench.
+On two nodes of frontier, where there are eight GPUs per node, we can isolate the communication across nodes unidirectional Fan (16, 8, 1) pattern which discards the intra-node communications. We can implemented this pattern easily with MPI using CommBench.
 ```cpp
 CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::MPI);
 
@@ -38,15 +45,6 @@ MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
 bench.start();
 bench.wait();
-MPI_Barrier(MPI_COMM_WORLD);
-time = MPI_Wtime() - time;
-```
-
-Equivalent MPI_Scatter collective function.
-```cpp
-MPI_Barrier(MPI_COMM_WORLD);
-double time = MPI_Wtime();
-MPI_Scatter(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 MPI_Barrier(MPI_COMM_WORLD);
 time = MPI_Wtime() - time;
 ```

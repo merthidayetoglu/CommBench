@@ -382,14 +382,14 @@ void print_args() {
 
   if(myid == ROOT) {
     printf("\n");
-    printf("CollBench requires five arguments:\n");
+    printf("Collective tests requires five arguments:\n");
     printf("1. library: 1 for MPI, 2 for NCCL or RCCL\n");
     printf("2. pattern: 1 for Gather, 2 for Scatter, 3 for Reduce, 4 for Bcast, 5 for Alltoall, 6 for Allreduce, 7 for Allgather\n");
     printf("3. count: number of 4-byte elements\n");
     printf("4. warmup: number of warmup rounds\n");
     printf("5. numiter: number of measurement rounds\n");
     printf("where on can run CollBench as\n");
-    printf("mpirun ./CollBench library pattern count warmup numiter\n");
+    printf("mpirun ./CommBench library pattern count warmup numiter\n");
     printf("\n");
   }
 }

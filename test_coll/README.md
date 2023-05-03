@@ -24,4 +24,13 @@ where
 
 Notice that NCCL implements only five collective functions, whereas MPI does implement many more collective functions. Nevertheless, We only consider eight MPI and five NCCL functions to cover the most important ones.
 
-#### Relation to Group-to-Group Patterns
+### Relation to Group-to-Group Patterns
+
+```cpp
+CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::MPI);
+
+for(int j = 0; j < 8; j++)
+  bench.add(sendbuf_d, j * count, recvbuf_d, 0, count, 0, 8 + j); // 0 -> 8 + j
+  
+bench.measure();
+```

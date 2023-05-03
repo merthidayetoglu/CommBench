@@ -35,10 +35,11 @@ MPI_Alltoall(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, MPI_COMM_WO
 MPI_Barrier(MPI_COMM_WORLD);
 time = MPI_Wtime() - time;
 ```
-On two nodes of frontier, where there are eight GPUs per node, we can isolate the communication across nodes with bidirectional Dense (16, 8, 1) pattern which discards the intra-node communications. We can implemented this pattern easily with MPI using CommBench.
+On two nodes of frontier, where there are eight GPUs per node, we can isolate the communication across nodes with bidirectional Dense (16, 8, 8) pattern which discards the intra-node communications. We can implemented this pattern easily with MPI using CommBench.
 ```cpp
 CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::MPI);
 
+// Bidirectional Dense (16, 8, 8) pattern
 for(int i = 0; i < 8; i++)
   for(int j = 0; j < 8; j++) {
     bench.add(sendbuf, i * count, recvbuf, j * count, count, i, 8 + j); // i -> 8 + j
@@ -71,6 +72,7 @@ We can isolate the communication across nodes with unidirectional Fan (16, 8, 1)
 ```cpp
 CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::NCCL);
 
+\\ Unidirectional Fan (16, 8, 1) pattern
 for(int j = 0; j < 8; j++)
   bench.add(sendbuf, j * count, recvbuf, 0, count, 0, 8 + j); // 0 -> 8 + j
   

@@ -29,7 +29,6 @@ Notice that NCCL implements only five collective functions, whereas MPI does imp
 
 As an example, we consider *All-to-all* collective as in `MPI_Alltoall`:
 ```cpp
-// MPI version
 MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
 MPI_Alltoall(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, MPI_COMM_WORLD);

@@ -25,19 +25,53 @@ Notice that NCCL implements only five collective functions, whereas MPI does imp
 
 ### Relation to Group-to-Group Patterns
 
-As an example we consider *Scatter* collective as in `MPI_Scatter`:
+#### Example 1
+
+As an example, we consider *All-to-all* collective as in `MPI_Alltoall`:
 ```cpp
 // MPI version
 MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
-MPI_Scatter(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+MPI_Alltoall(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, MPI_COMM_WORLD);
+MPI_Barrier(MPI_COMM_WORLD);
+time = MPI_Wtime() - time;
+```
+On two nodes of frontier, where there are eight GPUs per node, we can isolate the communication across nodes with bidirectional Dense (16, 8, 1) pattern which discards the intra-node communications. We can implemented this pattern easily with MPI using CommBench.
+```cpp
+CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::MPI);
+
+for(int i = 0; i < 8; i++)
+  for(int j = 0; j < 8; j++) {
+    bench.add(sendbuf, i * count, recvbuf, j * count, count, i, 8 + j); // i -> 8 + j
+    bench.add(sendbuf, j * count, recvbuf, i * count, count, 8 + j, i); // 8 + j -> i
+  }
+  
+MPI_Barrier(MPI_COMM_WORLD);
+double time = MPI_Wtime();
+bench.start();
+bench.wait();
 MPI_Barrier(MPI_COMM_WORLD);
 time = MPI_Wtime() - time;
 ```
 
-On two nodes of frontier, where there are eight GPUs per node, we can isolate the communication across nodes unidirectional Fan (16, 8, 1) pattern which discards the intra-node communications. We can implemented this pattern easily with MPI using CommBench.
+
+#### Example 2
+
+As a second example, we consider *Scatter* collective as in `ncclScatter`:
 ```cpp
-CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::MPI);
+// NCCL version
+MPI_Barrier(MPI_COMM_WORLD);
+double time = MPI_Wtime();
+ncclScatter(sendbuf, recvbuf, count, ncclFloat64, 0, comm_nccl, 0);
+cudaStreamSynchronize(0);
+MPI_Barrier(MPI_COMM_WORLD);
+time = MPI_Wtime() - time;
+```
+
+We can isolate the communication across nodes with unidirectional Fan (16, 8, 1) pattern. We can implemented this pattern easily with NCCL using CommBench.
+
+```cpp
+CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::NCCL);
 
 for(int j = 0; j < 8; j++)
   bench.add(sendbuf, j * count, recvbuf, 0, count, 0, 8 + j); // 0 -> 8 + j

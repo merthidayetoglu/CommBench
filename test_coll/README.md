@@ -2,7 +2,7 @@
 
 We made benchmarking standard collective communication function easy with an extension to CommBench. The main purpose of this test is providing a baseline for the group-to-group (*Rail*, *Dense*, and *Fan*) patterns that are defined by CommBench.
 
-The collective tests is designed so that one can use the ```main.cpp``` herein with minimal changes to the CommBench's Make files and run scripts in the ```CommBench/scripts``` folder. This test requires a total of five command line parameters as
+The collective tests is designed so that one can use the ```main.cpp``` herein with minimal changes to the CommBench's Make files and run scripts in the ```CommBench/scripts``` folder. This test requires a total of five command-line parameters as
 ```cpp
 mpirun ./CommBench library pattern count warmup numiter
 ```

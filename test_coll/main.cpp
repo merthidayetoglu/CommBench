@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
   for (int iter = -warmup; iter < numiter; iter++) {
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
-    switch(library) {
+   switch(library) {
       case 1:
         switch(pattern) {
           case 1: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
@@ -248,8 +248,18 @@ void print_args() {
   if(myid == ROOT) {
     printf("\n");
     printf("Collective tests requires five arguments:\n");
-    printf("1. library: 1 for MPI, 2 for NCCL or RCCL\n");
-    printf("2. pattern: 1 for Gather, 2 for Scatter, 3 for Reduce, 4 for Bcast, 5 for Alltoall, 6 for Allreduce, 7 for Allgather\n");
+    printf("1. library:\n");
+    printf("      1 for MPI\n");
+    printf("      2 for NCCL or RCCL\n");
+    printf("2. pattern:\n");
+    printf("      1 for Gather\n");
+    printf("      2 for Scatter\n");
+    printf("      3 for Reduce\n");
+    printf("      4 for Broadcast\n");
+    printf("      5 for Alltoall\n");
+    printf("      6 for Allreduce\n");
+    printf("      7 for Allgather\n");
+    printf("      8 for ReduceScatter\n");
     printf("3. count: number of 4-byte elements\n");
     printf("4. warmup: number of warmup rounds\n");
     printf("5. numiter: number of measurement rounds\n");

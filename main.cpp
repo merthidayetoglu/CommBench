@@ -100,9 +100,9 @@ int main(int argc, char *argv[])
 
   int numgroup = numgpu / groupsize;
 
+  // ALLOCATE
   Type *sendbuf_d;
   Type *recvbuf_d;
-
 #ifdef PORT_CUDA
   cudaMalloc(&sendbuf_d, count * sizeof(Type));
   cudaMalloc(&recvbuf_d, count * sizeof(Type));
@@ -255,6 +255,7 @@ int main(int argc, char *argv[])
     }
   }
 
+// DEALLOCATE
 #ifdef PORT_CUDA
   cudaFree(sendbuf_d);
   cudaFree(recvbuf_d);

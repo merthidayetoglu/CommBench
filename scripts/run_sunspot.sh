@@ -11,7 +11,6 @@ export OMP_PROC_BIND=spread
 export OMP_NUM_THREADS=8
 unset OMP_PLACES
 
-cd ~/CommBench
 date
 
 echo Jobid: $PBS_JOBID

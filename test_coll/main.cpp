@@ -24,13 +24,13 @@
 
 // HEADERS
 // #include <nccl.h>
-// #include <rccl.h>
+ #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
 // #define PORT_CUDA
-// #define PORT_HIP
+ #define PORT_HIP
 // #define PORT_SYCL
 
 // CONTROL NCCL CAPABILITY
@@ -145,7 +145,11 @@ int main(int argc, char *argv[])
           case 8: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0); break;
           default: return 0;
         }
+#ifdef PORT_CUDA
         cudaStreamSynchronize(0);
+#elif defined(PORT_HIP)
+        hipStreamSynchronize(0);
+#endif
         break;
 #endif
     }

@@ -48,7 +48,7 @@ struct Type
 
 int main(int argc, char *argv[])
 {
-  // INITIALIZE MPI+OPENMP
+  // INITIALIZE
   int myid;
   int numproc;
   MPI_Init(&argc, &argv);

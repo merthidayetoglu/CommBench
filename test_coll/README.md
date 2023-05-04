@@ -21,7 +21,7 @@ where
 4. warmup: number of warmup rounds
 5. numiter: number of measurement rounds
 
-Notice that NCCL implements only five collective functions, whereas MPI does implement many more collective functions. Nevertheless, We only consider eight MPI and five NCCL functions to cover the most important ones.
+Notice that NCCL implements only five collective functions. Moreover, MPI has many more collective functions. We only consider eight MPI and five NCCL functions to cover the most important ones.
 
 ### Relation to Group-to-Group Patterns
 

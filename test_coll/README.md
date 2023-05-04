@@ -72,7 +72,7 @@ We can isolate the communication across nodes with unidirectional Fan (16, 8, 1)
 ```cpp
 CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::Library::NCCL);
 
-\\ Unidirectional Fan (16, 8, 1) pattern
+// Unidirectional Fan (16, 8, 1) pattern
 for(int j = 0; j < 8; j++)
   bench.add(sendbuf, j * count, recvbuf, 0, count, 0, 8 + j); // 0 -> 8 + j
   

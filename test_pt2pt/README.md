@@ -1,4 +1,4 @@
-### Point-to-point (P2P) Scan
+### Point-to-Point (P2P) Tests
 
 This extension measures bandwidth and latency between two GPUs. For one-dimensional scan, the sender GPU is set constant and the receiver GPU is "scanned" across various levels in the hierarchy. For two-dimensional scan, both sender and receiver GPUs are scanned through a *for* loop in the run script.
 

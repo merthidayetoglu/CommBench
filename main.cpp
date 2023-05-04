@@ -92,15 +92,12 @@ int main(int argc, char *argv[])
     printf("Direction: %d\n", direction);
 
     printf("Bytes per Type %lu\n", sizeof(Type));
-    printf("Peer-to-peer count %ld ( %ld Bytes)\n", count, count * sizeof(Type));
-    printf("send buffer: %lu (%.2f GB) recv buffer: %lu (%.2f GB)\n", count, count * sizeof(Type) / 1.e9, count * numproc, count * numproc * sizeof(Type) / 1.e9);
+    printf("Point-to-point (P2P) count %ld ( %ld Bytes)\n", count, count * sizeof(Type));
     printf("\n");
   }
 
   setup_gpu();
 
-  if(pattern == 0)
-#include "test_P2P.h"
   if(pattern == 1)
 #include "test_RAIL.h"
   if(pattern == 2)

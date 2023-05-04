@@ -216,8 +216,11 @@ int main(int argc, char *argv[])
 
     bench.report(); // SEE COMMUNICATION PATTERN
 
+    // MEASURE
     double minTime, medTime, maxTime, avgTime;
     bench.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
+    
+    // REPORT
     if(myid == ROOT) {
       double data = 0;
       switch(pattern) {

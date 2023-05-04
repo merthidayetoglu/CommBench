@@ -35,6 +35,7 @@
 
 #include "comm.h"
 
+// UTILITIES
 void setup_gpu();
 void print_args();
 

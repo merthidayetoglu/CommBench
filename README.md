@@ -34,7 +34,7 @@ There is an extension of CommBench for standard collectives in the ```CommBench/
 
 CommBench is the second (and final) iteration of the communication benchmarking tool. See https://github.com/merthidayetoglu/Bisection_Bandwidth_Tester for the previous version.
 
-### Configuration Paramers
+### Configuration Parameters
 
 There are three parameters, $p$, $g$, and $k$ to configure the benchmark, where $p$ is the total number of processors, $g$ is the group size, and $k$ is the subgroup size where the communication is initiated in the originating group.
 
@@ -43,3 +43,5 @@ There are three parameters, $p$, $g$, and $k$ to configure the benchmark, where 
 ### Direction of Data Movement
 
 For convenience, we define unidirectional, bidirectional, and omnidirectional data movement for the group communication patterns. The terminals of unidirectional and bidirectional data movement are located in the originating group. Omnidirectional data movement happens across all groups.
+
+![Scaling Patterns](https://github.com/merthidayetoglu/CommBench/blob/master/figures/scaling_patterns.png)

@@ -231,20 +231,20 @@ int main(int argc, char *argv[])
             case 2: printf("BIDIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
             case 3: printf("OMNIDIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
           }
-          printf("RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+          printf(" RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 2:
           switch(direction) {
             case 1: printf("UNIDIRECTIONAL");  data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
 	    case 2: printf("BIDIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
 	    case 3: printf("OMNIDIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
           }
-          printf("DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+          printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 3:
           switch(direction) {
 	    case 1: printf("UNIDIRECTIONAL");  data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
 	    case 2: printf("BIDIRECTIONAL") ;  data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
           }
-          printf("FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+          printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         default:
           ; // DO NOTHING
       }

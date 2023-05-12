@@ -212,12 +212,18 @@ namespace CommBench
                 cudaIpcMemHandle_t memhandle;
                 MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
                 int error = cudaIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, cudaIpcMemLazyEnablePeerAccess);
-                if(error) printf("CHECK RECEIVER POINTER HEAD\n"); return;
+                if(error) {
+                  printf("CHECK RECEIVER POINTER HEAD\n");
+                  return;
+                }
 #elif defined PORT_HIP
                 hipIpcMemHandle_t memhandle;
                 MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
                 int error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
-                if(error) printf("CHECK RECEIVER POINTER HEAD\n"); return;
+                if(error) {
+                  printf("CHECK RECEIVER POINTER HEAD\n");
+                  return;
+                }
 #elif defined PORT_SYCL
                 MPI_Recv(recvbuf_ipc + numsend, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
 #endif

@@ -23,20 +23,15 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
+ #include <nccl.h>
 // #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
-// #define PORT_CUDA
+ #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
-
-// CONTROL NCCL CAPABILITY
-#if defined(PORT_CUDA) || defined(PORT_HIP)
-#define CAP_NCCL
-#endif
 
 #include "../comm.h"
 
@@ -125,31 +120,16 @@ int main(int argc, char *argv[])
   recvbuf_d = new float[count];
 #endif
 
-  /*{
+  {
     CommBench::Comm<float> bench(MPI_COMM_WORLD, (CommBench::library) library);
     bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+    if(direction == 2)
+      bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
 
-    bench.report();
-
-    double minTime;
-    double medTime;
-    double maxTime;
-    double avgTime;
-
-    bench.measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
-
-    if(myid == ROOT) {
-      double data = count * sizeof(float) / 1.e9;
-      printf("data: %.4e MB\n", data * 1e3);
-      printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
-      printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
-      printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
-      printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
-      printf("\n");
-    }
+    bench.measure(warmup, numiter);
   }
-  return 0; */
 
+  /*
   MPI_Request sendrequest;
   MPI_Request recvrequest;
 
@@ -270,7 +250,7 @@ int main(int argc, char *argv[])
     printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
     printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
     printf("\n");
-  }
+  }*/
 
 #ifdef PORT_CUDA
   cudaFree(sendbuf_d);

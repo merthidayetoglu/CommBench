@@ -413,8 +413,10 @@ namespace CommBench
       this->launch();
       double start = MPI_Wtime() - time;
       this->wait();
-      MPI_Barrier(comm_mpi);
+      // MPI_Barrier(comm_mpi); // eliminate barrier
       time = MPI_Wtime() - time;
+      MPI_Allreduce(MPI_IN_PLACE, &start, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter < 0) {
         if(myid == ROOT)
           printf("startup %.2e warmup: %.2e\n", start, time);

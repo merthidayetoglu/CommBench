@@ -399,13 +399,13 @@ namespace CommBench
     for (int iter = -warmup; iter < numiter; iter++) {
       for(int send = 0; send < numsend; send++) {
 #if defined PORT_CUDA
-        cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
+        // cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #elif defined PORT_HIP
-        hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
+        // hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #elif defined PORT_SYCL
-	//q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
+	// q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
 #else
-        memset(sendbuf[send], -1, sendcount[send] * sizeof(T));
+        memset(sendbuf[send], -1, sendcount[send] * sizeof(T)); // NECESSARY FOR CPU TO PREVENT CACHING
 #endif
       }
       MPI_Barrier(comm_mpi);

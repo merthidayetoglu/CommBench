@@ -23,14 +23,14 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
- #include <rccl.h>
+ #include <nccl.h>
+// #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
-// #define PORT_CUDA
- #define PORT_HIP
+ #define PORT_CUDA
+// #define PORT_HIP
 // #define PORT_SYCL
 
 // CONTROL NCCL CAPABILITY
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
   for (int iter = -warmup; iter < numiter; iter++) {
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
-   switch(library) {
+    switch(library) {
       case 1:
         switch(pattern) {
           case 1: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
@@ -152,9 +152,12 @@ int main(int argc, char *argv[])
 #endif
         break;
 #endif
+      default:
+        break; // do nothing
     }
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD); // eliminate barrier
     time = MPI_Wtime() - time;
+    MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     if(iter < 0) {
       if(myid == ROOT)
         printf("warmup: %e\n", time);

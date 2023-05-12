@@ -40,6 +40,8 @@ There are three parameters, $p$, $g$, and $k$ to configure the benchmark, where 
 
 ![Comm Patterns](https://github.com/merthidayetoglu/CommBench/blob/master/figures/comm_patterns.png)
 
+To define benchmark configuration without ambiguity, one needs to specify $(p, g, k)$, pattern, and the direction of data movement.
+
 ### Direction of Data Movement
 
 For convenience, we define unidirectional, bidirectional, and omnidirectional data movement for the group communication patterns. The terminals of unidirectional and bidirectional data movement are located in the originating group. Omnidirectional data movement happens across all groups.

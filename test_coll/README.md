@@ -50,8 +50,8 @@ MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
 bench.start();
 bench.wait();
-MPI_Barrier(MPI_COMM_WORLD);
 time = MPI_Wtime() - time;
+MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 ```
 
 
@@ -63,8 +63,8 @@ MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
 ncclScatter(sendbuf, recvbuf, count, ncclFloat64, 0, comm_nccl, 0);
 cudaStreamSynchronize(0);
-MPI_Barrier(MPI_COMM_WORLD);
 time = MPI_Wtime() - time;
+MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 ```
 
 We can isolate the communication across nodes with unidirectional Fan (16, 8, 1) pattern. We can implemented this pattern easily with NCCL using CommBench.
@@ -80,6 +80,6 @@ MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
 bench.start();
 bench.wait();
-MPI_Barrier(MPI_COMM_WORLD);
 time = MPI_Wtime() - time;
+MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 ```

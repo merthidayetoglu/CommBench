@@ -20,16 +20,16 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define ROOT 0
+#define ROOT 3
 
 // HEADERS
-// #include <nccl.h>
+ #include <nccl.h>
 // #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
-// #define PORT_CUDA
+ #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 
@@ -38,16 +38,17 @@
 #include "coll.h"
 
 // UTILITIES
-#include "util.h"
+#include "../util.h"
 void print_args();
 
 // USER DEFINED TYPE
-struct Type
+#define Type int
+/*struct Type
 {
   // int tag;
   int data[1];
   // complex<double> x, y, z;
-};
+};*/
 
 int main(int argc, char *argv[])
 {
@@ -61,16 +62,17 @@ int main(int argc, char *argv[])
   #pragma omp parallel
   if(omp_get_thread_num() == 0)
     numthread = omp_get_num_threads();
-  char machine_name[MPI_MAX_PROCESSOR_NAME];
-  int name_len = 0;
-  MPI_Get_processor_name(machine_name, &name_len);
-  printf("myid %d %s\n",myid, machine_name);
+  // char machine_name[MPI_MAX_PROCESSOR_NAME];
+  // int name_len = 0;
+  // MPI_Get_processor_name(machine_name, &name_len);
+  // printf("myid %d %s\n",myid, machine_name);
 
   // INPUT PARAMETERS
-  if(argc != 3) {print_args(); return 0;};
-  size_t count = atoi(argv[1]);
-  int warmup = atoi(argv[2]);
-  int numiter = atoi(argv[3]);
+  if(argc != 5) {print_args(); MPI_Finalize(); return 0;}
+  int pattern = atoi(argv[1]);
+  size_t count = atoi(argv[2]);
+  int warmup = atoi(argv[3]);
+  int numiter = atoi(argv[4]);
 
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
@@ -80,6 +82,8 @@ int main(int argc, char *argv[])
     printf("Number of threads per proc: %d\n", numthread);
     printf("Number of warmup %d\n", warmup);
     printf("Number of iterations %d\n", numiter);
+
+    printf("Pattern: %d\n", pattern);
 
     printf("Bytes per Type %lu\n", sizeof(Type));
     printf("Point-to-point (P2P) count %ld ( %ld Bytes)\n", count, count * sizeof(Type));
@@ -106,8 +110,8 @@ int main(int argc, char *argv[])
   recvbuf_d = new Type[count * numproc];
 #endif
 
-  {
-  }
+  Gather<Type> coll(sendbuf_d, recvbuf_d, count, ROOT, MPI_COMM_WORLD); 
+ 
 
 // DEALLOCATE
 #ifdef PORT_CUDA
@@ -139,10 +143,19 @@ void print_args() {
 
   if(myid == ROOT) {
     printf("\n");
-    printf("CollBench requires three arguments:\n");
-    printf("1. count: number of 4-byte elements\n");
-    printf("2. warmup: number of warmup rounds\n");
-    printf("3. numiter: number of measurement rounds\n");
+    printf("CollBench requires four arguments:\n");
+    printf("1. pattern:\n");
+    printf("      1 for Gather\n");
+    printf("      2 for Scatter\n");
+    printf("      3 for Reduce\n");
+    printf("      4 for Broadcast\n");
+    printf("      5 for Alltoall\n");
+    printf("      6 for Allreduce\n");
+    printf("      7 for Allgather\n");
+    printf("      8 for ReduceScatter\n");
+    printf("2. count: number of 4-byte elements\n");
+    printf("3. warmup: number of warmup rounds\n");
+    printf("4. numiter: number of measurement rounds\n");
     printf("where on can run CollBench as\n");
     printf("mpirun ./CollBench count warmup numiter\n");
     printf("\n");

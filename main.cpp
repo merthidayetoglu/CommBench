@@ -59,10 +59,10 @@ int main(int argc, char *argv[])
   #pragma omp parallel
   if(omp_get_thread_num() == 0)
     numthread = omp_get_num_threads();
-  char machine_name[MPI_MAX_PROCESSOR_NAME];
-  int name_len = 0;
-  MPI_Get_processor_name(machine_name, &name_len);
-  printf("myid %d %s\n",myid, machine_name);
+  // char machine_name[MPI_MAX_PROCESSOR_NAME];
+  // int name_len = 0;
+  // MPI_Get_processor_name(machine_name, &name_len);
+  // printf("myid %d %s\n",myid, machine_name);
 
   if(argc != 10) {print_args(); MPI_Finalize(); return 0;}
   // INPUT PARAMETERS

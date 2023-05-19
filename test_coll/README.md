@@ -31,13 +31,13 @@ As an example, we consider *All-to-all* collective as in `MPI_Alltoall`:
 ```cpp
 MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
-MPI_Alltoall(sendbuf, count, MPI_DOUBLE, recvbuf, count, MPI_DOUBLE, MPI_COMM_WORLD);
+MPI_Alltoall(sendbuf, count, MPI_INT, recvbuf, count, MPI_INT, MPI_COMM_WORLD);
 time = MPI_Wtime() - time;
-MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 ```
 On two nodes of frontier, where there are eight GPUs per node, we can isolate the communication across nodes with bidirectional Dense (16, 8, 8) pattern which discards the intra-node communications. We can implemented this pattern easily with MPI using CommBench.
 ```cpp
-CommBench::Bench<double> bench(MPI_COMM_WORLD, CommBench::library::MPI);
+CommBench::Bench<int> bench(MPI_COMM_WORLD, CommBench::library::MPI);
 
 // Bidirectional Dense (16, 8, 8) pattern
 for(int i = 0; i < 8; i++)

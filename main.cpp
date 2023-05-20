@@ -208,11 +208,11 @@ int main(int argc, char *argv[])
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
                 }
-          break;
+            break;
         }
         break;
       default:
-	; // DO NOTHING
+	break; // DO NOTHING
     }
 
     // bench.measure(warmup, numiter); // SIMPLIFIED VIEW
@@ -232,23 +232,19 @@ int main(int argc, char *argv[])
             case 1: printf("UNIDIRECTIONAL");  data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
             case 2: printf("BIDIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
             case 3: printf("OMNIDIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-          }
-          printf(" RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+          } printf(" RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 2:
           switch(direction) {
             case 1: printf("UNIDIRECTIONAL");  data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
 	    case 2: printf("BIDIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
 	    case 3: printf("OMNIDIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-          }
-          printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+          } printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 3:
           switch(direction) {
 	    case 1: printf("UNIDIRECTIONAL");  data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
 	    case 2: printf("BIDIRECTIONAL") ;  data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-          }
-          printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
-        default:
-          ; // DO NOTHING
+          } printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+        default: break; // DO NOTHING
       }
       printf("data: %.4e MB\n", data * 1e3);
       printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);

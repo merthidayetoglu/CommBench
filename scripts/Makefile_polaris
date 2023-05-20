@@ -1,0 +1,22 @@
+# ----- Make Macros -----
+
+NVCC = CC
+NVCCFLAGS = -cuda
+
+LD_FLAGS = -cuda -L/opt/nvidia/hpc_sdk/Linux_x86_64/21.9/comm_libs/nccl/lib -lnccl
+
+TARGETS = CommBench
+OBJECTS = main.o 
+
+# ----- Make Rules -----
+
+all:	$(TARGETS)
+
+%.o : %.cpp
+	${NVCC} ${NVCCFLAGS} $< -c -o $@
+
+CommBench: $(OBJECTS)
+	$(NVCC) -o $@ $(OBJECTS) $(LD_FLAGS)
+
+clean:
+	rm -f $(TARGETS) *.o *.o.* *.txt *.bin core *.html *.xml

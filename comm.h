@@ -49,8 +49,12 @@ namespace CommBench
     size_t *recvoffset_ipc;
 #ifdef PORT_CUDA
     cudaStream_t *stream_ipc;
+    cudaEvent_t *sendevent_ipc;
+    cudaEvent_t **recvevent_ipc;
 #elif defined PORT_HIP
     hipStream_t *stream_ipc;
+    hipEvent_t *sendevent_ipc;
+    hipEvent_t **recvevent_ipc;
 #endif
 
     T **sendbuf;
@@ -197,7 +201,36 @@ namespace CommBench
           break;
         case NCCL: break;
         case IPC:
+          // SEND REMOTE EVENT HANDLE
           {
+#ifdef PORT_CUDA
+	    cudaEvent_t *sendevent_ipc = new cudaEvent_t[numsend + 1];
+            if(numsend) {
+              memcpy(sendevent_ipc, this->sendevent_ipc, numsend * sizeof(cudaEvent_t));
+              delete[] this->sendevent_ipc;
+            }
+#elif PORT_HIP
+#endif
+            this->sendevent_ipc = sendevent_ipc;
+          }
+#ifdef PORT_CUDA
+          if(sendid == recvid) {
+            cudaEventCreate(sendevent_ipc + numsend);
+	  }
+          if(sendid != recvid) {
+            cudaEventCreate(sendevent_ipc + numsend, cudaEventInterprocess + cudaEventDisableTiming);
+            cudaIpcEventHandle_t eventhandle;
+            int error = cudaIpcGetEventHandle(&eventhandle, sendevent_ipc[numsend]);
+            MPI_Send(&eventhandle, sizeof(cudaIpcEventHandle_t), MPI_BYTE, recvid, 0, comm_mpi);
+            if(error) {
+              printf("IpcGetEventHandle error %d\n", error);
+              return;
+            }
+          }
+#elif PORT_HIP
+#endif
+          // RECV REMOTE MEMORY HANDLE
+	  {
             T **recvbuf_ipc = new T*[numsend + 1];
             size_t *recvoffset_ipc = new size_t[numsend + 1];
             if(numsend) {
@@ -234,21 +267,17 @@ namespace CommBench
               cudaIpcMemHandle_t memhandle;
               MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
               int error = cudaIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, cudaIpcMemLazyEnablePeerAccess);
-              if(error) {
-                printf("CHECK RECEIVER POINTER HEAD\n");
-                return;
-              }
 #elif defined PORT_HIP
               hipIpcMemHandle_t memhandle;
               MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
               int error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
-              if(error) {
-                printf("CHECK RECEIVER POINTER HEAD\n");
-                return;
-              }
 #elif defined PORT_SYCL
               MPI_Recv(recvbuf_ipc + numsend, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
 #endif
+              if(error) {
+                printf("IpcOpenMemHandle error %d\n", error);
+                return;
+              }
             }
             MPI_Recv(recvoffset_ipc + numsend, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
@@ -311,6 +340,36 @@ namespace CommBench
           break;
         case NCCL: break;
         case IPC:
+          // RECIEVE REMOTE EVENT HANDLE
+          {
+#ifdef PORT_CUDA
+            cudaEvent_t **recvevent_ipc = new cudaEvent_t*[numrecv + 1];
+            if(numrecv) {
+              memcpy(recvevent_ipc, this->recvevent_ipc, numrecv * sizeof(cudaEvent_t*));
+              delete[] this->recvevent_ipc;
+            }
+#elif defined PORT_HIP
+#endif
+            this->recvevent_ipc = recvevent_ipc;
+          }
+#ifdef PORT_CUDA
+          if(sendid == recvid) {
+            recvevent_ipc[numrecv] = sendevent_ipc + numsend - 1;
+          }
+          if(sendid != recvid) {
+            cudaIpcEventHandle_t eventhandle;
+            cudaEvent_t event;
+            MPI_Recv(&eventhandle, sizeof(cudaIpcEventHandle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            int error = cudaIpcOpenEventHandle(&event, eventhandle);
+	    recvevent_ipc[numrecv] = &event;
+            if(error) {
+              printf("IpcOpenEventHandle error %d\n", error);
+              return;
+            }
+          }
+#elif defined PORT_HIP
+#endif
+          // SEND REMOTE MEMORY HANDLE
           if(sendid != recvid)
           {
             bool duplicate = false;
@@ -330,15 +389,19 @@ namespace CommBench
             else {
 #ifdef PORT_CUDA
               cudaIpcMemHandle_t myhandle;
-              cudaIpcGetMemHandle(&myhandle, recvbuf);
+              int error = cudaIpcGetMemHandle(&myhandle, recvbuf);
               MPI_Send(&myhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #elif defined PORT_HIP
               hipIpcMemHandle_t myhandle;
-              hipIpcGetMemHandle(&myhandle, recvbuf);
+              int error = hipIpcGetMemHandle(&myhandle, recvbuf);
               MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #elif defined PORT_SYCL
               MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi);
 #endif
+              if(error) {
+                printf("IpcGetMemHandle error %d\n", error);
+                return;
+              }
             }
             MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
           }
@@ -553,11 +616,15 @@ namespace CommBench
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[send]);
+          cudaEventRecord(sendevent_ipc[send], stream_ipc[send]);
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[send]);
+          hipEventRecord(sendevent_ipc[send], stream_ipc[send]);
 #endif
         }
-        MPI_Barrier(comm_mpi);
+	for(int recv = 0; recv < numrecv; recv++)
+          cudaEventSynchronize(*recvevent_ipc[recv]);
+        //MPI_Barrier(comm_mpi);
         break;
     }
   } // Comm::wait()

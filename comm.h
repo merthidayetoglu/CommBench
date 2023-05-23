@@ -209,9 +209,9 @@ namespace CommBench
               memcpy(sendevent_ipc, this->sendevent_ipc, numsend * sizeof(cudaEvent_t));
               delete[] this->sendevent_ipc;
             }
+            this->sendevent_ipc = sendevent_ipc;
 #elif PORT_HIP
 #endif
-            this->sendevent_ipc = sendevent_ipc;
           }
 #ifdef PORT_CUDA
           if(sendid == recvid) {
@@ -263,14 +263,15 @@ namespace CommBench
                 }
             }
             else {
+              int error = -1;
 #ifdef PORT_CUDA
               cudaIpcMemHandle_t memhandle;
               MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-              int error = cudaIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, cudaIpcMemLazyEnablePeerAccess);
+              error = cudaIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, cudaIpcMemLazyEnablePeerAccess);
 #elif defined PORT_HIP
               hipIpcMemHandle_t memhandle;
               MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-              int error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
+              error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
 #elif defined PORT_SYCL
               MPI_Recv(recvbuf_ipc + numsend, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
 #endif
@@ -348,9 +349,9 @@ namespace CommBench
               memcpy(recvevent_ipc, this->recvevent_ipc, numrecv * sizeof(cudaEvent_t));
               delete[] this->recvevent_ipc;
             }
+            this->recvevent_ipc = recvevent_ipc;
 #elif defined PORT_HIP
 #endif
-            this->recvevent_ipc = recvevent_ipc;
           }
 #ifdef PORT_CUDA
           if(sendid == recvid) {
@@ -385,13 +386,14 @@ namespace CommBench
             if(duplicate)
               MPI_Send(&count, 1, MPI_INT, sendid, 0, comm_mpi);
             else {
+              int error = -1;
 #ifdef PORT_CUDA
               cudaIpcMemHandle_t myhandle;
-              int error = cudaIpcGetMemHandle(&myhandle, recvbuf);
+              error = cudaIpcGetMemHandle(&myhandle, recvbuf);
               MPI_Send(&myhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #elif defined PORT_HIP
               hipIpcMemHandle_t myhandle;
-              int error = hipIpcGetMemHandle(&myhandle, recvbuf);
+              error = hipIpcGetMemHandle(&myhandle, recvbuf);
               MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #elif defined PORT_SYCL
               MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi);

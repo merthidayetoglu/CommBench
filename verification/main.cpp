@@ -221,7 +221,7 @@ void print_args() {
     printf("4. warmup: number of warmup rounds\n");
     printf("5. numiter: number of measurement rounds\n");
     printf("where on can run CollBench as\n");
-    printf("mpirun ./CollBench count warmup numiter\n");
+    printf("mpirun ./CollBench $library $pattern $count $warmup $numiter\n");
     printf("\n");
   }
 }

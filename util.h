@@ -30,7 +30,7 @@ void setup_gpu() {
   cudaSetDevice(device);
   // REPORT
   if(myid == ROOT){
-    system("nvidia-smi");
+    int error = system("nvidia-smi");
     int deviceCount;
     int device;
     cudaGetDevice(&device);

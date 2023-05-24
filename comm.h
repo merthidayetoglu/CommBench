@@ -139,6 +139,7 @@ namespace CommBench
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void launch();
     void wait();
+    void run() {launch(); wait();}
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void measure(int warmup, int numiter);
@@ -201,6 +202,8 @@ namespace CommBench
           break;
         case NCCL: break;
         case IPC:
+          if(numsend) delete[] sendrequest;
+          sendrequest = new MPI_Request[numsend + 1];
           // SEND REMOTE EVENT HANDLE
           {
 #ifdef PORT_CUDA
@@ -341,6 +344,8 @@ namespace CommBench
           break;
         case NCCL: break;
         case IPC:
+          if(numrecv) delete[] recvrequest;
+          recvrequest = new MPI_Request[numrecv + 1];
           // RECIEVE REMOTE EVENT HANDLE
           {
 #ifdef PORT_CUDA
@@ -587,10 +592,8 @@ namespace CommBench
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
           cudaMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
-          cudaEventRecord(sendevent_ipc[send], stream_ipc[send]);
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
-          hipEventRecord(sendevent_ipc[send], stream_ipc[send]);
 #elif defined PORT_SYCL
 	  q->memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T)).wait();
 #endif
@@ -614,17 +617,21 @@ namespace CommBench
 #endif
         break;
       case IPC:
+        for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
-        for(int send = 0; send < numsend; send++)
-          cudaEventSynchronize(sendevent_ipc[send]);
-	for(int recv = 0; recv < numrecv; recv++)
-          cudaEventSynchronize(recvevent_ipc[recv]);
+          cudaStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_HIP
-        for(int send = 0; send < numsend; send++)
-          hipEventSynchronize(sendevent_ipc[send]);
-	for(int recv = 0; recv < numrecv; recv++)
-          cudaEventSynchronize(recvevent_ipc[recv]);
+          hipStreamSynchronize(stream_ipc[send]);
 #endif
+          bool test = true;
+          MPI_Isend(&test, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
+        }
+	for(int recv = 0; recv < numrecv; recv++) {
+          bool test = false;
+          MPI_Irecv(&test, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
+	}
+        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         break;
     }
   } // Comm::wait()

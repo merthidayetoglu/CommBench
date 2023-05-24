@@ -447,7 +447,7 @@ namespace CommBench
         printf("data: %.4f GB\n", data / 1e9);
       else
         printf("data: %.4f TB\n", data / 1e12);
-      printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime * 1e9 / data, data / minTime / 1e9);
+      printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
       printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime * 1e9 / data, data / medTime / 1e9);
       printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime * 1e9 / data, data / maxTime / 1e9);
       printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime * 1e9 / data, data / avgTime / 1e9);
@@ -630,7 +630,7 @@ namespace CommBench
           bool test = false;
           MPI_Irecv(&test, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
 	}
-        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        // MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         break;
     }

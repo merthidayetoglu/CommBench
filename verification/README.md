@@ -26,9 +26,9 @@ Rev2:
 - We will use white borders for collective communication marks.
 
 Rev3:
-- We will add a section to demonstrate the striping algorithm (please refer to Q1) that takes advantage of multiple NICs. We confirm that this optimization is only efficient for large messages because of the latency overhead.
+- Please refer **Q1**.  Indeed, this optimization is only efficient for large messages because of the latency overhead.
 - It is possible to perform additional experiments with CommBench to reverse engineer the internals of NCCL. Ideally, it is best to confirm with NCCL developers. We are in contact with NCCL engineers and will update speculation upon their recommendation.
-- “... groups intermediate in size…" refers to nodes where each GPU is controlled by a single MPI process that runs on CPU. By processor, we mean GPU. We will fix this sentence.
+- “...groups intermediate in size…" refers to nodes where each GPU is controlled by a single MPI process that runs on CPU. By processor, we mean GPU. We will fix this sentence.
 - CommBench will work as long as MPI or NCCL works. We would be happy to try out the pre-implemented patterns, or use CommBench’s API to implement new patterns for TPU nodes.
 - We left the Omnidirectional Fan pattern undefined for brevity, i.e., we did not consider a practical use of it. Please see the text in Section 3 below Figure 5.
 

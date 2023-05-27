@@ -43,4 +43,4 @@ For the reason why not run collectives directly, please refer to Q2.
 - remark that users can also use other system tools to determine the physical topology
 - note that NCCL is open-source in the final version.
 - will note NCCL is not closed source nor proprietary.
-- One interesting finding that CommBench exposed is the serialization problem with MPICH-based MPI implementations. We reported this finding to MPICH developers and verified that their code does not overlap multiple P2P communications because it serializes them on a single GPU stream. This is another good example of the applicability of CommBench.  We will describe this finding on Perlmutter in the final version as an example in Section 5.4.
+- CommBench exposed a serialization problem in MPICH-based MPI implementations. We reported this finding to MPICH developers and verified that their code does not overlap multiple P2P communications. It serializes them on a single GPU stream. We will describe this finding on Perlmutter in the final version as an example in Section 5.4.

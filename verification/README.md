@@ -16,31 +16,32 @@ The proposed patterns are reduced versions of the standard patterns (see Figure 
 
 Now we address individual comments.
 
-Rev 1:
-- We will fix the figure references and reported typos.
-- In Section 5.3, CommBench runs on ThetaGPU—Figure 8(e)—without problem but the MPI bandwidth is low. After discussing this with ALCF admins, we speculate that there is a rank placement issue. The problem has not been resolved. But to address the comment, we will include the missing results in the final version.
+**Rev 1:**
+1) We will fix the figure references and reported typos.
+2) In Section 5.3, CommBench runs on ThetaGPU—Figure 8(e)—without problem but the MPI bandwidth is low. After discussing this with ALCF admins, we speculate that there is a rank placement issue. The problem has not been resolved. But to address the comment, we will include the missing results in the final version.
 
-Rev2:
-- Please refer to Q1 and Q2 for relation of CommBench to HPC applications. We will cite the survey paper from Laguna et al.
-- This work focuses on data movement across groups only, i.e., with no computation. Therefore we do not currently support reduction operations. The implementer can easily add computation to extend the benchmark to include the reduction operation.
-- We will use white borders for collective communication marks.
+**Rev2:**
+1) Please refer to Q1 and Q2 for relation of CommBench to HPC applications. We will cite the survey paper from Laguna et al.
+2) This work focuses on data movement across groups only, i.e., with no computation. Therefore we do not currently support reduction operations. The implementer can easily add computation to extend the benchmark to include the reduction operation.
+3) We will use white borders for collective communication marks.
 
-Rev3:
-- Please refer **Q1**.  Indeed, this optimization is only efficient for large messages because of the latency overhead.
-- It is possible to perform additional experiments with CommBench to reverse engineer the internals of NCCL. Ideally, it is best to confirm with NCCL developers. We are in contact with NCCL engineers and will update speculation upon their recommendation.
-- “...groups intermediate in size…" refers to nodes where each GPU is controlled by a single MPI process that runs on CPU. By processor, we mean GPU. We will fix this sentence.
-- CommBench will work as long as MPI or NCCL works. We would be happy to try out the pre-implemented patterns, or use CommBench’s API to implement new patterns for TPU nodes.
-- We left the Omnidirectional Fan pattern undefined for brevity, i.e., we did not consider a practical use of it. Please see the text in Section 3 below Figure 5.
+**Rev3:**
+1) Please refer **Q1**. Indeed, this optimization is only efficient for large messages because of the latency overhead.
+2) It is possible to perform additional experiments with CommBench to reverse engineer the internals of NCCL. Ideally, it is best to confirm with NCCL developers. We are in contact with NCCL engineers and will update speculation upon their recommendation.
+3) “...groups intermediate in size…" refers to nodes where each GPU is controlled by a single MPI process that runs on CPU. By processor, we mean GPU. We will fix this sentence.
+4) CommBench will work as long as MPI or NCCL works. We would be happy to try out the pre-implemented patterns, or use CommBench’s API to implement new patterns for TPU nodes.
+5) We left the Omnidirectional Fan pattern undefined for brevity, i.e., we did not consider a practical use of it. Please see the text in Section 3 below Figure 5.
 
-Rev4:
-- To address the motivation, we propose adding a section that demonstrates how CommBench is useful for optimizing a library collective function (please refer to Q1).
-Rev5:
+**Rev4:**
+1) To address the motivation, we propose adding a section that demonstrates how CommBench is useful for optimizing a library collective function (please refer to Q1).
+
+**Rev5:**
 Please refer to Q1 for CommBench applicability and Q2 for its relation to collective operations.
-- Those utilities are non-blocking measurement functions and a flexible API to construct a desired collective pattern. The goal of CommBench is to help developers to gain insights about the optimization opportunities through measurements.
-- The logical topology depends on the library implementation, and is not found in user guide and communication libraries do not document their internal heuristics. Through discussions with system architects, we have learned that it is considered too much detail for a typical application developer.
-For the reason why not run collectives directly, please refer to Q2.
-- We will cite the prior work from Chan, et al.
-- remark that users can also use other system tools to determine the physical topology
-- note that NCCL is open-source in the final version.
-- will note NCCL is not closed source nor proprietary.
-- CommBench exposed a serialization problem in MPICH-based MPI implementations. MPICH developers verified that their code does not overlap multiple P2P communications. It serializes them on a single GPU stream. We will describe this finding with an example in the final version.
+2) Those utilities are non-blocking measurement functions and a flexible API to construct a desired collective pattern. The goal of CommBench is to help developers to gain insights about the optimization opportunities through measurements.
+3) The logical topology depends on the library implementation, and is not found in user guide and communication libraries do not document their internal heuristics. Through discussions with system architects, we have learned that it is considered too much detail for a typical application developer.
+4) For the reason why not run collectives directly, please refer to Q2.
+5) We will:
+- Cite the prior work from Chan, et al.
+- Remark that users can also use other system tools to determine the physical topology.
+- Note that NCCL is not closed source nor proprietary.
+6) CommBench exposed a serialization problem in MPICH-based MPI implementations. MPICH developers verified that their code does not overlap multiple P2P communications. It serializes them on a single GPU stream. We will describe this finding with an example in the final version.

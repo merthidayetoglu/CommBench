@@ -60,13 +60,13 @@ int main(int argc, char *argv[])
     for(int p = 0; p < numproc; p++)
       cudaStreamCreate(stream_ipc + p);
 
-  // ALLOCATE DEVICE
+  // ALLOCATE DEVICE BUFFERS
   Type *sendbuf_d;
   Type *recvbuf_d;
   if(myid == ROOT)
     cudaMalloc(&sendbuf_d, count * sizeof(Type) * numproc);
   cudaMalloc(&recvbuf_d, count * sizeof(Type));
-  // ALLOCATE HOST
+  // ALLOCATE HOST BUFFERS (FOR VERIFICATION)
   Type *sendbuf;
   Type *recvbuf;
   if(myid == ROOT)
@@ -76,8 +76,8 @@ int main(int argc, char *argv[])
   // EXCHANGE MEMORY HANDLES
   if(myid == ROOT) {
     for(int p = 0; p < numproc; p++) {
-      if(p == myid) // SELF COMMUNICATION
-        recvbuf_ipc[p] = recvbuf_d;
+      if(p == myid)
+        recvbuf_ipc[p] = recvbuf_d; // SELF COMMUNICATION
       else {
         cudaIpcMemHandle_t memhandle;
         MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, p, p, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
     MPI_Send(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, ROOT, myid, MPI_COMM_WORLD);
   }
 
-  // INITIALIZE VERIFICATION
+  // INITIALIZE BUFFERS FOR VERIFICATION
   for(int p = 0; p < numproc; p++)
     for(size_t i = 0; i < count; i++)
       sendbuf[p * count + i] = p * count * i;
@@ -103,16 +103,21 @@ int main(int argc, char *argv[])
   cudaStreamCreate(&stream_verify);
   bool test = true;
 
+  // START IPC COMMUNICATION
   MPI_Barrier(MPI_COMM_WORLD);
 
   if(myid == ROOT)
     for(int p = 0; p < numproc; p++)
       cudaMemcpyAsync(sendbuf_d + count * p, recvbuf_ipc[p], count * sizeof(Type), cudaMemcpyDeviceToDevice, stream_ipc[p]);
 
-  // SYNCHRONIZATION
+  // SENDER SYNCHRONIZATION
+  if(myid == ROOT)
+    for(int p = 0; p < numproc; p++)
+      cudaStreamSynchronize(stream_ipc[p]);
+  // RECVER SYNCHRONIZATION
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // VERIFY
+  // RECVER VERIFY
   cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(Type), cudaMemcpyDeviceToHost, stream_verify);
   cudaStreamSynchronize(stream_verify);
   for(size_t i = 0; i < count; i++) {

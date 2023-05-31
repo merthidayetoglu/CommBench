@@ -20,17 +20,17 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define ROOT 3
+#define ROOT 0
 
 // HEADERS
- #include <nccl.h>
-// #include <rccl.h>
+// #include <nccl.h>
+ #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
- #define PORT_CUDA
-// #define PORT_HIP
+// #define PORT_CUDA
+ #define PORT_HIP
 // #define PORT_SYCL
 
 #include "../comm.h"
@@ -68,7 +68,13 @@ int main(int argc, char *argv[])
   // printf("myid %d %s\n",myid, machine_name);
 
   // INPUT PARAMETERS
-  if(argc != 6) {printf("arcgc: %d\n", argc); print_args(); MPI_Finalize(); return 0;}
+  if(argc != 6) {
+    printf("arcgc: %d\n", argc);
+    print_args();
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize();
+    return 0;
+  }
   int library = atoi(argv[1]);
   int pattern = atoi(argv[2]);
   size_t count = atoi(argv[3]);
@@ -117,7 +123,7 @@ int main(int argc, char *argv[])
 
     switch(pattern) {
       case 0:
-        if(myid == ROOT)
+        if(myid == 0)
           printf("TEST P2P\n");
         coll.add(sendbuf_d, 0, recvbuf_d, 0, count, 0, 1);
         break;
@@ -167,10 +173,12 @@ int main(int argc, char *argv[])
         break;
     }
 
+    coll.report();
+
     for(int iter = 0; iter < numiter; iter++)
       validate(sendbuf_d, recvbuf_d, count, pattern, coll);
 
-    measure(warmup, numiter, coll);
+    measure(count, warmup, numiter, coll);
   }
 
 // DEALLOCATE

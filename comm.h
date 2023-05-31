@@ -139,7 +139,7 @@ namespace CommBench
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void launch();
     void wait();
-    void run() {launch(); wait();}
+    void run() {launch(); wait();};
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void measure(int warmup, int numiter);
@@ -213,7 +213,7 @@ namespace CommBench
               delete[] this->sendevent_ipc;
             }
             this->sendevent_ipc = sendevent_ipc;
-#elif PORT_HIP
+#elif defined PORT_HIP
 #endif
           }
 #ifdef PORT_CUDA
@@ -230,7 +230,7 @@ namespace CommBench
               return;
             }
           }
-#elif PORT_HIP
+#elif defined PORT_HIP
 #endif
           // RECV REMOTE MEMORY HANDLE
 	  {

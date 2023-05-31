@@ -1,4 +1,4 @@
-template <typename T, class Coll>
+template <class Coll>
 void measure(size_t count, int warmup, int numiter, Coll &coll) {
 
   int myid;
@@ -45,6 +45,7 @@ void measure(size_t count, int warmup, int numiter, Coll &coll) {
     for(int iter = 0; iter < numiter; iter++)
       avgTime += times[iter];
     avgTime /= numiter;
+    double data = count * sizeof(int);
     if (data < 1e3)
       printf("data: %d bytes\n", (int)data);
     else if (data < 1e6)
@@ -74,30 +75,63 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
 
   int *recvbuf;
   int *sendbuf;
+#ifdef PORT_CUDA
   cudaMallocHost(&sendbuf, count * numproc * sizeof(int));
   cudaMallocHost(&recvbuf, count * numproc * sizeof(int));
+#elif defined PORT_HIP
+  hipHostMalloc(&sendbuf, count * numproc * sizeof(int));
+  hipHostMalloc(&recvbuf, count * numproc * sizeof(int));
+#endif
+  
 
   for(int p = 0; p < numproc; p++)
     for(size_t i = p * count; i < (p + 1) * count; i++)
       sendbuf[i] = i;
+#ifdef PORT_CUDA
   cudaMemcpy(sendbuf_d, sendbuf, count * sizeof(int) * numproc, cudaMemcpyHostToDevice);
-  memset(recvbuf, -1, count * numproc * sizeof(int));
   cudaMemset(recvbuf_d, -1, count * numproc * sizeof(int));
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  bool pass = true;
-
   cudaDeviceSynchronize();
+#elif defined PORT_HIP
+  hipMemcpy(sendbuf_d, sendbuf, count * sizeof(int) * numproc, hipMemcpyHostToDevice);
+  hipMemset(recvbuf_d, -1, count * numproc * sizeof(int));
+  hipStream_t stream;
+  hipStreamCreate(&stream);
+  hipDeviceSynchronize();
+#endif
+  memset(recvbuf, -1, count * numproc * sizeof(int));
+
   MPI_Barrier(MPI_COMM_WORLD);
 
+  coll.run();
+
+#ifdef PORT_CUDA
+  cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int) * numproc, cudaMemcpyDeviceToHost, stream);
+  cudaStreamSynchronize(stream);
+#elif defined PORT_HIP
+  hipMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int) * numproc, hipMemcpyDeviceToHost, stream);
+  hipStreamSynchronize(stream);
+#endif
+
+  bool pass = true;
   switch(pattern) {
+    case 0:
+      {
+        if(myid == 0) printf("VERIFY P2P\n");
+        if(myid == 1) {
+          for(size_t i = 0; i < count; i++) {
+            // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+            if(recvbuf[i] != i)
+              pass = false;
+          }
+        }
+      }
+      break;
     case 1:
       {
         if(myid == ROOT) printf("VERIFY GATHER\n");
-        coll.run();
         if(myid == ROOT) {
-          cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int) * numproc, cudaMemcpyDeviceToHost, stream);
-          cudaStreamSynchronize(stream);
           for(int p = 0; p < numproc; p++)
             for(size_t i = 0; i < count; i++) {
               // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
@@ -110,9 +144,6 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
     case 2:
       {
         if(myid == ROOT) printf("VERIFY SCATTER\n");
-        coll.run();
-        cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream);
         for(size_t i = 0; i < count; i++) {
           // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
           if(recvbuf[i] != myid * count + i)
@@ -123,9 +154,6 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
     case 4:
       {
         if(myid == ROOT) printf("VERIFY BCAST\n");
-        coll.run();
-        cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream);
         for(size_t i = 0; i < count; i++) {
           // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
           if(recvbuf[i] != i)
@@ -136,9 +164,6 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
     case 5:
       {
         if(myid == ROOT) printf("VERIFY ALL-TO-ALL\n");
-        coll.run();
-        cudaMemcpyAsync(recvbuf, recvbuf_d, count * numproc * sizeof(int), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream);
         for(int p = 0; p < numproc; p++)
           for(size_t i = 0; i < count; i++) {
             // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
@@ -150,9 +175,6 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
     case 7:
       {
         if(myid == ROOT) printf("VERIFY ALL-GATHER\n");
-        coll.run();
-        cudaMemcpyAsync(recvbuf, recvbuf_d, count * numproc * sizeof(int), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream);
         for(int p = 0; p < numproc; p++)
           for(size_t i = 0; i < count; i++) {
             // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
@@ -169,10 +191,14 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
       printf("PASSED!\n");
     else 
       printf("FAILED!!!\n");
-    printf("\n");
   }
 
+#ifdef PORT_CUDA
   cudaFreeHost(sendbuf);
   cudaFreeHost(recvbuf);
+#elif defined PORT_HIP
+  hipHostFree(sendbuf);
+  hipHostFree(recvbuf);
+#endif
 };
 

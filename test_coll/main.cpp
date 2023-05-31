@@ -24,13 +24,13 @@
 
 // HEADERS
 // #include <nccl.h>
-// #include <rccl.h>
+ #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
 // #define PORT_CUDA
-// #define PORT_HIP
+ #define PORT_HIP
 // #define PORT_SYCL
 
 // CONTROL NCCL CAPABILITY
@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
     for(int iter = 0; iter < numiter; iter++)
       avgTime += times[iter];
     avgTime /= numiter;
-    double data = count * sizeof(float) * numproc / 1.e9;
+    double data = count * sizeof(float);
     switch(library) {
       case 1:
         switch(pattern) {
@@ -214,10 +214,10 @@ int main(int argc, char *argv[])
 #endif
     }
     printf("data: %.4e MB\n", data * 1e3);
-    printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
-    printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
-    printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
-    printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
+    printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
+    printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e9, data / medTime / 1e9);
+    printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e9, data / maxTime / 1e9);
+    printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e9, data / avgTime / 1e9);
     printf("\n");
   }
 
@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef CAP_NCCL
-  ncclCommDestroy(comm_nccl);
+  // ncclCommDestroy(comm_nccl);
 #endif
 
   // FINALIZE

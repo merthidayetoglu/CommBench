@@ -51,9 +51,7 @@ int main(int argc, char *argv[])
   setup_gpu();
 
   // REMOTE MEMORY POINTER
-  Type **recvbuf_ipc;
-  if(myid == ROOT)
-    recvbuf_ipc = new Type*[numproc];
+  Type *recvbuf_ipc[numproc];
 
   // IPC STREAMS
   cudaStream_t stream_ipc[numproc];
@@ -113,6 +111,33 @@ int main(int argc, char *argv[])
   cudaStreamCreate(&stream_verify);
   bool pass = true;
 
+  // SET REMOTE EVENT
+  cudaEvent_t sendevent[numproc];
+  cudaEvent_t sendevent_ipc;
+  if(myid == ROOT) {
+    for(int p = 0; p < numproc; p++) {
+      if(p == myid) {
+        cudaEventCreate(sendevent + p);
+        sendevent_ipc = sendevent[p];
+      }
+      else {
+        cudaEventCreateWithFlags(sendevent + p, cudaEventInterprocess | cudaEventDisableTiming);
+        cudaIpcEventHandle_t eventhandle;
+        int error = cudaIpcGetEventHandle(&eventhandle, sendevent[p]);
+	if(error)
+          printf("myid %d cudaIpcGetEventHandle %d\n", myid, error);
+        MPI_Send(&eventhandle, sizeof(cudaIpcEventHandle_t), MPI_BYTE, p, myid, MPI_COMM_WORLD);
+      }
+    }
+  }
+  else {
+    cudaIpcEventHandle_t eventhandle;
+    MPI_Recv(&eventhandle, sizeof(cudaIpcEventHandle_t), MPI_BYTE, ROOT, ROOT, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    int error = cudaIpcOpenEventHandle(&sendevent_ipc, eventhandle);
+    if(error)
+      printf("myid %d cudaIpcOpenEventHandle %d\n", myid, error);
+  }
+
   // START IPC COMMUNICATION
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -120,10 +145,11 @@ int main(int argc, char *argv[])
   if(myid == ROOT)
     for(int p = 0; p < numproc; p++) {
       cudaMemcpyAsync(recvbuf_ipc[p], sendbuf_d + count * p, count * sizeof(Type), cudaMemcpyDeviceToDevice, stream_ipc[p]);
+      cudaEventRecord(sendevent[p], stream_ipc[p]);
     }
 
   // SENDER SYNCHRONIZATION
-  if(myid == ROOT)
+  /*if(myid == ROOT)
     for(int p = 0; p < numproc; p++) {
       cudaStreamSynchronize(stream_ipc[p]);
       bool test = true;
@@ -134,13 +160,14 @@ int main(int argc, char *argv[])
   // MPI_Barrier(MPI_COMM_WORLD);
   bool test = false;
   MPI_Irecv(&test, 1, MPI_C_BOOL, ROOT, 0, MPI_COMM_WORLD, &recvrequest);
-  MPI_Wait(&recvrequest, MPI_STATUS_IGNORE);
+  MPI_Wait(&recvrequest, MPI_STATUS_IGNORE);*/
+  cudaEventSynchronize(sendevent_ipc);
 
   // VERIFY SCATTER
   cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(Type), cudaMemcpyDeviceToHost, stream_verify);
   cudaStreamSynchronize(stream_verify);
   for(size_t i = 0; i < count; i++) {
-    // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+    printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
     if(recvbuf[i] != myid * count + i)
       pass = false;
   }

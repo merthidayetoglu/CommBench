@@ -146,28 +146,29 @@ int main(int argc, char *argv[])
     for(int p = 0; p < numproc; p++) {
       cudaMemcpyAsync(recvbuf_ipc[p], sendbuf_d + count * p, count * sizeof(Type), cudaMemcpyDeviceToDevice, stream_ipc[p]);
       cudaEventRecord(sendevent[p], stream_ipc[p]);
-    }
-
-  // SENDER SYNCHRONIZATION
-  /*if(myid == ROOT)
-    for(int p = 0; p < numproc; p++) {
-      cudaStreamSynchronize(stream_ipc[p]);
       bool test = true;
       MPI_Isend(&test, 1, MPI_C_BOOL, p, 0, MPI_COMM_WORLD, sendrequest + p);
     }
+  // RECVER BLOCKS UNTIL THE REMOTE EVENT IS RECORDED
+  bool test = false;
+  MPI_Irecv(&test, 1, MPI_C_BOOL, ROOT, 0, MPI_COMM_WORLD, &recvrequest);
+  MPI_Wait(&recvrequest, MPI_STATUS_IGNORE);
+
+  // SENDER SYNCHRONIZATION
+  if(myid == ROOT)
+    for(int p = 0; p < numproc; p++)
+      cudaStreamSynchronize(stream_ipc[p]);
 
   // RECVER SYNCHRONIZATION
   // MPI_Barrier(MPI_COMM_WORLD);
-  bool test = false;
-  MPI_Irecv(&test, 1, MPI_C_BOOL, ROOT, 0, MPI_COMM_WORLD, &recvrequest);
-  MPI_Wait(&recvrequest, MPI_STATUS_IGNORE);*/
-  cudaEventSynchronize(sendevent_ipc);
+  // cudaEventSynchronize(sendevent_ipc);
+  cudaStreamWaitEvent(stream_verify, sendevent_ipc);
 
   // VERIFY SCATTER
   cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(Type), cudaMemcpyDeviceToHost, stream_verify);
   cudaStreamSynchronize(stream_verify);
   for(size_t i = 0; i < count; i++) {
-    printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+    // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
     if(recvbuf[i] != myid * count + i)
       pass = false;
   }

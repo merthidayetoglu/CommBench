@@ -208,19 +208,25 @@ namespace CommBench
           {
 #ifdef PORT_CUDA
 	    cudaEvent_t *sendevent = new cudaEvent_t[numsend + 1];
-#elif defined PORT_HIP
-#endif
             if(numsend) {
               memcpy(sendevent, this->sendevent, numsend * sizeof(cudaEvent_t));
               delete[] this->sendevent;
             }
             this->sendevent = sendevent;
+#elif defined PORT_HIP
+            hipEvent_t *sendevent = new hipEvent_t[numsend + 1];
+            if(numsend) {
+              memcpy(sendevent, this->sendevent, numsend * sizeof(hipEvent_t));
+              delete[] this->sendevent;
+            }
+            this->sendevent = sendevent;
+#endif
           }
 #ifdef PORT_CUDA
           if(sendid == recvid)
             cudaEventCreate(sendevent + numsend);
 	  else {
-            cudaEventCreate(sendevent + numsend, cudaEventInterprocess + cudaEventDisableTiming);
+            cudaEventCreateWithFlags(sendevent + numsend, cudaEventInterprocess | cudaEventDisableTiming);
             cudaIpcEventHandle_t eventhandle;
             int error = cudaIpcGetEventHandle(&eventhandle, sendevent[numsend]);
             MPI_Send(&eventhandle, sizeof(cudaIpcEventHandle_t), MPI_BYTE, recvid, 0, comm_mpi);
@@ -230,6 +236,18 @@ namespace CommBench
             }
           }
 #elif defined PORT_HIP
+          if(sendid == recvid)
+            hipEventCreate(sendevent + numsend);
+          else {
+            hipEventCreateWithFlags(sendevent + numsend, hipEventInterprocess | hipEventDisableTiming);
+            hipIpcEventHandle_t eventhandle;
+            int error = hipIpcGetEventHandle(&eventhandle, sendevent[numsend]);
+            MPI_Send(&eventhandle, sizeof(hipIpcEventHandle_t), MPI_BYTE, recvid, 0, comm_mpi);
+            if(error) {
+              printf("IpcGetEventHandle error %d\n", error);
+              return;
+            }
+          }
 #endif
           // RECV REMOTE MEMORY HANDLE
 	  {
@@ -353,6 +371,12 @@ namespace CommBench
             }
             this->sendevent_ipc = sendevent_ipc;
 #elif defined PORT_HIP
+            hipEvent_t *sendevent_ipc = new hipEvent_t[numrecv + 1];
+            if(numrecv) {
+              memcpy(sendevent_ipc, this->sendevent_ipc, numrecv * sizeof(hipEvent_t));
+              delete[] this->sendevent_ipc;
+            }
+            this->sendevent_ipc = sendevent_ipc;
 #endif
           }
 #ifdef PORT_CUDA
@@ -368,6 +392,17 @@ namespace CommBench
             }
           }
 #elif defined PORT_HIP
+          if(sendid == recvid)
+            sendevent_ipc[numrecv] = sendevent[numsend - 1];
+          else {
+            hipIpcEventHandle_t eventhandle;
+            MPI_Recv(&eventhandle, sizeof(hipIpcEventHandle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            int error = hipIpcOpenEventHandle(sendevent_ipc + numrecv, eventhandle);
+            if(error) {
+              printf("IpcOpenEventHandle error %d\n", error);
+              return;
+            }
+          }
 #endif
           // SEND REMOTE MEMORY HANDLE
           if(sendid != recvid)

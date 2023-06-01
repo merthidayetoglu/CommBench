@@ -181,8 +181,6 @@ int main(int argc, char *argv[])
     measure(count, warmup, numiter, coll);
   }
 
-  return 0;
-
 // DEALLOCATE
 #ifdef PORT_CUDA
   cudaFree(sendbuf_d);

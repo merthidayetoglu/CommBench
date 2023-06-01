@@ -142,13 +142,15 @@ int main(int argc, char *argv[])
   MPI_Barrier(MPI_COMM_WORLD);
 
   // SENDER INITIATES
-  if(myid == ROOT)
+  if(myid == ROOT) {
     for(int p = 0; p < numproc; p++) {
       cudaMemcpyAsync(recvbuf_ipc[p], sendbuf_d + count * p, count * sizeof(Type), cudaMemcpyDeviceToDevice, stream_ipc[p]);
       cudaEventRecord(sendevent[p], stream_ipc[p]);
       bool test = true;
       MPI_Isend(&test, 1, MPI_C_BOOL, p, 0, MPI_COMM_WORLD, sendrequest + p);
     }
+    MPI_Waitall(numproc, sendrequest, MPI_STATUSES_IGNORE);
+  }
   // RECVER BLOCKS UNTIL THE REMOTE EVENT IS RECORDED
   bool test = false;
   MPI_Irecv(&test, 1, MPI_C_BOOL, ROOT, 0, MPI_COMM_WORLD, &recvrequest);

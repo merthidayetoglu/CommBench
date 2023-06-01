@@ -23,14 +23,14 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
- #include <rccl.h>
+ #include <nccl.h>
+// #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
-// #define PORT_CUDA
- #define PORT_HIP
+ #define PORT_CUDA
+// #define PORT_HIP
 // #define PORT_SYCL
 
 #include "../comm.h"
@@ -180,6 +180,8 @@ int main(int argc, char *argv[])
 
     measure(count, warmup, numiter, coll);
   }
+
+  return 0;
 
 // DEALLOCATE
 #ifdef PORT_CUDA

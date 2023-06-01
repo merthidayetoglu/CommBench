@@ -64,7 +64,6 @@ void measure(size_t count, int warmup, int numiter, Coll &coll) {
   }
 }
 
-
 template <class Coll>
 void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &coll) {
 

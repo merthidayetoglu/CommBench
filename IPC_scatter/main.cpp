@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
   cudaMemset(recvbuf_d, -1, count * sizeof(Type));
   cudaStream_t stream_verify;
   cudaStreamCreate(&stream_verify);
-  bool test = true;
+  bool pass = true;
 
   // MPI SYNCHRONIZATION
   MPI_Request sendrequest[numproc];
@@ -116,17 +116,25 @@ int main(int argc, char *argv[])
   // START IPC COMMUNICATION
   MPI_Barrier(MPI_COMM_WORLD);
 
+  // SENDER INITIATES
   if(myid == ROOT)
-    for(int p = 0; p < numproc; p++)
+    for(int p = 0; p < numproc; p++) {
       cudaMemcpyAsync(recvbuf_ipc[p], sendbuf_d + count * p, count * sizeof(Type), cudaMemcpyDeviceToDevice, stream_ipc[p]);
+    }
 
-  // SENDER SYNCHRONIZATION
+  // SENDER SYNCHRONIZE
   if(myid == ROOT)
-    for(int p = 0; p < numproc; p++)
+    for(int p = 0; p < numproc; p++) {
       cudaStreamSynchronize(stream_ipc[p]);
+      bool test = true;
+      MPI_Isend(&test, 1, MPI_C_BOOL, p, 0, MPI_COMM_WORLD, sendrequest + p);
+    }
 
-  // RECVER SYNCHRONIZATION
-  MPI_Barrier(MPI_COMM_WORLD);
+  // RECVER SYNCHRONIZE
+  // MPI_Barrier(MPI_COMM_WORLD);
+  bool test = false;
+  MPI_Irecv(&test, 1, MPI_C_BOOL, ROOT, 0, MPI_COMM_WORLD, &recvrequest);
+  MPI_Wait(&recvrequest, MPI_STATUS_IGNORE);
 
   cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(Type), cudaMemcpyDeviceToHost, stream_verify);
   cudaStreamSynchronize(stream_verify);
@@ -135,12 +143,12 @@ int main(int argc, char *argv[])
   for(size_t i = 0; i < count; i++) {
     // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
     if(recvbuf[i] != myid * count + i)
-      test = false;
+      pass = false;
   }
-  MPI_Allreduce(MPI_IN_PLACE, &test, 1, MPI_C_BOOL, MPI_LAND, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &pass, 1, MPI_C_BOOL, MPI_LAND, MPI_COMM_WORLD);
   if(myid == ROOT) {
     printf("SCATTER VERIFICATION: ");
-    if(test)
+    if(pass)
       printf("PASS!\n");
     else
       printf("ERROR!\n");

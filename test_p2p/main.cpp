@@ -23,14 +23,14 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
-// #include <rccl.h>
+// #include <nccl.h>
+ #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
- #define PORT_CUDA
-// #define PORT_HIP
+// #define PORT_CUDA
+ #define PORT_HIP
 // #define PORT_SYCL
 
 #include "../comm.h"
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
   // INPUT PARAMETERS
   int library = atoi(argv[1]);
   int direction = atoi(argv[2]);
-  size_t count = atoi(argv[3]);
+  size_t count = atol(argv[3]);
   int warmup = atoi(argv[4]);
   int numiter = atoi(argv[5]);
   int sender = atoi(argv[6]);
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
   setup_gpu();
 
   // SETUP NCCL
-#ifdef CAP_NCCL
+/*#ifdef CAP_NCCL
     ncclComm_t comm_nccl;
     ncclUniqueId id;
     if(myid == 0)
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
       cudaStreamCreate(&sendstream);
       cudaStreamCreate(&recvstream);
     }
-#endif
+#endif*/
 
   float *sendbuf_d;
   float *recvbuf_d;
@@ -266,11 +266,11 @@ int main(int argc, char *argv[])
   delete[] recvbuf_d;
 #endif
 
-#ifdef CAP_NCCL
+/*#ifdef CAP_NCCL
   ncclCommDestroy(comm_nccl);
   cudaStreamDestroy(sendstream);
   cudaStreamDestroy(recvstream);
-#endif
+#endif*/
 
   // FINALIZE
   MPI_Finalize();

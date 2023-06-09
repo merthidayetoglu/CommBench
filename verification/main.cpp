@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
     for(int iter = 0; iter < numiter; iter++)
       validate(sendbuf_d, recvbuf_d, count, pattern, coll);
 
-    measure(count, warmup, numiter, coll);
+    measure(count * numproc, warmup, numiter, coll);
   }
 
 // DEALLOCATE

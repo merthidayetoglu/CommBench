@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
   // INPUT PARAMETERS
   int library = atoi(argv[1]);
   int pattern = atoi(argv[2]);
-  size_t count = atoi(argv[3]);
+  size_t count = atol(argv[3]);
   int warmup = atoi(argv[4]);
   int numiter = atoi(argv[5]);
 
@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
     for(int iter = 0; iter < numiter; iter++)
       avgTime += times[iter];
     avgTime /= numiter;
-    double data = count * sizeof(float);
+    double data = count * sizeof(float) * numproc;
     switch(library) {
       case 1:
         switch(pattern) {

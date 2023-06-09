@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
   }
   int library = atoi(argv[1]);
   int pattern = atoi(argv[2]);
-  size_t count = atoi(argv[3]);
+  size_t count = atol(argv[3]);
   int warmup = atoi(argv[4]);
   int numiter = atoi(argv[5]);
 

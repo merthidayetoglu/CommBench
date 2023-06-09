@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
   int library = atoi(argv[1]);
   int pattern = atoi(argv[2]);
   int direction = atoi(argv[3]);
-  size_t count = atoi(argv[4]);
+  size_t count = atol(argv[4]);
   int warmup = atoi(argv[5]);
   int numiter = atoi(argv[6]);
   int numgpu = atoi(argv[7]);

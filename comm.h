@@ -139,6 +139,8 @@ namespace CommBench
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void launch();
     void wait();
+    void wait_sender();
+    void wait_recver();
     void run() {launch(); wait();};
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
@@ -645,8 +647,8 @@ namespace CommBench
   void Comm<T>::wait() { 
     switch(lib) {
       case MPI:
-        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
-        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        wait_recver();
+        wait_sender();
         break;
       case NCCL:
 #ifdef PORT_CUDA
@@ -656,18 +658,41 @@ namespace CommBench
 #endif
         break;
       case IPC:
+        wait_recver();
+        wait_sender();
+        break;
+    }
+  }
+  void Comm<T>::wait_sender() {
+    switch(lib) {
+      case MPI:
+        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+      case NCCL:
+        wait();
+      case IPC:
 #ifdef PORT_CUDA
-        for(int recv = 0; recv < numrecv; recv++)
-          cudaEventSynchronize(sendevent_ipc[recv]);
         for(int send = 0; send < numsend; send++)
           cudaStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_HIP
-        for(int recv = 0; recv < numrecv; recv++)
-          hipEventSynchronize(sendevent_ipc[recv]);
         for(int send = 0; send < numsend; send++)
           hipStreamSynchronize(stream_ipc[send]);
 #endif
-        break;
     }
-  } // Comm::wait()
+  }
+  void Comm<T>::wait_recver() {
+    switch(lib) {
+      case MPI:
+        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
+      case NCCL:
+        wait();
+      case IPC:
+#ifdef PORT_CUDA
+        for(int recv = 0; recv < numrecv; recv++)
+          cudaEventSynchronize(sendevent_ipc[recv]);
+#elif defined PORT_HIP
+        for(int recv = 0; recv < numrecv; recv++)
+          hipEventSynchronize(sendevent_ipc[recv]);
+#endif
+    }
+  }
 } // namespace CommBench

@@ -114,7 +114,7 @@ namespace CommBench
       }
     }
 
-    ~Comm() {
+    /*~Comm() {
       if(numsend) {
         delete[] sendbuf;
         delete[] sendproc;
@@ -134,7 +134,7 @@ namespace CommBench
 #ifdef PORT_SYCL
       delete q;
 #endif
-    }
+    }*/
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void launch();
@@ -154,19 +154,40 @@ namespace CommBench
     int numproc;
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
-    if(myid == ROOT) {
-      printf("add (%d -> %d) sendoffset %zu recvoffset %zu count %zu (", sendid, recvid, sendoffset, recvoffset, count);
-      double data = count * sizeof(T);
-      if (data < 1e3)
-        printf("%d bytes)\n", (int)data);
-      else if (data < 1e6)
-        printf("%.4f KB)\n", data / 1e3);
-      else if (data < 1e9)
-        printf("%.4f MB)\n", data / 1e6);
-      else if (data < 1e12)
-        printf("%.4f GB)\n", data / 1e9);
-      else
-        printf("%.4f TB)\n", data / 1e12);
+
+    {
+      if(myid == sendid) {
+        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, ROOT, 0, MPI_COMM_WORLD);
+        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, ROOT, 0, MPI_COMM_WORLD);
+      }
+      if(myid == recvid) {
+        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, ROOT, 0, MPI_COMM_WORLD);
+        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, ROOT, 0, MPI_COMM_WORLD);
+      }
+      if(myid == ROOT) {
+        T* sendbuf_sendid;
+        T* recvbuf_recvid;
+        size_t sendoffset_sendid;
+        size_t recvoffset_recvid;
+        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
+
+        double data = count * sizeof(T);
+        if (data < 1e3)
+          printf("%d bytes )\n", (int)data);
+        else if (data < 1e6)
+          printf("%.4f KB )\n", data / 1e3);
+        else if (data < 1e9)
+          printf("%.4f MB )\n", data / 1e6);
+        else if (data < 1e12)
+          printf("%.4f GB )\n", data / 1e9);
+        else
+          printf("%.4f TB )\n", data / 1e12);
+      }
     }
     if(myid == sendid) {
       // ALLOCATE NEW BUFFER
@@ -663,12 +684,16 @@ namespace CommBench
         break;
     }
   }
+
+  template <typename T>
   void Comm<T>::wait_sender() {
     switch(lib) {
       case MPI:
         MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        break;
       case NCCL:
         wait();
+        break;
       case IPC:
 #ifdef PORT_CUDA
         for(int send = 0; send < numsend; send++)
@@ -677,14 +702,19 @@ namespace CommBench
         for(int send = 0; send < numsend; send++)
           hipStreamSynchronize(stream_ipc[send]);
 #endif
+        break;
     }
   }
+
+  template <typename T>
   void Comm<T>::wait_recver() {
     switch(lib) {
       case MPI:
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
+        break;
       case NCCL:
         wait();
+        break;
       case IPC:
 #ifdef PORT_CUDA
         for(int recv = 0; recv < numrecv; recv++)
@@ -693,6 +723,7 @@ namespace CommBench
         for(int recv = 0; recv < numrecv; recv++)
           hipEventSynchronize(sendevent_ipc[recv]);
 #endif
+        break;
     }
   }
 } // namespace CommBench

@@ -40,12 +40,8 @@ namespace CommBench
 #endif
 #ifdef PORT_CUDA
     cudaStream_t stream_nccl;
-    cudaStream_t sendstream_nccl;
-    cudaStream_t recvstream_nccl;
 #elif defined PORT_HIP
     hipStream_t stream_nccl;
-    hipStream_t sendstream_nccl;
-    hipStream_t recvstream_nccl;
 #endif
 
     // IPC
@@ -112,12 +108,8 @@ namespace CommBench
 #endif
 #ifdef PORT_CUDA
         cudaStreamCreate(&stream_nccl);
-        cudaStreamCreate(&sendstream_nccl);
-        cudaStreamCreate(&recvstream_nccl);
 #elif defined PORT_HIP
         hipStreamCreate(&stream_nccl);
-        hipStreamCreate(&sendstream_nccl);
-        hipStreamCreate(&recvstream_nccl);
 #endif
       }
     }
@@ -145,18 +137,8 @@ namespace CommBench
     }*/
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
-    void start_sender();
-    void start_recver();
-    void wait_sender();
-    void wait_recver();
-    void start() {
-      start_sender();
-      start_recver();
-    }
-    void wait() {
-      wait_sender();
-      wait_recver();
-    }
+    void start();
+    void wait();
     void run() {
       start();
       wait();
@@ -645,17 +627,21 @@ namespace CommBench
   }
 
   template <typename T>
-  void Comm<T>::start_sender() {
+  void Comm<T>::start() {
     switch(lib) {
       case MPI:
         for (int send = 0; send < numsend; send++)
           MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm_mpi, sendrequest + send);
+        for (int recv = 0; recv < numrecv; recv++)
+          MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, recvrequest + recv);
         break;
       case NCCL:
 #ifdef CAP_NCCL
         ncclGroupStart();
         for(int send = 0; send < numsend; send++)
-          ncclSend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), ncclInt8, sendproc[send], comm_nccl, sendstream_nccl);
+          ncclSend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), ncclInt8, sendproc[send], comm_nccl, stream_nccl);
+        for(int recv = 0; recv < numrecv; recv++)
+          ncclRecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), ncclInt8, recvproc[recv], comm_nccl, stream_nccl);
         ncclGroupEnd();
 #endif
         break;
@@ -671,25 +657,6 @@ namespace CommBench
 	  bool *ack = new bool(true); // possible MPI bug, cannot set stack variable
           MPI_Isend(ack, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
         }
-        break;
-    }
-  }
-  template <typename T>
-  void Comm<T>::start_recver() {
-    switch(lib) {
-      case MPI:
-        for (int recv = 0; recv < numrecv; recv++)
-          MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, recvrequest + recv);
-        break;
-      case NCCL:
-#ifdef CAP_NCCL
-        ncclGroupStart();
-        for(int recv = 0; recv < numrecv; recv++)
-          ncclRecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), ncclInt8, recvproc[recv], comm_nccl, recvstream_nccl);
-        ncclGroupEnd();
-#endif
-        break;
-      case IPC:
         for(int recv = 0; recv < numrecv; recv++) {
           bool *ack = new bool(false); // possible MPI bug, cannot set stack variable
           MPI_Irecv(ack, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
@@ -699,16 +666,17 @@ namespace CommBench
   }
 
   template <typename T>
-  void Comm<T>::wait_sender() {
+  void Comm<T>::wait() {
     switch(lib) {
       case MPI:
         MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         break;
       case NCCL:
 #ifdef PORT_CUDA
-        cudaStreamSynchronize(sendstream_nccl);
+        cudaStreamSynchronize(stream_nccl);
 #elif defined PORT_HIP
-        hipStreamSynchronize(sendstream_nccl);
+        hipStreamSynchronize(stream_nccl);
 #endif
         break;
       case IPC:
@@ -720,23 +688,6 @@ namespace CommBench
         for(int send = 0; send < numsend; send++)
           hipStreamSynchronize(stream_ipc[send]);
 #endif
-      break;
-    }
-  }
-  template <typename T>
-  void Comm<T>::wait_recver() {
-    switch(lib) {
-      case MPI:
-        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
-        break;
-      case NCCL:
-#ifdef PORT_CUDA
-        cudaStreamSynchronize(recvstream_nccl);
-#elif defined PORT_HIP
-        hipStreamSynchronize(recvstream_nccl);
-#endif
-        break;
-      case IPC:
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
 #ifdef PORT_CUDA
         for(int recv = 0; recv < numrecv; recv++)
@@ -745,7 +696,7 @@ namespace CommBench
         for(int recv = 0; recv < numrecv; recv++)
           hipEventSynchronize(event_ipc[recv]);
 #endif
-        break;
+      break;
     }
   }
 } // namespace CommBench

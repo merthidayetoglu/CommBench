@@ -139,6 +139,7 @@ namespace CommBench
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void start();
     void wait();
+    bool test();
     void run() {
       start();
       wait();
@@ -661,6 +662,8 @@ namespace CommBench
           bool *ack = new bool(false); // possible MPI bug, cannot set stack variable
           MPI_Irecv(ack, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
         }
+        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         break;
     }
   }
@@ -680,23 +683,59 @@ namespace CommBench
 #endif
         break;
       case IPC:
-        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
 #ifdef PORT_CUDA
         for(int send = 0; send < numsend; send++)
           cudaStreamSynchronize(stream_ipc[send]);
-#elif defined PORT_HIP
-        for(int send = 0; send < numsend; send++)
-          hipStreamSynchronize(stream_ipc[send]);
-#endif
-        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
-#ifdef PORT_CUDA
         for(int recv = 0; recv < numrecv; recv++)
           cudaEventSynchronize(event_ipc[recv]);
 #elif defined PORT_HIP
+        for(int send = 0; send < numsend; send++)
+          hipStreamSynchronize(stream_ipc[send]);
         for(int recv = 0; recv < numrecv; recv++)
           hipEventSynchronize(event_ipc[recv]);
 #endif
       break;
+    }
+  }
+
+  template <typename T>
+  bool Comm<T>::test() {
+    switch(lib) {
+      case MPI:
+      {
+        int sendtest;
+        int recvtest;
+        MPI_Testall(numsend, sendrequest, &sendtest, MPI_STATUSES_IGNORE);
+        MPI_Testall(numrecv, recvrequest, &recvtest, MPI_STATUSES_IGNORE);
+        return sendtest & recvtest;
+      }
+      case NCCL:
+#ifdef PORT_CUDA
+        return cudaStreamQuery(stream_nccl) == cudaSuccess;
+#elif defined PORT_HIP
+        return hipStreamQuery(stream_nccl) == hipSuccess;
+#endif
+      case IPC:
+      {
+#ifdef PORT_CUDA
+        for(int send = 0; send < numsend; send++)
+          if(cudaStreamQuery(stream_ipc[send]) != cudaSuccess)
+            return false;
+        for(int recv = 0; recv < numrecv; recv++)
+          if(cudaEventQuery(event_ipc[recv]) != cudaSuccess)
+            return false;
+#elif defined PORT_HIP
+        for(int send = 0; send < numsend; send++)
+          if(hipStreamQuery(stream_ipc[send]) != hipSuccess)
+            return false;
+        for(int recv = 0; recv < numrecv; recv++)
+          if(hipEventQuery(event_ipc[recv]) != hipSuccess)
+            return false;
+#endif
+        return true;
+      }
+      default:
+        return false;
     }
   }
 } // namespace CommBench

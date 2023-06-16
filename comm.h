@@ -39,9 +39,11 @@ namespace CommBench
     ncclComm_t comm_nccl;
 #endif
 #ifdef PORT_CUDA
+    cudaStream_t stream_nccl;
     cudaStream_t sendstream_nccl;
     cudaStream_t recvstream_nccl;
 #elif defined PORT_HIP
+    hipStream_t stream_nccl;
     hipStream_t sendstream_nccl;
     hipStream_t recvstream_nccl;
 #endif
@@ -107,13 +109,15 @@ namespace CommBench
           ncclGetUniqueId(&id);
         MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
         ncclCommInitRank(&comm_nccl, numproc, id, myid);
+#endif
 #ifdef PORT_CUDA
+        cudaStreamCreate(&stream_nccl);
         cudaStreamCreate(&sendstream_nccl);
         cudaStreamCreate(&recvstream_nccl);
 #elif defined PORT_HIP
+        hipStreamCreate(&stream_nccl);
         hipStreamCreate(&sendstream_nccl);
         hipStreamCreate(&recvstream_nccl);
-#endif
 #endif
       }
     }
@@ -141,20 +145,23 @@ namespace CommBench
     }*/
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
-    void start();
-    void launch() { // for backward compatibility
-      start();
+    void start_sender();
+    void start_recver();
+    void wait_sender();
+    void wait_recver();
+    void start() {
+      start_sender();
+      start_recver();
     }
-    void wait_send();
-    void wait_recv();
     void wait() {
-      wait_send();
-      wait_recv();
+      wait_sender();
+      wait_recver();
     }
     void run() {
-      launch();
+      start();
       wait();
-    };
+    }
+    void launch() { start(); } // for bacward compatibility
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void measure(int warmup, int numiter);
@@ -202,6 +209,7 @@ namespace CommBench
           printf("%.4f TB )\n", data / 1e12);
       }
     }
+
     if(myid == sendid) {
       // ALLOCATE NEW BUFFER
       T **sendbuf_temp = new T*[numsend + 1];
@@ -400,7 +408,7 @@ namespace CommBench
           // RECIEVE REMOTE EVENT HANDLE
           {
 #ifdef PORT_CUDA
-            cudaEvent_t *vent_ipc = new cudaEvent_t[numrecv + 1];
+            cudaEvent_t *event_ipc = new cudaEvent_t[numrecv + 1];
             if(numrecv) {
               memcpy(event_ipc, this->event_ipc, numrecv * sizeof(cudaEvent_t));
               delete[] this->event_ipc;
@@ -637,21 +645,17 @@ namespace CommBench
   }
 
   template <typename T>
-  void Comm<T>::start() {
+  void Comm<T>::start_sender() {
     switch(lib) {
       case MPI:
         for (int send = 0; send < numsend; send++)
           MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm_mpi, sendrequest + send);
-        for (int recv = 0; recv < numrecv; recv++)
-          MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, recvrequest + recv);
         break;
       case NCCL:
 #ifdef CAP_NCCL
         ncclGroupStart();
         for(int send = 0; send < numsend; send++)
           ncclSend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), ncclInt8, sendproc[send], comm_nccl, sendstream_nccl);
-        for(int recv = 0; recv < numrecv; recv++)
-          ncclRecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), ncclInt8, recvproc[recv], comm_nccl, recvstream_nccl);
         ncclGroupEnd();
 #endif
         break;
@@ -664,21 +668,38 @@ namespace CommBench
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
           hipEventRecord(event[send], stream_ipc[send]);
 #endif
-          bool test = true;
-          MPI_Isend(&test, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
+	  bool *ack = new bool(true); // possible MPI bug, cannot set stack variable
+          MPI_Isend(ack, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
         }
-        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        break;
+    }
+  }
+  template <typename T>
+  void Comm<T>::start_recver() {
+    switch(lib) {
+      case MPI:
+        for (int recv = 0; recv < numrecv; recv++)
+          MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, recvrequest + recv);
+        break;
+      case NCCL:
+#ifdef CAP_NCCL
+        ncclGroupStart();
+        for(int recv = 0; recv < numrecv; recv++)
+          ncclRecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), ncclInt8, recvproc[recv], comm_nccl, recvstream_nccl);
+        ncclGroupEnd();
+#endif
+        break;
+      case IPC:
         for(int recv = 0; recv < numrecv; recv++) {
-          bool test = false;
-          MPI_Irecv(&test, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
+          bool *ack = new bool(false); // possible MPI bug, cannot set stack variable
+          MPI_Irecv(ack, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
         }
-        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         break;
     }
   }
 
   template <typename T>
-  void Comm<T>::wait_send() {
+  void Comm<T>::wait_sender() {
     switch(lib) {
       case MPI:
         MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
@@ -691,6 +712,7 @@ namespace CommBench
 #endif
         break;
       case IPC:
+        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
 #ifdef PORT_CUDA
         for(int send = 0; send < numsend; send++)
           cudaStreamSynchronize(stream_ipc[send]);
@@ -698,12 +720,11 @@ namespace CommBench
         for(int send = 0; send < numsend; send++)
           hipStreamSynchronize(stream_ipc[send]);
 #endif
-        break;
+      break;
     }
   }
-
   template <typename T>
-  void Comm<T>::wait_recv() {
+  void Comm<T>::wait_recver() {
     switch(lib) {
       case MPI:
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
@@ -716,6 +737,7 @@ namespace CommBench
 #endif
         break;
       case IPC:
+        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
 #ifdef PORT_CUDA
         for(int recv = 0; recv < numrecv; recv++)
           cudaEventSynchronize(event_ipc[recv]);

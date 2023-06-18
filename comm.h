@@ -703,11 +703,11 @@ namespace CommBench
     switch(lib) {
       case MPI:
       {
-        int sendtest;
-        int recvtest;
+        int sendtest = 1;
+        int recvtest = 1;
         MPI_Testall(numsend, sendrequest, &sendtest, MPI_STATUSES_IGNORE);
         MPI_Testall(numrecv, recvrequest, &recvtest, MPI_STATUSES_IGNORE);
-        return sendtest & recvtest;
+        return (sendtest == 1) && (recvtest == 1);
       }
       case NCCL:
 #ifdef PORT_CUDA

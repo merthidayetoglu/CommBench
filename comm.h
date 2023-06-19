@@ -25,7 +25,7 @@ namespace CommBench
   class Comm {
 
     const library lib;
-    const MPI_Comm comm_mpi;
+    MPI_Comm comm_mpi;
 
     // GPU-Aware MPI
     MPI_Request *sendrequest;
@@ -70,7 +70,10 @@ namespace CommBench
 
     public:
 
-    Comm(const MPI_Comm &comm_mpi, library lib) : comm_mpi(comm_mpi), lib(lib) {
+    Comm(const MPI_Comm &comm_mpi_temp, library lib) : lib(lib) {
+
+      MPI_Comm_dup(comm_mpi_temp, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
+	    
       int myid;
       int numproc;
       MPI_Comm_rank(comm_mpi, &myid);

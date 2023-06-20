@@ -1,10 +1,11 @@
 #!/bin/bash -l
 
 #PBS -N AFFINITY
-#PBS -l select=4:ncpus=256
-#PBS -l walltime=0:10:00
+#PBS -l select=2:ncpus=256
+#PBS -l walltime=00:30:00
 #PBS -q debug-scaling
-#PBS -A Catalyst
+#PBS -l filesystems=home
+#PBS -A GRACE
 
 date
 

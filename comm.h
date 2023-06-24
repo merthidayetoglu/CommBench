@@ -732,17 +732,20 @@ namespace CommBench
         for(int send = 0; send < numsend; send++)
           if(cudaStreamQuery(stream_ipc[send]) != cudaSuccess)
             return false;
-        for(int recv = 0; recv < numrecv; recv++)
-          if(cudaEventQuery(event_ipc[recv]) != cudaSuccess)
-            return false;
+        /*for(int recv = 0; recv < numrecv; recv++)
+          if(cudaEventQuery(event_ipc[recv]) != cudaSuccess)*/
 #elif defined PORT_HIP
         for(int send = 0; send < numsend; send++)
           if(hipStreamQuery(stream_ipc[send]) != hipSuccess)
             return false;
-        for(int recv = 0; recv < numrecv; recv++)
+        /*for(int recv = 0; recv < numrecv; recv++)
           if(hipEventQuery(event_ipc[recv]) != hipSuccess)
-            return false;
+            return false;*/
 #endif
+        int *recvtest = new int(0);
+        MPI_Testall(numrecv, recvrequest, recvtest, MPI_STATUSES_IGNORE);
+        if(!recvtest)
+          return false;
         return true;
       }
       default:

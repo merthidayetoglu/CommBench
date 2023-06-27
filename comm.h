@@ -47,6 +47,8 @@ namespace CommBench
     // IPC
     T **recvbuf_ipc;
     size_t *recvoffset_ipc;
+    bool *ack_sender;
+    bool *ack_recver;
 #ifdef PORT_CUDA
     cudaStream_t *stream_ipc;
     cudaEvent_t *event;
@@ -232,8 +234,12 @@ namespace CommBench
           break;
         case NCCL: break;
         case IPC:
-          if(numsend) delete[] sendrequest;
+          if(numsend) {
+            delete[] sendrequest;
+            delete[] ack_sender;
+          }
           sendrequest = new MPI_Request[numsend + 1];
+          ack_sender = new bool[numsend + 1];
           // SEND REMOTE EVENT HANDLE
           {
 #ifdef PORT_CUDA
@@ -389,8 +395,12 @@ namespace CommBench
           break;
         case NCCL: break;
         case IPC:
-          if(numrecv) delete[] recvrequest;
+          if(numrecv) {
+            delete[] recvrequest;
+            delete[] ack_recver;
+          }
           recvrequest = new MPI_Request[numrecv + 1];
+          ack_recver = new bool[numrecv + 1];
           // RECIEVE REMOTE EVENT HANDLE
           {
 #ifdef PORT_CUDA
@@ -689,26 +699,26 @@ namespace CommBench
 #endif
         break;
       case IPC:
-      for(int send = 0; send < numsend; send++) {
+        for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
-        cudaStreamSynchronize(stream_ipc[send]);
-        // for(int recv = 0; recv < numrecv; recv++)
-        //   cudaEventSynchronize(event_ipc[recv]);
+          cudaStreamSynchronize(stream_ipc[send]);
+          // for(int recv = 0; recv < numrecv; recv++)
+          //   cudaEventSynchronize(event_ipc[recv]);
 #elif defined PORT_HIP
-        hipStreamSynchronize(stream_ipc[send]);
-        // for(int recv = 0; recv < numrecv; recv++)
-        //   hipEventSynchronize(event_ipc[recv]);
+          hipStreamSynchronize(stream_ipc[send]);
+          // for(int recv = 0; recv < numrecv; recv++)
+          //   hipEventSynchronize(event_ipc[recv]);
 #endif
-        bool *ack = new bool(true); // possible MPI bug, cannot set stack variable
-        MPI_Isend(ack, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
-      }
-      for(int recv = 0; recv < numrecv; recv++) {
-        bool *ack = new bool(false); // possible MPI bug, cannot set stack variable
-        MPI_Irecv(ack, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
-      }
-      MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
-      MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
-      break;
+          // bool ack; // possible MPI bug, cannot set stack variable
+          MPI_Isend(ack_sender + send, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
+        }
+        for(int recv = 0; recv < numrecv; recv++) {
+          // bool ack; // possible MPI bug, cannot set stack variable
+          MPI_Irecv(ack_recver + recv, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
+        }
+        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
+        break;
     }
   }
 

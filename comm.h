@@ -608,7 +608,10 @@ namespace CommBench
       printf("communication matrix\n");
       for(int recv = 0; recv < numproc; recv++) {
         for(int send = 0; send < numproc; send++)
-          printf("%d ", sendmatrix[recv][send]);
+          if(sendmatrix[recv][send])
+            printf("%d ", sendmatrix[recv][send]);
+          else
+            printf(". ");
         printf("\n");
       }
     }

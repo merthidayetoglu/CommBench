@@ -98,9 +98,9 @@ namespace CommBench
 #endif
         printf("Library: ");
         switch(lib) {
-          case MPI       : printf("GPU-Aware MPI\n");  break;
-          case NCCL      : printf("NCCL\n");           break;
-          case IPC       : printf("IPC\n");            break;
+          case IPC : printf("IPC\n");  break;
+          case MPI : printf("MPI\n");  break;
+          case NCCL : printf("NCCL\n"); break;
         }
       }
       if(lib == NCCL) {
@@ -186,15 +186,21 @@ namespace CommBench
 
         double data = count * sizeof(T);
         if (data < 1e3)
-          printf("%d bytes )\n", (int)data);
+          printf("%d bytes )", (int)data);
         else if (data < 1e6)
-          printf("%.4f KB )\n", data / 1e3);
+          printf("%.4f KB )", data / 1e3);
         else if (data < 1e9)
-          printf("%.4f MB )\n", data / 1e6);
+          printf("%.4f MB )", data / 1e6);
         else if (data < 1e12)
-          printf("%.4f GB )\n", data / 1e9);
+          printf("%.4f GB )", data / 1e9);
         else
-          printf("%.4f TB )\n", data / 1e12);
+          printf("%.4f TB )", data / 1e12);
+
+        switch(lib) {
+          case IPC : printf(" IPC\n"); break;
+          case MPI : printf(" MPI\n"); break;
+          case NCCL : printf(" NCCL\n"); break;
+        }
       }
     }
 

@@ -126,8 +126,8 @@ int main(int argc, char *argv[])
     cudaMemset(sendbuf_d, -1, count * numproc * sizeof(float));
     cudaDeviceSynchronize();
 #elif defined PORT_HIP
-    cudaMemset(sendbuf_d, -1, count * numproc * sizeof(float));
-    cudaDeviceSynchronize();
+    hipMemset(sendbuf_d, -1, count * numproc * sizeof(float));
+    hipDeviceSynchronize();
 #endif
     // MEASURE
     MPI_Barrier(MPI_COMM_WORLD);
@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
     for(int iter = 0; iter < numiter; iter++)
       avgTime += times[iter];
     avgTime /= numiter;
-    double data = count * sizeof(float) * numproc;
+    size_t data = count * sizeof(float) * numproc;
     switch(library) {
       case 1:
         switch(pattern) {
@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
         } break;
 #endif
     }
-    printf("data: %.4e MB\n", data * 1e3);
+    printf("data: %zu bytes\n", data);
     printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
     printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e9, data / medTime / 1e9);
     printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e9, data / maxTime / 1e9);
@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef CAP_NCCL
-  ncclCommDestroy(comm_nccl);
+  // ncclCommDestroy(comm_nccl); // crashes on frontier
 #endif
 
   // FINALIZE

@@ -26,7 +26,6 @@
 // #include <nccl.h>
  #include <rccl.h>
 // #include <sycl.hpp>
-// #include <ze_api.h>
 
 // PORTS
 // #define PORT_CUDA
@@ -44,7 +43,7 @@ void print_args();
 
 int main(int argc, char *argv[])
 {
-  // INITIALIZE MPI+OPENMP
+  // INITIALIZE
   int myid;
   int numproc;
   MPI_Init(&argc, &argv);
@@ -120,7 +119,17 @@ int main(int argc, char *argv[])
   double times[numiter];
   if(myid == ROOT)
     printf("%d warmup iterations (in order):\n", warmup);
+
   for (int iter = -warmup; iter < numiter; iter++) {
+    //INITIALIZE
+#ifdef PORT_CUDA
+    cudaMemset(sendbuf_d, -1, count * numproc * sizeof(float));
+    cudaDeviceSynchronize();
+#elif defined PORT_HIP
+    cudaMemset(sendbuf_d, -1, count * numproc * sizeof(float));
+    cudaDeviceSynchronize();
+#endif
+    // MEASURE
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
     switch(library) {
@@ -147,7 +156,7 @@ int main(int argc, char *argv[])
         }
 #ifdef PORT_CUDA
         cudaStreamSynchronize(0);
-#elif defined(PORT_HIP)
+#elif defined PORT_HIP
         hipStreamSynchronize(0);
 #endif
         break;
@@ -157,6 +166,7 @@ int main(int argc, char *argv[])
     }
     // MPI_Barrier(MPI_COMM_WORLD); // eliminate barrier
     time = MPI_Wtime() - time;
+    // TAKE MAXIMUM ELAPSED TIME ON ALL PROCESSES
     MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     if(iter < 0) {
       if(myid == ROOT)
@@ -236,7 +246,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef CAP_NCCL
-  // ncclCommDestroy(comm_nccl);
+  ncclCommDestroy(comm_nccl);
 #endif
 
   // FINALIZE

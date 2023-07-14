@@ -3,6 +3,7 @@ module reset
 module load craype-accel-amd-gfx90a
 module load PrgEnv-cray
 module load amd-mixed
+module unload darshan
 
 export MPICH_GPU_SUPPORT_ENABLED=1
 

@@ -149,7 +149,6 @@ namespace CommBench
       start();
       wait();
     }
-    void launch() { start(); } // for bacward compatibility
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void measure(int warmup, int numiter);
@@ -555,7 +554,7 @@ namespace CommBench
       }
       MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
-      this->launch();
+      this->start();
       double start = MPI_Wtime() - time;
       this->wait();
       time = MPI_Wtime() - time;

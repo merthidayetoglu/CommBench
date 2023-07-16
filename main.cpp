@@ -23,13 +23,13 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
+ #include <nccl.h>
 // #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
-// #define PORT_CUDA
+ #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
     switch(pattern) {
       case 1: // RAIL PATTERN
         switch(direction) {
-          case 1: // UNI-DIRECTIONAL
+          case 1: // UNI-DIRECTIONAL (OUTBOUND)
             for(int send = 0; send < subgroupsize; send++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++) {
                 int sender = send;
@@ -133,7 +133,15 @@ int main(int argc, char *argv[])
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               }
             break;
-          case 2: // BI-DIRECTIONAL
+          case 2: // UNI-DIRECTIONAL (INBOUND)
+            for(int recv = 0; recv < subgroupsize; recv++)
+              for(int sendgroup = 1; sendgroup < numgroup; sendgroup++) {
+                int sender = sendgroup * groupsize + recv;
+                int recver = recv;
+                bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+              }
+            break;
+          case 3: // BI-DIRECTIONAL
             for(int send = 0; send < subgroupsize; send++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++) {
                 int sender = send;
@@ -142,7 +150,7 @@ int main(int argc, char *argv[])
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
               }
             break;
-          case 3: // OMNI-DIRECTIONAL
+          case 4: // OMNI-DIRECTIONAL
             for(int sendgroup = 0; sendgroup < numgroup; sendgroup++)
               for(int recvgroup = 0; recvgroup < numgroup; recvgroup++)
                 if(sendgroup != recvgroup)
@@ -154,9 +162,41 @@ int main(int argc, char *argv[])
             break;
         }
         break;
-      case 2: // DENSE PATTERN
+      case 2: // FAN PATTERN
         switch(direction) {
-          case 1: // UNI-DIRECTIONAL
+          case 1: // UNI-DIRECTIONAL (OUTBOUND)
+            for(int send = 0; send < subgroupsize; send++)
+              for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
+                for(int recv = 0; recv < groupsize; recv++) {
+                  int sender = send;
+                  int recver = recvgroup * groupsize + recv;
+                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                }
+            break;
+          case 2: // UNI-DIRECTIONAL (INBOUND)
+            for(int recv = 0; recv < subgroupsize; recv++)
+              for(int sendgroup = 1; sendgroup < numgroup; sendgroup++)
+                for(int send = 0; send < groupsize; send++) {
+                  int recver = recv;
+                  int sender = sendgroup * groupsize + send;
+                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                }
+            break;
+          case 3: // BI-DIRECTIONAL
+            for(int send = 0; send < subgroupsize; send++)
+              for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
+                for(int recv = 0; recv < groupsize; recv++) {
+                  int sender = send;
+                  int recver = recvgroup * groupsize + recv;
+                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
+                }
+            break;
+        }
+        break;
+      case 3: // DENSE PATTERN
+        switch(direction) {
+          case 1: // UNI-DIRECTIONAL (OUTBOUND)
             for(int send = 0; send < subgroupsize; send++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
                 for(int recv = 0; recv < subgroupsize; recv++) {
@@ -165,7 +205,16 @@ int main(int argc, char *argv[])
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 }
             break;
-          case 2: // BI-DIRECTIONAL
+          case 2: // UNI-DIRECTIONAL (INBOUND)
+            for(int recv = 0; recv < subgroupsize; recv++)
+              for(int sendgroup = 1; sendgroup < numgroup; sendgroup++)
+                for(int send = 0; send < subgroupsize; send++) {
+                  int sender = sendgroup * groupsize + send;
+                  int recver = recv;
+                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                }
+            break;
+          case 3: // BI-DIRECTIONAL
             for(int send = 0; send < subgroupsize; send++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
                 for(int recv = 0; recv < subgroupsize; recv++) {
@@ -175,7 +224,7 @@ int main(int argc, char *argv[])
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
               }
             break;
-          case 3: // OMNI-DIRECTIONAL
+          case 4: // OMNI-DIRECTIONAL
             for(int sendgroup = 0; sendgroup < numgroup; sendgroup++)
               for(int recvgroup = 0; recvgroup < numgroup; recvgroup++)
                 if(sendgroup != recvgroup)
@@ -185,29 +234,6 @@ int main(int argc, char *argv[])
                       int recver = recvgroup * groupsize + recv;
                       bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                     }
-            break;
-        }
-        break;
-      case 3: // FAN PATTERN
-        switch(direction) {
-          case 1: // UNI-DIRECTIONAL
-            for(int send = 0; send < subgroupsize; send++)
-              for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
-                for(int recv = 0; recv < groupsize; recv++) {
-                  int sender = send;
-                  int recver = recvgroup * groupsize + recv;
-                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
-                }
-            break;
-          case 2: // BI-DIRECTIONAL
-            for(int send = 0; send < subgroupsize; send++)
-              for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
-                for(int recv = 0; recv < groupsize; recv++) {
-                  int sender = send;
-                  int recver = recvgroup * groupsize + recv;
-                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
-                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
-                }
             break;
         }
         break;
@@ -229,28 +255,32 @@ int main(int argc, char *argv[])
       switch(pattern) {
         case 1:
           switch(direction) {
-            case 1: printf("UNIDIRECTIONAL");  data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-            case 2: printf("BIDIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-            case 3: printf("OMNIDIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 2: printf("INBOUND");          data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
           } printf(" RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 2:
           switch(direction) {
-            case 1: printf("UNIDIRECTIONAL");  data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-	    case 2: printf("BIDIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-	    case 3: printf("OMNIDIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-          } printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+	    case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case 2: printf("IN-BOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+          } printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 3:
           switch(direction) {
-	    case 1: printf("UNIDIRECTIONAL");  data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-	    case 2: printf("BIDIRECTIONAL") ;  data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-          } printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 2: printf("INBOUND");          data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+          } printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         default: break; // DO NOTHING
       }
-      printf("data: %.4e MB\n", data * 1e3);
+      printf("DATA MOVEMENT: %.4e MB\n", data * 1e3);
       printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
       printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
       printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
       printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
+      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) / 1.e9 * numproc / minTime);
     }
   }
 
@@ -286,8 +316,8 @@ void print_args() {
     printf("\n");
     printf("CommBench requires nine arguments:\n");
     printf("1. library: 0 for IPC, 1 for MPI, 2 for NCCL or RCCL\n");
-    printf("2. pattern: 1 for Rail, 2 for Dense, 3 for Fan\n");
-    printf("3. direction: 1 for unidirectional, 2 for bidirectional, 3 for omnidirectional\n");
+    printf("2. pattern: 1 for Rail, 2 for Fan, 3 for Dense\n");
+    printf("3. direction: 1 for outbound, 2 for inbound 3 for bi-directional, 4 for omni-directional\n");
     printf("4. count: number of 4-byte elements\n");
     printf("5. warmup: number of warmup rounds\n");
     printf("6. numiter: number of measurement rounds\n");

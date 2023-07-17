@@ -328,7 +328,7 @@ void print_args() {
     printf("9. g: group size\n");
     printf("10. k: subgroup size\n");
     printf("where on can run CommBench as\n");
-    printf("mpirun ./CommBench library pattern direction count warmup numiter p g k\n");
+    printf("mpirun ./CommBench library pattern direction count warmup numiter window p g k\n");
     printf("\n");
   }
 }

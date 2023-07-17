@@ -23,7 +23,7 @@ numiter=10
 
 for library in 1 #0:IPC 1:MPI 2:NCCL
 do
-for direction in 1 2 #1:uni-directional 2:bi-directional 3:omni-directional
+for direction in 1 2 #1:Outbound 2:Inbound 3:bi-directional 4:omni-directional
 do
 for pattern in 1 2 3 #0:P2P 1:RAIL 2:DENSE 3:FAN
 do

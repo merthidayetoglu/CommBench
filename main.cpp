@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
       printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
       printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
       printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
-      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) / 1.e9 * numproc / minTime);
+      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) / 1.e9 * numgpu / minTime);
     }
   }
 

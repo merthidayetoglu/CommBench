@@ -23,13 +23,13 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
- #include <rccl.h>
+ #include <nccl.h>
+// #include <rccl.h>
 // #include <sycl.hpp>
 
 // PORTS
-// #define PORT_CUDA
- #define PORT_HIP
+ #define PORT_CUDA
+// #define PORT_HIP
 // #define PORT_SYCL
 
 // CONTROL NCCL CAPABILITY
@@ -137,13 +137,13 @@ int main(int argc, char *argv[])
     switch(library) {
       case 1:
         switch(pattern) {
-          case 1: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
-          case 2: MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
-          case 3: MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD);           break;
-          case 4: MPI_Bcast(sendbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                                break;
+          case 1: MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
+          case 2: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
+          case 3: MPI_Bcast(sendbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                                break;
+          case 4: MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD);           break;
           case 5: MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);      break;
-          case 6: MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);              break;
-          case 7: MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
+          case 6: MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
+          case 7: MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);              break;
           case 8: MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
         } break;
 #ifdef CAP_NCCL
@@ -151,8 +151,8 @@ int main(int argc, char *argv[])
         switch(pattern) {
           case 3: ncclReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, ROOT, comm_nccl, 0);  break;
           case 4: ncclBcast(sendbuf_d, count, ncclFloat32, ROOT, comm_nccl, 0);                       break;
-          case 6: ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);     break;
-          case 7: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);              break;
+          case 6: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);              break;
+          case 7: ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);     break;
           case 8: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0); break;
           default: return 0;
         }
@@ -205,13 +205,13 @@ int main(int argc, char *argv[])
     switch(library) {
       case 1:
         switch(pattern) {
-          case 1: printf("MPI_Gather\n"); break;
-          case 2: printf("MPI_Scatter\n"); break;
+          case 1: printf("MPI_Scatter\n"); break;
+          case 2: printf("MPI_Gather\n"); break;
           case 3: printf("MPI_Reduce\n"); break;
           case 4: printf("MPI_Bcast\n"); break;
           case 5: printf("MPI_Alltoall\n"); break;
-          case 6: printf("MPI_Allreduce\n"); break;
-          case 7: printf("MPI_Allgather\n"); break;
+          case 6: printf("MPI_Allgather\n"); break;
+          case 7: printf("MPI_Allreduce\n"); break;
           case 8: printf("MPI_Reduce_scatter\n"); break;
         } break;
 #ifdef CAP_NCCL
@@ -219,8 +219,8 @@ int main(int argc, char *argv[])
         switch(pattern) {
           case 3: printf("ncclReduce\n"); break;
           case 4: printf("ncclBcast\n"); break;
-          case 6: printf("ncclAllReduce\n"); break;
-          case 7: printf("ncclAllGather\n"); break;
+          case 6: printf("ncclAllGather\n"); break;
+          case 7: printf("ncclAllReduce\n"); break;
           case 8: printf("ncclReduceScatter\n"); break;
         } break;
 #endif

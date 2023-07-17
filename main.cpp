@@ -23,14 +23,14 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
-// #include <rccl.h>
+// #include <nccl.h>
+ #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
- #define PORT_CUDA
-// #define PORT_HIP
+// #define PORT_CUDA
+ #define PORT_HIP
 // #define PORT_SYCL
 
 #include "comm.h"
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
   // MPI_Get_processor_name(machine_name, &name_len);
   // printf("myid %d %s\n",myid, machine_name);
 
-  if(argc != 10) {print_args(); MPI_Finalize(); return 0;}
+  if(argc != 11) {print_args(); MPI_Finalize(); return 0;}
   // INPUT PARAMETERS
   int library = atoi(argv[1]);
   int pattern = atoi(argv[2]);
@@ -72,9 +72,10 @@ int main(int argc, char *argv[])
   size_t count = atol(argv[4]);
   int warmup = atoi(argv[5]);
   int numiter = atoi(argv[6]);
-  int numgpu = atoi(argv[7]);
-  int groupsize = atoi(argv[8]);
-  int subgroupsize = atoi(argv[9]);
+  int window = atoi(argv[7]);
+  int numgpu = atoi(argv[8]);
+  int groupsize = atoi(argv[9]);
+  int subgroupsize = atoi(argv[10]);
 
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
@@ -122,6 +123,7 @@ int main(int argc, char *argv[])
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) library);
 
+  for(int win = 0; win < window; win++)
     switch(pattern) {
       case 1: // RAIL PATTERN
         switch(direction) {
@@ -255,23 +257,23 @@ int main(int argc, char *argv[])
       switch(pattern) {
         case 1:
           switch(direction) {
-            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-            case 2: printf("INBOUND");          data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 2: printf("INBOUND");          data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1); break;
           } printf(" RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 2:
           switch(direction) {
-	    case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-	    case 2: printf("IN-BOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-	    case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case 1: printf("OUTBOUND");         data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case 2: printf("IN-BOUND");         data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
           } printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 3:
           switch(direction) {
-            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-            case 2: printf("INBOUND");          data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 2: printf("INBOUND");          data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
           } printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         default: break; // DO NOTHING
       }
@@ -280,7 +282,7 @@ int main(int argc, char *argv[])
       printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
       printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
       printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
-      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) / 1.e9 * numgpu / minTime);
+      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) * window / 1.e9 * numgpu / minTime);
     }
   }
 
@@ -321,9 +323,10 @@ void print_args() {
     printf("4. count: number of 4-byte elements\n");
     printf("5. warmup: number of warmup rounds\n");
     printf("6. numiter: number of measurement rounds\n");
-    printf("7. p: number of processors\n");
-    printf("8. g: group size\n");
-    printf("9. k: subgroup size\n");
+    printf("7. window: number of messages");
+    printf("8. p: number of processors\n");
+    printf("9. g: group size\n");
+    printf("10. k: subgroup size\n");
     printf("where on can run CommBench as\n");
     printf("mpirun ./CommBench library pattern direction count warmup numiter p g k\n");
     printf("\n");

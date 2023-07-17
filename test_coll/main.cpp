@@ -23,13 +23,13 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
-// #include <rccl.h>
+// #include <nccl.h>
+ #include <rccl.h>
 // #include <sycl.hpp>
 
 // PORTS
- #define PORT_CUDA
-// #define PORT_HIP
+// #define PORT_CUDA
+ #define PORT_HIP
 // #define PORT_SYCL
 
 // CONTROL NCCL CAPABILITY

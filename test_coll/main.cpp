@@ -124,9 +124,11 @@ int main(int argc, char *argv[])
     //INITIALIZE
 #ifdef PORT_CUDA
     cudaMemset(sendbuf_d, -1, count * numproc * sizeof(float));
+    cudaMemset(recvbuf_d, -1, count * numproc * sizeof(float));
     cudaDeviceSynchronize();
 #elif defined PORT_HIP
     hipMemset(sendbuf_d, -1, count * numproc * sizeof(float));
+    hipMemset(recvbuf_d, -1, count * numproc * sizeof(float));
     hipDeviceSynchronize();
 #endif
     // MEASURE

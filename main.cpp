@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
   {
     CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) library);
 
-  for(int win = 0; win < window; win++)
+    for(int win = 0; win < window; win++)
     switch(pattern) {
       case 1: // RAIL PATTERN
         switch(direction) {
@@ -257,32 +257,33 @@ int main(int argc, char *argv[])
       switch(pattern) {
         case 1:
           switch(direction) {
-            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1); break;
-            case 2: printf("INBOUND");          data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1); break;
-            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1); break;
-            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 2: printf("INBOUND");          data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
+            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
           } printf(" RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 2:
           switch(direction) {
-	    case 1: printf("OUTBOUND");         data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-	    case 2: printf("IN-BOUND");         data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-	    case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case 2: printf("IN-BOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
           } printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         case 3:
           switch(direction) {
-            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-            case 2: printf("INBOUND");          data =     count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) * window / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 1: printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 2: printf("INBOUND");          data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 3: printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+            case 4: printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
           } printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         default: break; // DO NOTHING
       }
+      data *= window;
       printf("DATA MOVEMENT: %.4e MB\n", data * 1e3);
       printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
       printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
       printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
       printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
-      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) * window / 1.e9 * numgpu / minTime);
+      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) * window / 1.e9 * numproc / minTime);
     }
   }
 

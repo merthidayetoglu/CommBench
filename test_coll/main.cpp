@@ -149,8 +149,8 @@ int main(int argc, char *argv[])
 #ifdef CAP_NCCL
       case 2:
         switch(pattern) {
-          case 3: ncclReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, ROOT, comm_nccl, 0);  break;
-          case 4: ncclBcast(sendbuf_d, count, ncclFloat32, ROOT, comm_nccl, 0);                       break;
+          case 3: ncclBcast(sendbuf_d, count, ncclFloat32, ROOT, comm_nccl, 0);                       break;
+          case 4: ncclReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, ROOT, comm_nccl, 0);  break;
           case 6: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);              break;
           case 7: ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);     break;
           case 8: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0); break;
@@ -207,8 +207,8 @@ int main(int argc, char *argv[])
         switch(pattern) {
           case 1: printf("MPI_Scatter\n"); break;
           case 2: printf("MPI_Gather\n"); break;
-          case 3: printf("MPI_Reduce\n"); break;
-          case 4: printf("MPI_Bcast\n"); break;
+          case 3: printf("MPI_Bcast\n"); break;
+          case 4: printf("MPI_Reduce\n"); break;
           case 5: printf("MPI_Alltoall\n"); break;
           case 6: printf("MPI_Allgather\n"); break;
           case 7: printf("MPI_Allreduce\n"); break;
@@ -217,8 +217,8 @@ int main(int argc, char *argv[])
 #ifdef CAP_NCCL
       case 2:
         switch(pattern) {
-          case 3: printf("ncclReduce\n"); break;
-          case 4: printf("ncclBcast\n"); break;
+          case 3: printf("ncclBcast\n"); break;
+          case 4: printf("ncclReduce\n"); break;
           case 6: printf("ncclAllGather\n"); break;
           case 7: printf("ncclAllReduce\n"); break;
           case 8: printf("ncclReduceScatter\n"); break;

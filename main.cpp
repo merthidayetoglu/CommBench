@@ -70,9 +70,9 @@ int main(int argc, char *argv[])
   int pattern = atoi(argv[2]);
   int direction = atoi(argv[3]);
   size_t count = atol(argv[4]);
-  int warmup = atoi(argv[5]);
-  int numiter = atoi(argv[6]);
-  int window = atoi(argv[7]);
+  int window = atoi(argv[5]);
+  int warmup = atoi(argv[6]);
+  int numiter = atoi(argv[7]);
   int numgpu = atoi(argv[8]);
   int groupsize = atoi(argv[9]);
   int subgroupsize = atoi(argv[10]);
@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
 
     printf("Bytes per Type %lu\n", sizeof(Type));
     printf("Point-to-point (P2P) count %ld ( %ld Bytes)\n", count, count * sizeof(Type));
+    printf("Number of messages %d\n", window);
     printf("\n");
   }
 
@@ -317,14 +318,14 @@ void print_args() {
 
   if(myid == ROOT) {
     printf("\n");
-    printf("CommBench requires nine arguments:\n");
+    printf("CommBench requires ten arguments:\n");
     printf("1. library: 0 for IPC, 1 for MPI, 2 for NCCL or RCCL\n");
     printf("2. pattern: 1 for Rail, 2 for Fan, 3 for Dense\n");
     printf("3. direction: 1 for outbound, 2 for inbound 3 for bi-directional, 4 for omni-directional\n");
-    printf("4. count: number of 4-byte elements\n");
-    printf("5. warmup: number of warmup rounds\n");
-    printf("6. numiter: number of measurement rounds\n");
-    printf("7. window: number of messages");
+    printf("4. count: number of 4-byte elements per message\n");
+    printf("5. window: number of messages");
+    printf("6. warmup: number of warmup rounds\n");
+    printf("7. numiter: number of measurement rounds\n");
     printf("8. p: number of processors\n");
     printf("9. g: group size\n");
     printf("10. k: subgroup size\n");

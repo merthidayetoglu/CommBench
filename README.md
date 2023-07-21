@@ -8,7 +8,7 @@ mpirun ./CommBench library pattern direction count window warmup numiter p g k
 ```
 where
 1. library: 0 for IPC, 1 for MPI, and 2 for NCCL
-2. pattern: 1 for Rail, 2 for Dense, and 3 for Fan
+2. pattern: 1 for Rail, 2 for Fan, and 3 for Dense
 3. direction: 1 for outbound, 2 for inbound, 3 for bidirectional and 4 for omnidirectional
 4. count: number of 4-byte elements per message
 5. window: number of messages per round

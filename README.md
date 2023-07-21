@@ -2,20 +2,21 @@
 
 CommBench is a portable benchmarking tool for HPC networks involving heterogeneous multi-GPU, multi-NIC nodes. We integrate MPI, NCCL, and IPC capabilities, provide an API for users to compose desired communication patterns, take measurements, and offer ports for benchmarking on Nvidia, AMD, and Intel GPUs.
 
-To describe the performance behavior of communications across groups of processors, we define group-to-group patterns (i.e., Rail, Fan, and Dense). For gradually varying the number of devices involved in communication with various ways, we parameterize these patterns with configuration control variables $(p, g, k)$. To run CommBench, one needs to set a total of nine command line parameters as
+To describe the performance behavior of communications across groups of processors, we define group-to-group patterns (i.e., Rail, Fan, and Dense). For gradually varying the number of devices involved in communication with various ways, we parameterize these patterns with configuration control variables $(p, g, k)$. To run CommBench, one needs to set a total of ten command line parameters as
 ```cpp
-mpirun ./CommBench library pattern direction count warmup numiter p g k
+mpirun ./CommBench library pattern direction count window warmup numiter p g k
 ```
 where
 1. library: 0 for IPC, 1 for MPI, and 2 for NCCL
 2. pattern: 1 for Rail, 2 for Dense, and 3 for Fan
-3. direction: 1 for unidirectional, 2 for bidirectional, and 3 for omnidirectional
-4. count: number of 4-byte elements
-5. warmup: number of warmup rounds
-6. numiter: number of measurement rounds
-7. $p$: number of GPUs
-8. $g$: group size
-9. $k$: subgroup size
+3. direction: 1 for outbound, 2 for inbound, 3 for bidirectional and 4 for omnidirectional
+4. count: number of 4-byte elements per message
+5. window: number of messages per round
+6. warmup: number of warmup rounds
+7. numiter: number of measurement rounds
+8. $p$: number of GPUs
+9. $g$: group size
+10. $k$: subgroup size
 
 When the pattern variable is set to 0, CommBench performs point-to-point (P2P) scan where $g$ and $k$ are insignificant.
 

@@ -129,25 +129,25 @@ int main(int argc, char *argv[])
         break;
       case 1:
         if(myid == ROOT)
-          printf("TEST GATHER\n");
-        for(int p = 0; p < numproc; p++)
-          coll.add(sendbuf_d, 0, recvbuf_d, p * count, count, p, ROOT);
-        break;
-      case 2:
-        if(myid == ROOT)
           printf("TEST SCATTER\n");
         for(int p = 0; p < numproc; p++)
           coll.add(sendbuf_d, p * count, recvbuf_d, 0, count, ROOT, p);
         break;
-      case 3:
+      case 2:
         if(myid == ROOT)
-          printf("TEST REDUCE\n");
+          printf("TEST GATHER\n");
+        for(int p = 0; p < numproc; p++)
+          coll.add(sendbuf_d, 0, recvbuf_d, p * count, count, p, ROOT);
         break;
-      case 4:
+      case 3:
         if(myid == ROOT)
           printf("TEST BROADCAST\n");
         for(int p = 0; p < numproc; p++)
           coll.add(sendbuf_d, 0, recvbuf_d, 0, count, ROOT, p);
+        break;
+      case 4:
+        if(myid == ROOT)
+          printf("TEST REDUCE\n");
         break;
       case 5:
         if(myid == ROOT)
@@ -158,18 +158,18 @@ int main(int argc, char *argv[])
         break;
       case 6:
         if(myid == ROOT)
-          printf("TEST ALL-REDUCE\n");
-        break;
-      case 7:
-        if(myid == ROOT)
           printf("TEST ALL-GATHER\n");
         for(int sender = 0; sender < numproc; sender++)
           for(int recver = 0; recver < numproc; recver++)
             coll.add(sendbuf_d, 0, recvbuf_d, sender * count, count, sender, recver);
         break;
-      case 8:
+      case 7:
         if(myid == ROOT)
           printf("TEST REDUCE-SCATTER\n");
+        break;
+      case 8:
+        if(myid == ROOT)
+          printf("TEST ALL-REDUCE\n");
         break;
     }
 
@@ -211,20 +211,20 @@ void print_args() {
 
   if(myid == ROOT) {
     printf("\n");
-    printf("CollBench requires four arguments:\n");
+    printf("CollBench requires five arguments:\n");
     printf("1. library:\n");
     printf("      0 for IPC\n");
     printf("      1 for MPI\n");
     printf("      2 for NCCL\n");
     printf("2. pattern:\n");
-    printf("      1 for Gather\n");
-    printf("      2 for Scatter\n");
-    printf("      3 for Reduce\n");
-    printf("      4 for Broadcast\n");
+    printf("      1 for Scatter\n");
+    printf("      2 for Gather\n");
+    printf("      3 for Broadcast\n");
+    printf("      4 for Reduce\n");
     printf("      5 for Alltoall\n");
-    printf("      6 for Allreduce\n");
-    printf("      7 for Allgather\n");
-    printf("      8 for ReduceScatter\n");
+    printf("      6 for Allgather\n");
+    printf("      7 for ReduceScatter\n");
+    printf("      8 for Allreduce\n");
     printf("3. count: number of 4-byte elements\n");
     printf("4. warmup: number of warmup rounds\n");
     printf("5. numiter: number of measurement rounds\n");

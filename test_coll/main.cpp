@@ -23,13 +23,13 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
- #include <rccl.h>
+ #include <nccl.h>
+// #include <rccl.h>
 // #include <sycl.hpp>
 
 // PORTS
-// #define PORT_CUDA
- #define PORT_HIP
+ #define PORT_CUDA
+// #define PORT_HIP
 // #define PORT_SYCL
 
 // CONTROL NCCL CAPABILITY
@@ -143,8 +143,8 @@ int main(int argc, char *argv[])
           case 4: MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD);           break;
           case 5: MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);      break;
           case 6: MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
-          case 7: MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);              break;
-          case 8: MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
+          case 7: MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
+          case 8: MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);              break;
         } break;
 #ifdef CAP_NCCL
       case 2:
@@ -152,8 +152,8 @@ int main(int argc, char *argv[])
           case 3: ncclBcast(sendbuf_d, count, ncclFloat32, ROOT, comm_nccl, 0);                       break;
           case 4: ncclReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, ROOT, comm_nccl, 0);  break;
           case 6: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);              break;
-          case 7: ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);     break;
-          case 8: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0); break;
+          case 7: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0); break;
+          case 8: ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);     break;
           default: return 0;
         }
 #ifdef PORT_CUDA
@@ -211,8 +211,8 @@ int main(int argc, char *argv[])
           case 4: printf("MPI_Reduce\n"); break;
           case 5: printf("MPI_Alltoall\n"); break;
           case 6: printf("MPI_Allgather\n"); break;
-          case 7: printf("MPI_Allreduce\n"); break;
-          case 8: printf("MPI_Reduce_scatter\n"); break;
+          case 7: printf("MPI_Reduce_scatter\n"); break;
+          case 8: printf("MPI_Allreduce\n"); break;
         } break;
 #ifdef CAP_NCCL
       case 2:
@@ -220,8 +220,8 @@ int main(int argc, char *argv[])
           case 3: printf("ncclBcast\n"); break;
           case 4: printf("ncclReduce\n"); break;
           case 6: printf("ncclAllGather\n"); break;
-          case 7: printf("ncclAllReduce\n"); break;
-          case 8: printf("ncclReduceScatter\n"); break;
+          case 7: printf("ncclReduceScatter\n"); break;
+          case 8: printf("ncclAllReduce\n"); break;
         } break;
 #endif
     }
@@ -277,8 +277,8 @@ void print_args() {
     printf("      4 for Broadcast\n");
     printf("      5 for Alltoall\n");
     printf("      6 for Allreduce\n");
-    printf("      7 for Allgather\n");
-    printf("      8 for ReduceScatter\n");
+    printf("      7 for ReduceScatter\n");
+    printf("      8 for Allgather\n");
     printf("3. count: number of 4-byte elements\n");
     printf("4. warmup: number of warmup rounds\n");
     printf("5. numiter: number of measurement rounds\n");

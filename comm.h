@@ -51,12 +51,12 @@ namespace CommBench
     bool *ack_recver;
 #ifdef PORT_CUDA
     cudaStream_t *stream_ipc;
-    cudaEvent_t *event;
-    cudaEvent_t *event_ipc;
+    //cudaEvent_t *event;
+    //cudaEvent_t *event_ipc;
 #elif defined PORT_HIP
     hipStream_t *stream_ipc;
-    hipEvent_t *event;
-    hipEvent_t *event_ipc;
+    //hipEvent_t *event;
+    //hipEvent_t *event_ipc;
 #endif
 
     T **sendbuf;
@@ -245,7 +245,7 @@ namespace CommBench
           }
           sendrequest = new MPI_Request[numsend + 1];
           ack_sender = new bool[numsend + 1];
-          // SEND REMOTE EVENT HANDLE
+          /*// SEND REMOTE EVENT HANDLE
           {
 #ifdef PORT_CUDA
 	    cudaEvent_t *event = new cudaEvent_t[numsend + 1];
@@ -289,7 +289,7 @@ namespace CommBench
               return;
             }
           }
-#endif
+#endif*/
           // RECV REMOTE MEMORY HANDLE
 	  {
             T **recvbuf_ipc = new T*[numsend + 1];
@@ -406,7 +406,7 @@ namespace CommBench
           }
           recvrequest = new MPI_Request[numrecv + 1];
           ack_recver = new bool[numrecv + 1];
-          // RECIEVE REMOTE EVENT HANDLE
+          /*// RECIEVE REMOTE EVENT HANDLE
           {
 #ifdef PORT_CUDA
             cudaEvent_t *event_ipc = new cudaEvent_t[numrecv + 1];
@@ -448,7 +448,7 @@ namespace CommBench
               return;
             }
           }
-#endif
+#endif*/
           // SEND REMOTE MEMORY HANDLE
           if(sendid != recvid)
           {

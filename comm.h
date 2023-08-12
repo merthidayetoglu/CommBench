@@ -307,7 +307,7 @@ namespace CommBench
             recvbuf_ipc[numsend] = recvbuf;
             recvoffset_ipc[numsend] = recvoffset;
           } else {
-            bool duplicate;
+            /* bool duplicate;
             MPI_Recv(&duplicate, 1, MPI_C_BOOL, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
             if(duplicate) {
               int count_temp;
@@ -323,7 +323,7 @@ namespace CommBench
                     count++;
                 }
             }
-            else {
+            else { */
               int error = -1;
 #ifdef PORT_CUDA
               cudaIpcMemHandle_t memhandle;
@@ -338,7 +338,7 @@ namespace CommBench
                 printf("IpcOpenMemHandle error %d\n", error);
                 return;
               }
-            }
+            // }
             MPI_Recv(recvoffset_ipc + numsend, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
           {
@@ -452,7 +452,7 @@ namespace CommBench
           // SEND REMOTE MEMORY HANDLE
           if(sendid != recvid)
           {
-            bool duplicate = false;
+            /*bool duplicate = false;
             int count = 0;
             for(int recv = 0; recv < numrecv; recv++)
               if(recvproc[recv] == sendid) {
@@ -466,7 +466,7 @@ namespace CommBench
             MPI_Send(&duplicate, 1, MPI_C_BOOL, sendid, 0, comm_mpi);
             if(duplicate)
               MPI_Send(&count, 1, MPI_INT, sendid, 0, comm_mpi);
-            else {
+            else {*/
               int error = -1;
 #ifdef PORT_CUDA
               cudaIpcMemHandle_t myhandle;
@@ -483,7 +483,7 @@ namespace CommBench
                 printf("IpcGetMemHandle error %d\n", error);
                 return;
               }
-            }
+            //}
             MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
           }
           break;

@@ -307,7 +307,7 @@ namespace CommBench
             recvbuf_ipc[numsend] = recvbuf;
             recvoffset_ipc[numsend] = recvoffset;
           } else {
-            /* bool duplicate;
+            /*bool duplicate;
             MPI_Recv(&duplicate, 1, MPI_C_BOOL, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
             if(duplicate) {
               int count_temp;
@@ -483,11 +483,12 @@ namespace CommBench
                 printf("IpcGetMemHandle error %d\n", error);
                 return;
               }
-            //}
+            // }
             MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
           }
           break;
-        default: break; // do nothing
+        default:
+          break; // do nothing
       } // switch(lib)
       numrecv++;
     }

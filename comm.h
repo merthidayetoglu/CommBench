@@ -676,8 +676,6 @@ namespace CommBench
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
 #endif
         }
-        for(int recv = 0; recv < numrecv; recv++)
-          MPI_Irecv(ack_recver + recv, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
         break;
     }
   }
@@ -697,6 +695,8 @@ namespace CommBench
 #endif
         break;
       case IPC:
+        for(int recv = 0; recv < numrecv; recv++)
+          MPI_Irecv(ack_recver + recv, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[send]);
@@ -705,8 +705,8 @@ namespace CommBench
 #endif
           MPI_Isend(ack_sender + send, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
         }
-        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
+        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
         break;
     }
   }

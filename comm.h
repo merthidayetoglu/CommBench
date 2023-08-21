@@ -21,23 +21,25 @@ namespace CommBench
 {
   enum library {IPC, MPI, NCCL};
 
+  MPI_Comm comm_mpi;
+#ifdef CAP_NCCL
+  ncclComm_t comm_nccl;
+#endif
+#ifdef PORT_SYCL
+  sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
+#endif
+  bool initialized = false;
+
   template <typename T>
   class Comm {
 
     const library lib;
-    MPI_Comm comm_mpi;
 
     // GPU-Aware MPI
     MPI_Request *sendrequest;
     MPI_Request *recvrequest;
-#ifdef PORT_SYCL
-    sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
-#endif
 
     // NCCL
-#ifdef CAP_NCCL
-    ncclComm_t comm_nccl;
-#endif
 #ifdef PORT_CUDA
     cudaStream_t stream_nccl;
 #elif defined PORT_HIP
@@ -74,12 +76,17 @@ namespace CommBench
 
     Comm(const MPI_Comm &comm_mpi_temp, library lib) : lib(lib) {
 
-      MPI_Comm_dup(comm_mpi_temp, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
-	    
+      if(!initialized)
+        MPI_Comm_dup(comm_mpi_temp, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
+
       int myid;
       int numproc;
       MPI_Comm_rank(comm_mpi, &myid);
       MPI_Comm_size(comm_mpi, &numproc);
+
+      if(!initialized)
+        if(myid == ROOT)
+          printf("******************** MPI COMMUNICATOR IS CREATED\n");
 
       numsend = 0;
       numrecv = 0;
@@ -104,19 +111,24 @@ namespace CommBench
         }
       }
       if(lib == NCCL) {
+        if(!initialized) {
 #ifdef CAP_NCCL
-        ncclUniqueId id;
-        if(myid == 0)
-          ncclGetUniqueId(&id);
-        MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
-        ncclCommInitRank(&comm_nccl, numproc, id, myid);
-#endif
+          ncclUniqueId id;
+          if(myid == 0)
+            ncclGetUniqueId(&id);
+          MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
+          ncclCommInitRank(&comm_nccl, numproc, id, myid);
+          if(myid == ROOT)
+            printf("******************** NCCL COMMUNICATOR IS CREATED\n");
+#endif  
+	}
 #ifdef PORT_CUDA
         cudaStreamCreate(&stream_nccl);
 #elif defined PORT_HIP
         hipStreamCreate(&stream_nccl);
 #endif
       }
+      initialized = true;
     }
 
     /*~Comm() {

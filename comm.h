@@ -61,10 +61,10 @@ namespace CommBench
     //hipEvent_t *event_ipc;
 #endif
 
-    T **sendbuf;
-    T **recvbuf;
     int numsend;
     int numrecv;
+    T **sendbuf;
+    T **recvbuf;
     int *sendproc;
     int *recvproc;
     size_t *sendcount;
@@ -72,7 +72,6 @@ namespace CommBench
     size_t *sendoffset;
     size_t *recvoffset;
 
-    public:
 
     Comm(const MPI_Comm &comm_mpi_temp, library lib) : lib(lib) {
 

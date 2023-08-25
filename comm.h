@@ -33,6 +33,8 @@ namespace CommBench
   template <typename T>
   class Comm {
 
+    public :
+
     const library lib;
 
     // GPU-Aware MPI
@@ -547,6 +549,7 @@ namespace CommBench
   void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime) {
 
     double times[numiter];
+    double starts[numiter];
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
 
@@ -577,15 +580,17 @@ namespace CommBench
           printf("startup %.2e warmup: %.2e\n", start, time);
       }
       else {
+        starts[iter] = start;
         times[iter] = time;
       }
     }
     std::sort(times, times + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
+    std::sort(starts, starts + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
 
     if(myid == ROOT) {
       printf("%d measurement iterations (sorted):\n", numiter);
       for(int iter = 0; iter < numiter; iter++) {
-        printf("time: %.4e", times[iter]);
+        printf("start: %.4e time: %.4e", starts[iter], times[iter]);
         if(iter == 0)
           printf(" -> min\n");
         else if(iter == numiter / 2)

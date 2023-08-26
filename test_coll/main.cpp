@@ -96,7 +96,6 @@ int main(int argc, char *argv[])
 
   float *sendbuf_d;
   float *recvbuf_d;
-
 #ifdef PORT_CUDA
   cudaMalloc(&sendbuf_d, count * sizeof(float) * numproc);
   cudaMalloc(&recvbuf_d, count * sizeof(float) * numproc);
@@ -139,21 +138,21 @@ int main(int argc, char *argv[])
         switch(pattern) {
           case 1: MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
           case 2: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
-          case 3: MPI_Bcast(sendbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                                break;
-          case 4: MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD);           break;
+          case 3: MPI_Bcast(sendbuf_d, count * numproc, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                      break;
+          case 4: MPI_Reduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD); break;
           case 5: MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);      break;
           case 6: MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
           case 7: MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
-          case 8: MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);              break;
+          case 8: MPI_Allreduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
         } break;
 #ifdef CAP_NCCL
       case 2:
         switch(pattern) {
-          case 3: ncclBcast(sendbuf_d, count, ncclFloat32, ROOT, comm_nccl, 0);                       break;
-          case 4: ncclReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, ROOT, comm_nccl, 0);  break;
-          case 6: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);              break;
-          case 7: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0); break;
-          case 8: ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);     break;
+          case 3: ncclBcast(sendbuf_d, count * numproc, ncclFloat32, ROOT, comm_nccl, 0);                      break;
+          case 4: ncclReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, ROOT, comm_nccl, 0); break;
+          case 6: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);                       break;
+          case 7: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);          break;
+          case 8: ncclAllReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, comm_nccl, 0);    break;
           default: return 0;
         }
 #ifdef PORT_CUDA
@@ -225,7 +224,16 @@ int main(int argc, char *argv[])
         } break;
 #endif
     }
-    printf("data: %zu bytes\n", data);
+    if (data < 1e3)
+      printf("data: %d bytes\n", (int)data);
+    else if (data < 1e6)
+      printf("data: %.4f KB\n", data / 1e3);
+    else if (data < 1e9)
+      printf("data: %.4f MB\n", data / 1e6);
+    else if (data < 1e12)
+      printf("data: %.4f GB\n", data / 1e9);
+    else
+      printf("data: %.4f TB\n", data / 1e12);
     printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
     printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e9, data / medTime / 1e9);
     printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e9, data / maxTime / 1e9);

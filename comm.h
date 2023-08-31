@@ -106,9 +106,10 @@ namespace CommBench
 #endif
         printf("Library: ");
         switch(lib) {
-          case IPC : printf("IPC\n");  break;
-          case MPI : printf("MPI\n");  break;
+          case IPC  : printf("IPC\n");  break;
+          case MPI  : printf("MPI\n");  break;
           case NCCL : printf("NCCL\n"); break;
+          default   :                   break;
         }
       }
       if(lib == NCCL) {
@@ -209,9 +210,10 @@ namespace CommBench
           printf("%.4f TB )", data / 1e12);
 
         switch(lib) {
-          case IPC : printf(" IPC\n"); break;
-          case MPI : printf(" MPI\n"); break;
+          case IPC  : printf(" IPC\n"); break;
+          case MPI  : printf(" MPI\n"); break;
           case NCCL : printf(" NCCL\n"); break;
+          default   : break;
         }
       }
     }
@@ -577,7 +579,7 @@ namespace CommBench
       MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter < 0) {
         if(myid == ROOT)
-          printf("startup %.2e warmup: %.2e\n", start, time);
+          printf("startup %.2e warmup: %.2e\n", start * 1e6, time * 1e6);
       }
       else {
         starts[iter] = start;
@@ -590,7 +592,7 @@ namespace CommBench
     if(myid == ROOT) {
       printf("%d measurement iterations (sorted):\n", numiter);
       for(int iter = 0; iter < numiter; iter++) {
-        printf("start: %.4e time: %.4e", starts[iter], times[iter]);
+        printf("start: %.4e time: %.4e", starts[iter] * 1e6, times[iter] * 1e6);
         if(iter == 0)
           printf(" -> min\n");
         else if(iter == numiter / 2)
@@ -633,9 +635,10 @@ namespace CommBench
     if(myid == ROOT) {
       printf("\n");
       switch(lib) {
-        case 0: printf("IPC "); break;
-        case 1: printf("MPI "); break;
-        case 2: printf("NCCL "); break;
+        case IPC  : printf("IPC "); break;
+        case MPI  : printf("MPI "); break;
+        case NCCL : printf("NCCL "); break;
+        default : break;
       }
       printf("communication matrix\n");
       for(int recv = 0; recv < numproc; recv++) {
@@ -693,6 +696,7 @@ namespace CommBench
 #endif
         }
         break;
+      default: break;
     }
   }
 
@@ -724,6 +728,7 @@ namespace CommBench
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
         break;
+      default: break;
     }
   }
 

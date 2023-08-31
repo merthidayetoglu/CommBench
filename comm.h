@@ -19,7 +19,7 @@
 
 namespace CommBench
 {
-  enum library {IPC, MPI, NCCL};
+  enum library {MPI, NCCL, IPC, numlib};
 
   MPI_Comm comm_mpi;
 #ifdef CAP_NCCL

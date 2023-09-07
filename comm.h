@@ -19,6 +19,8 @@
 
 namespace CommBench
 {
+  int printid = -1;
+
   enum library {MPI, NCCL, IPC, numlib};
 
   MPI_Comm comm_mpi;
@@ -29,6 +31,19 @@ namespace CommBench
   sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
 #endif
   bool initialized = false;
+
+  void print_data(size_t data) {
+    if (data < 1e3)
+      printf("%d bytes", (int)data);
+    else if (data < 1e6)
+      printf("%.4f KB", data / 1e3);
+    else if (data < 1e9)
+      printf("%.4f MB", data / 1e6);
+    else if (data < 1e12)
+      printf("%.4f GB", data / 1e9);
+    else
+      printf("%.4f TB", data / 1e12);
+  }
 
   template <typename T>
   class Comm {
@@ -75,10 +90,10 @@ namespace CommBench
     size_t *recvoffset;
 
 
-    Comm(const MPI_Comm &comm_mpi_temp, library lib) : lib(lib) {
+    Comm(library lib) : lib(lib) {
 
       if(!initialized)
-        MPI_Comm_dup(comm_mpi_temp, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
+        MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
 
       int myid;
       int numproc;
@@ -86,13 +101,13 @@ namespace CommBench
       MPI_Comm_size(comm_mpi, &numproc);
 
       if(!initialized)
-        if(myid == ROOT)
+        if(myid == printid)
           printf("******************** MPI COMMUNICATOR IS CREATED\n");
 
       numsend = 0;
       numrecv = 0;
 
-      if(myid == ROOT) {
+      if(myid == printid) {
         printf("Create Comm with %d processors\n", numproc);
         printf("  Port: ");
 #ifdef PORT_CUDA
@@ -120,7 +135,7 @@ namespace CommBench
             ncclGetUniqueId(&id);
           MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
           ncclCommInitRank(&comm_nccl, numproc, id, myid);
-          if(myid == ROOT)
+          if(myid == printid)
             printf("******************** NCCL COMMUNICATOR IS CREATED\n");
 #endif  
 	}
@@ -176,16 +191,17 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    {
+    // REPORT
+    if(printid > -1 && printid < numproc) {
       if(myid == sendid) {
-        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, ROOT, 0, MPI_COMM_WORLD);
-        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, ROOT, 0, MPI_COMM_WORLD);
+        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
+        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
       }
       if(myid == recvid) {
-        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, ROOT, 0, MPI_COMM_WORLD);
-        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, ROOT, 0, MPI_COMM_WORLD);
+        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
+        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
       }
-      if(myid == ROOT) {
+      if(myid == printid) {
         T* sendbuf_sendid;
         T* recvbuf_recvid;
         size_t sendoffset_sendid;
@@ -196,18 +212,8 @@ namespace CommBench
         MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
-
-        double data = count * sizeof(T);
-        if (data < 1e3)
-          printf("%d bytes )", (int)data);
-        else if (data < 1e6)
-          printf("%.4f KB )", data / 1e3);
-        else if (data < 1e9)
-          printf("%.4f MB )", data / 1e6);
-        else if (data < 1e12)
-          printf("%.4f GB )", data / 1e9);
-        else
-          printf("%.4f TB )", data / 1e12);
+        print_data(count * sizeof(T));
+        printf(" )");
 
         switch(lib) {
           case IPC  : printf(" IPC\n"); break;
@@ -528,7 +534,7 @@ namespace CommBench
        data += sendcount[send] * sizeof(T);
     MPI_Allreduce(MPI_IN_PLACE, &data, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
 
-    if(myid == ROOT) {
+    if(myid == printid) {
       if (data < 1e3)
         printf("data: %d bytes\n", (int)data);
       else if (data < 1e6)
@@ -555,7 +561,7 @@ namespace CommBench
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
 
-    if(myid == ROOT)
+    if(myid == printid)
       printf("%d warmup iterations (in order):\n", warmup);
     for (int iter = -warmup; iter < numiter; iter++) {
       for(int send = 0; send < numsend; send++) {
@@ -578,7 +584,7 @@ namespace CommBench
       MPI_Allreduce(MPI_IN_PLACE, &start, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter < 0) {
-        if(myid == ROOT)
+        if(myid == printid)
           printf("startup %.2e warmup: %.2e\n", start * 1e6, time * 1e6);
       }
       else {
@@ -589,7 +595,7 @@ namespace CommBench
     std::sort(times, times + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
     std::sort(starts, starts + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
 
-    if(myid == ROOT) {
+    if(myid == printid) {
       printf("%d measurement iterations (sorted):\n", numiter);
       for(int iter = 0; iter < numiter; iter++) {
         printf("start: %.4e time: %.4e", starts[iter] * 1e6, times[iter] * 1e6);
@@ -632,7 +638,7 @@ namespace CommBench
     MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
     MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
 
-    if(myid == ROOT) {
+    if(myid == printid) {
       printf("\n");
       switch(lib) {
         case IPC  : printf("IPC "); break;
@@ -661,7 +667,7 @@ namespace CommBench
     MPI_Allreduce(MPI_IN_PLACE, &sendTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
     MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
 
-    if(myid == ROOT) {
+    if(myid == printid) {
       printf("send footprint: %e bytes\n", sendTotal);
       printf("recv footprint: %e bytes\n", recvTotal);
       printf("\n");

@@ -16,6 +16,8 @@
 #ifndef COMMBENCH_H
 #define COMMBENCH_H
 
+#include <algorithm> // for std::sort
+
 #if defined(PORT_CUDA) || defined(PORT_HIP)
 #define CAP_NCCL
 #endif

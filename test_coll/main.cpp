@@ -23,13 +23,13 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
-// #include <rccl.h>
+// #include <nccl.h>
+ #include <rccl.h>
 // #include <sycl.hpp>
 
 // PORTS
- #define PORT_CUDA
-// #define PORT_HIP
+// #define PORT_CUDA
+ #define PORT_HIP
 // #define PORT_SYCL
 
 // CONTROL NCCL CAPABILITY
@@ -40,6 +40,9 @@
 // UTILITIES
 #include "../util.h"
 void print_args();
+
+enum library {IPC, MPI, NCCL};
+enum pattern {pt2pt, gather, scatter, broadcast, reduce, alltoall, allgather, reducescatter, allreduce};
 
 int main(int argc, char *argv[])
 {
@@ -66,6 +69,7 @@ int main(int argc, char *argv[])
   int warmup = atoi(argv[4]);
   int numiter = atoi(argv[5]);
 
+
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
   {
@@ -75,9 +79,24 @@ int main(int argc, char *argv[])
     printf("Number of warmup %d\n", warmup);
     printf("Number of iterations %d\n", numiter);
 
-    printf("Library: %d\n", library);
-    printf("Pattern: %d\n", pattern);
-
+    printf("Library: ");
+    switch(library) {
+      case NCCL : printf("NCCL\n"); break;
+      case MPI  : printf("MPI\n");  break;
+      case IPC  : printf("IPC\n");  break;
+    }
+    printf("Pattern: ");
+    switch(pattern) {
+      case gather        : printf("Gather\n");         break;
+      case scatter       : printf("Scatter\n");        break;
+      case broadcast     : printf("Broadcast\n");      break;
+      case reduce        : printf("Reduce\n");         break;
+      case alltoall      : printf("All-to-All\n");     break;
+      case allgather     : printf("All-Gather\n");     break;
+      case reducescatter : printf("Reduce-Scatter\n"); break;
+      case allreduce     : printf("All-Reduce\n");     break;
+      default : return 0;
+    }
     printf("Peer-to-peer count %ld (%ld Bytes)\n", count, count * sizeof(float));
     printf("\n");
   }
@@ -134,25 +153,27 @@ int main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
     switch(library) {
-      case 1:
+      case MPI :
         switch(pattern) {
-          case 1: MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
-          case 2: MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
-          case 3: MPI_Bcast(sendbuf_d, count * numproc, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                      break;
-          case 4: MPI_Reduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD); break;
-          case 5: MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);      break;
-          case 6: MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
-          case 7: MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
-          case 8: MPI_Allreduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
-        } break;
+          case gather        : MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
+          case scatter       : MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
+          case broadcast     : MPI_Bcast(sendbuf_d, count * numproc, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                      break;
+          case reduce        : MPI_Reduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD); break;
+          case alltoall      : MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);      break;
+          case allgather     : MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
+          case reducescatter : MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
+          case allreduce     : MPI_Allreduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
+          default: return 0;
+        }
+        break;
 #ifdef CAP_NCCL
-      case 2:
+      case NCCL :
         switch(pattern) {
-          case 3: ncclBcast(sendbuf_d, count * numproc, ncclFloat32, ROOT, comm_nccl, 0);                      break;
-          case 4: ncclReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, ROOT, comm_nccl, 0); break;
-          case 6: ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);                       break;
-          case 7: ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);          break;
-          case 8: ncclAllReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, comm_nccl, 0);    break;
+          case broadcast     : ncclBcast(sendbuf_d, count * numproc, ncclFloat32, ROOT, comm_nccl, 0);                      break;
+          case reduce        : ncclReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, ROOT, comm_nccl, 0); break;
+          case allgather     : ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);                       break;
+          case reducescatter : ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);          break;
+          case allreduce     : ncclAllReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, comm_nccl, 0);    break;
           default: return 0;
         }
 #ifdef PORT_CUDA
@@ -162,8 +183,7 @@ int main(int argc, char *argv[])
 #endif
         break;
 #endif
-      default:
-        break; // do nothing
+      default: return 0;
     }
     // MPI_Barrier(MPI_COMM_WORLD); // eliminate barrier
     time = MPI_Wtime() - time;
@@ -202,38 +222,38 @@ int main(int argc, char *argv[])
     avgTime /= numiter;
     size_t data = count * sizeof(float) * numproc;
     switch(library) {
-      case 1:
+      case MPI :
         switch(pattern) {
-          case 1: printf("MPI_Scatter\n"); break;
-          case 2: printf("MPI_Gather\n"); break;
-          case 3: printf("MPI_Bcast\n"); break;
-          case 4: printf("MPI_Reduce\n"); break;
-          case 5: printf("MPI_Alltoall\n"); break;
-          case 6: printf("MPI_Allgather\n"); break;
-          case 7: printf("MPI_Reduce_scatter\n"); break;
-          case 8: printf("MPI_Allreduce\n"); break;
+          case gather        : printf("MPI_Gather\n"); break;
+          case scatter       : printf("MPI_Scatter\n"); break;
+          case broadcast     : printf("MPI_Bcast\n"); break;
+          case reduce        : printf("MPI_Reduce\n"); break;
+          case alltoall      : printf("MPI_Alltoall\n"); break;
+          case allgather     : printf("MPI_Allgather\n"); break;
+          case reducescatter : printf("MPI_Reduce_scatter\n"); break;
+          case allreduce     : printf("MPI_Allreduce\n"); break;
         } break;
 #ifdef CAP_NCCL
-      case 2:
+      case NCCL :
         switch(pattern) {
-          case 3: printf("ncclBcast\n"); break;
-          case 4: printf("ncclReduce\n"); break;
-          case 6: printf("ncclAllGather\n"); break;
-          case 7: printf("ncclReduceScatter\n"); break;
-          case 8: printf("ncclAllReduce\n"); break;
+          case broadcast     : printf("ncclBcast\n"); break;
+          case reduce        : printf("ncclReduce\n"); break;
+          case allgather     : printf("ncclAllGather\n"); break;
+          case reducescatter : printf("ncclReduceScatter\n"); break;
+          case allreduce     : printf("ncclAllReduce\n"); break;
         } break;
 #endif
     }
     if (data < 1e3)
-      printf("data: %d bytes\n", (int)data);
+      printf("%d bytes", (int)data);
     else if (data < 1e6)
-      printf("data: %.4f KB\n", data / 1e3);
+      printf("%.4f KB", data / 1e3);
     else if (data < 1e9)
-      printf("data: %.4f MB\n", data / 1e6);
+      printf("%.4f MB", data / 1e6);
     else if (data < 1e12)
-      printf("data: %.4f GB\n", data / 1e9);
+      printf("%.4f GB", data / 1e9);
     else
-      printf("data: %.4f TB\n", data / 1e12);
+      printf("%.4f TB", data / 1e12);
     printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
     printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e9, data / medTime / 1e9);
     printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e9, data / maxTime / 1e9);
@@ -276,17 +296,17 @@ void print_args() {
     printf("\n");
     printf("Collective tests requires five arguments:\n");
     printf("1. library:\n");
-    printf("      1 for MPI\n");
-    printf("      2 for NCCL or RCCL\n");
+    printf("      %d for NCCL or RCCL\n", NCCL);
+    printf("      %d for MPI\n", MPI);
     printf("2. pattern:\n");
-    printf("      1 for Gather\n");
-    printf("      2 for Scatter\n");
-    printf("      3 for Reduce\n");
-    printf("      4 for Broadcast\n");
-    printf("      5 for Alltoall\n");
-    printf("      6 for Allreduce\n");
-    printf("      7 for ReduceScatter\n");
-    printf("      8 for Allgather\n");
+    printf("      %d for Gather\n",        gather);
+    printf("      %d for Scatter\n",       scatter);
+    printf("      %d for Reduce\n",        reduce);
+    printf("      %d for Broadcast\n",     broadcast);
+    printf("      %d for Alltoall\n",      alltoall);
+    printf("      %d for Allgather\n",     allgather);
+    printf("      %d for ReduceScatter\n", reducescatter);
+    printf("      %d for Allreduce\n",     allreduce);
     printf("3. count: number of 4-byte elements\n");
     printf("4. warmup: number of warmup rounds\n");
     printf("5. numiter: number of measurement rounds\n");

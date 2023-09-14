@@ -48,3 +48,5 @@ To define benchmark configuration without ambiguity, one needs to specify $(p, g
 For convenience, we define unidirectional, bidirectional, and omnidirectional data movement for the group communication patterns. The terminals of unidirectional and bidirectional data movement are located in the originating group. Omnidirectional data movement happens across all groups.
 
 ![Scaling Patterns](https://github.com/merthidayetoglu/CommBench/blob/master/figures/scaling_patterns.png)
+
+For questions and support, please send an email to merth@stanford.edu

@@ -13,6 +13,9 @@
  * limitations under the License.
  */
 
+#ifndef COMMBENCH_H
+#define COMMBENCH_H
+
 #if defined(PORT_CUDA) || defined(PORT_HIP)
 #define CAP_NCCL
 #endif
@@ -751,3 +754,5 @@ namespace CommBench
 #endif
   }
 } // namespace CommBench
+
+#endif

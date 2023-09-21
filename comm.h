@@ -16,6 +16,7 @@
 #ifndef COMMBENCH_H
 #define COMMBENCH_H
 
+#include <stdio.h> // for std::printf
 #include <algorithm> // for std::sort
 
 #if defined(PORT_CUDA) || defined(PORT_HIP)
@@ -24,20 +25,20 @@
 
 namespace CommBench
 {
-  int printid = -1;
+  static int printid = -1;
 
   enum library {MPI, NCCL, IPC, numlib};
 
-  MPI_Comm comm_mpi;
+  static MPI_Comm comm_mpi;
 #ifdef CAP_NCCL
-  ncclComm_t comm_nccl;
+  static ncclComm_t comm_nccl;
 #endif
 #ifdef PORT_SYCL
-  sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
+  static sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
 #endif
-  bool initialized = false;
+  static bool initialized = false;
 
-  void print_data(size_t data) {
+  static void print_data(size_t data) {
     if (data < 1e3)
       printf("%d bytes", (int)data);
     else if (data < 1e6)
@@ -49,6 +50,7 @@ namespace CommBench
     else
       printf("%.4f TB", data / 1e12);
   }
+
 
   template <typename T>
   class Comm {

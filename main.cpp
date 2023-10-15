@@ -23,14 +23,14 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
- #include <rccl.h>
+ #include <nccl.h>
+// #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
-// #define PORT_CUDA
- #define PORT_HIP
+ #define PORT_CUDA
+// #define PORT_HIP
 // #define PORT_SYCL
 
 #include "comm.h"
@@ -122,7 +122,8 @@ int main(int argc, char *argv[])
 #endif
 
   {
-    CommBench::Comm<Type> bench(MPI_COMM_WORLD, (CommBench::library) library);
+    CommBench::printid = 0;
+    CommBench::Comm<Type> bench((CommBench::library) library);
 
     for(int win = 0; win < window; win++)
     switch(pattern) {

@@ -16,7 +16,8 @@
 #ifndef COMMBENCH_H
 #define COMMBENCH_H
 
-#include <stdio.h> // for std::printf
+#include <stdio.h> // for printf
+#include <string.h> // for memcpy
 #include <algorithm> // for std::sort
 
 #if defined(PORT_CUDA) || defined(PORT_HIP)
@@ -34,7 +35,7 @@ namespace CommBench
   static ncclComm_t comm_nccl;
 #endif
 #ifdef PORT_SYCL
-  static sycl::queue *q = new sycl::queue(sycl::gpu_selector_v);
+  static sycl::queue q(sycl::gpu_selector_v);// *q = new sycl::queue(sycl::gpu_selector_v);
 #endif
   static bool initialized = false;
 

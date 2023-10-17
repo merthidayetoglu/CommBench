@@ -35,7 +35,7 @@ namespace CommBench
   static ncclComm_t comm_nccl;
 #endif
 #ifdef PORT_SYCL
-  static sycl::queue q(sycl::gpu_selector_v);// *q = new sycl::queue(sycl::gpu_selector_v);
+  static sycl::queue q(sycl::gpu_selector_v);
 #endif
   static bool initialized = false;
 
@@ -266,7 +266,8 @@ namespace CommBench
           if(numsend) delete[] sendrequest;
           sendrequest = new MPI_Request[numsend + 1];
           break;
-        case NCCL: break;
+        case NCCL:
+          break;
         case IPC:
           if(numsend) {
             delete[] sendrequest;
@@ -362,6 +363,9 @@ namespace CommBench
               hipIpcMemHandle_t memhandle;
               MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
               error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
+#elif defined PORT_SYCL
+              // MPI_Recv(recvbuf_ipc + numsend, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+              error = 0;
 #endif
               if(error) {
                 printf("IpcOpenMemHandle error %d\n", error);
@@ -390,7 +394,8 @@ namespace CommBench
 #endif
           }
           break;
-        default: break; // do nothing
+        default:
+          break; // do nothing
       } // switch(lib)
       numsend++;
     }
@@ -427,7 +432,8 @@ namespace CommBench
           if(numrecv) delete[] recvrequest;
           recvrequest = new MPI_Request[numrecv + 1];
           break;
-        case NCCL: break;
+        case NCCL:
+          break;
         case IPC:
           if(numrecv) {
             delete[] recvrequest;
@@ -506,7 +512,8 @@ namespace CommBench
               error = hipIpcGetMemHandle(&myhandle, recvbuf);
               MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #elif defined PORT_SYCL
-              MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi);
+              // MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi);
+              error = 0;
 #endif
               if(error) {
                 printf("IpcGetMemHandle error %d\n", error);
@@ -707,6 +714,8 @@ namespace CommBench
           cudaMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
+#elif defined PORT_SYCL
+          // L0 IPC INITIATE
 #endif
         }
         break;
@@ -736,6 +745,8 @@ namespace CommBench
           cudaStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[send]);
+#elif defined PORT_SYCL
+          // L0 IPC SYNCHRONIZE
 #endif
           MPI_Isend(ack_sender + send, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
         }

@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
           case allgather     : MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
           case reducescatter : MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
           case allreduce     : MPI_Allreduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
-          default: return 0;
+          default            : return 0;
         }
         break;
 #ifdef CAP_NCCL
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
           case allgather     : ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);                       break;
           case reducescatter : ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);          break;
           case allreduce     : ncclAllReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, comm_nccl, 0);    break;
-          default: return 0;
+          default            : return 0;
         }
 #ifdef PORT_CUDA
         cudaStreamSynchronize(0);
@@ -183,7 +183,8 @@ int main(int argc, char *argv[])
 #endif
         break;
 #endif
-      default: return 0;
+      default:
+        return 0;
     }
     // MPI_Barrier(MPI_COMM_WORLD); // eliminate barrier
     time = MPI_Wtime() - time;
@@ -254,6 +255,7 @@ int main(int argc, char *argv[])
       printf("%.4f GB", data / 1e9);
     else
       printf("%.4f TB", data / 1e12);
+    printf("\n");
     printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
     printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e9, data / medTime / 1e9);
     printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e9, data / maxTime / 1e9);

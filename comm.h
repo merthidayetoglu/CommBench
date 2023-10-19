@@ -26,7 +26,7 @@ namespace CommBench
 {
   int printid = -1;
 
-  enum library {MPI, NCCL, IPC, numlib};
+  enum library {MPI, GAS, NCCL, IPC, numlib};
 
   MPI_Comm comm_mpi;
 #ifdef CAP_NCCL
@@ -744,4 +744,4 @@ namespace CommBench
   }
 } // namespace CommBench
 
-#endif
+#endifS

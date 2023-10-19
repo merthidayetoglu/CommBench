@@ -41,7 +41,7 @@
 #include "../util.h"
 void print_args();
 
-enum library {IPC, MPI, NCCL};
+enum library {MPI, NCCL};
 enum pattern {pt2pt, gather, scatter, broadcast, reduce, alltoall, allgather, reducescatter, allreduce};
 
 int main(int argc, char *argv[])
@@ -83,7 +83,6 @@ int main(int argc, char *argv[])
     switch(library) {
       case NCCL : printf("NCCL\n"); break;
       case MPI  : printf("MPI\n");  break;
-      case IPC  : printf("IPC\n");  break;
     }
     printf("Pattern: ");
     switch(pattern) {

@@ -62,13 +62,23 @@ template <typename T>
 CommBench::Comm<T> Comm(CommBench::Library);
 ```
 
-#### The Point-to-point Primitive
+#### Building Patterns
 
-CommBench relies on point-to-point communications, and offers a single function that can be used to build the desired pattern.
+CommBench builds custom patterns with point-to-point communications. The API offers a single function that can be used as the building block for the desired pattern. The function requires the pointers to the send and recieve buffers as well as the offset to the data. For IPC implementation, the pointers must point to the head of the buffer, as returned by virtual memory allocation. The rest of the arguments are the number of elements (their type is templatized) and the MPI ranks of the sender and reciever processes in the global communicator (i.e., ``MPI_COMM_WORLD``). For GPU-aware MPI and NCCL, we assume each process runs a GPU.
 
 ```cpp
 template <typename T>
-void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
+void CommBench::Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
 ```
+
+#### Synchronization
+
+Synchronization across MPI processes is made by 
+
+```cpp
+template <typename T>
+void CommBench::Comm<T>::start();
+```
+
 
 For questions and support, please send an email to merth@stanford.edu

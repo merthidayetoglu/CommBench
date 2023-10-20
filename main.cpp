@@ -323,8 +323,8 @@ void print_args() {
     printf("1. library: 0 for IPC, 1 for MPI, 2 for NCCL or RCCL\n");
     printf("2. pattern: 1 for Rail, 2 for Fan, 3 for Dense\n");
     printf("3. direction: 1 for outbound, 2 for inbound 3 for bi-directional, 4 for omni-directional\n");
-    printf("4. count: number of 4-byte elements per message\n");
-    printf("5. window: number of messages");
+    printf("4. count: number of elements per message\n");
+    printf("5. window: number of back-to-back messages in each round");
     printf("6. warmup: number of warmup rounds\n");
     printf("7. numiter: number of measurement rounds\n");
     printf("8. p: number of processors\n");

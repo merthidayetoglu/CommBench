@@ -2,6 +2,8 @@
 
 CommBench is a portable benchmarking tool for HPC networks involving heterogeneous multi-GPU, multi-NIC nodes. We integrate MPI, NCCL, and IPC capabilities, provide an API for users to compose desired communication patterns, take measurements, and offer ports for benchmarking on Nvidia, AMD, and Intel GPUs.
 
+For questions and support, please send an email to merth@stanford.edu
+
 ## API
 
 CommBench is a runtime tool for implementing collective communications. It offers a C++ API for programming the desired communication patterns and run them asynchronously.
@@ -65,8 +67,6 @@ void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime,
 #### Example
 
 There are multiple examples in the ``main.cpp`` that implement the proposed group-to-group patterns (see below). Each benchmarking pattern is parameterized and expressed in a few lines of code. Custom (e.g., application dependent) benchmarks can be configured similarly.
-
-For questions and support, please send an email to merth@stanford.edu
 
 ## Group-to-Group Benchmarking
 

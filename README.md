@@ -71,6 +71,12 @@ template <typename T>
 void CommBench::Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
 ```
 
+For seeing the benchmarking pattern as a sparse communication matrix, one can call the ``report()`` function.
+```cpp
+template <typename T>
+void CommBench::Comm<T>::report();
+```
+
 #### Synchronization
 
 Synchronization across the GPUs is made by ``start()`` and ``wait()`` functions. The former launches the registered communications all at once using nonblocking API of the chosen library. The latter blocks the program until the communication buffers are safe to be reused. Among all GPUs, only those who are involved in the communications are effected. Others move on executing the program. A sending process returns from the ``wait()`` function when the send buffer is safe to be reused at the sending GPU. Likewise, a recieving process returns from the ``wait()`` function when the recieve buffer is safe to be reused at the recieving GPU.
@@ -78,16 +84,29 @@ Synchronization across the GPUs is made by ``start()`` and ``wait()`` functions.
 ```cpp
 template <typename T>
 void CommBench::Comm<T>::start();
-```
 
-```cpp
 template <typename T>
 void CommBench::Comm<T>::start();
 ```
 
 #### Measurement
 
+It is tedious to take accurate measurements. Therefore we offer a measurement function to 
 
+```cpp
+template <typename T>
+void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime)
+```
+
+Measuring collective communication time using the synchronization functions.
+```cpp
+MPI_Barrier(comm_mpi);
+double time = MPI_Wtime();
+this->start();
+this->wait();
+time = MPI_Wtime() - time;
+MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
+```
 
 
 For questions and support, please send an email to merth@stanford.edu

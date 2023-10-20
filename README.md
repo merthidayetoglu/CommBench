@@ -89,16 +89,8 @@ template <typename T>
 void CommBench::Comm<T>::start();
 ```
 
-#### Measurement
+The communication time can be measured using the synchronization functions as below.
 
-It is tedious to take accurate measurements. Therefore we offer a measurement function to 
-
-```cpp
-template <typename T>
-void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime)
-```
-
-Measuring collective communication time using the synchronization functions.
 ```cpp
 MPI_Barrier(comm_mpi);
 double time = MPI_Wtime();
@@ -107,6 +99,19 @@ this->wait();
 time = MPI_Wtime() - time;
 MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 ```
+
+#### Measurement
+
+It is tedious to take accurate measurements. We provide a measurement functions that executes the communications multiple times and reports the statistics.
+
+```cpp
+template <typename T>
+void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime)
+```
+
+#### Example
+
+
 
 
 For questions and support, please send an email to merth@stanford.edu

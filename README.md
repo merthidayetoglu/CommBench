@@ -87,7 +87,7 @@ template <typename T>
 void CommBench::Comm<T>::start();
 ```
 
-The communication time can be measured using the synchronization functions as below.
+The communication time can be measured with minimal overhead using the synchronization functions. See below.
 
 ```cpp
 MPI_Barrier(comm_mpi);

@@ -4,7 +4,7 @@ CommBench is a portable benchmarking tool for HPC networks involving heterogeneo
 
 ## API
 
-CommBench is a runtime tool for benchmarking. It offers a C++ API for programming custom benchmarks.
+CommBench is a runtime tool for implementing collective communications. It offers a C++ API for programming the desired communication patterns and run them asynchronously.
 
 #### Communicator
 

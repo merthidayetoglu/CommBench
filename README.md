@@ -49,4 +49,17 @@ For convenience, we define unidirectional, bidirectional, and omnidirectional da
 
 ![Scaling Patterns](https://github.com/merthidayetoglu/CommBench/blob/master/figures/scaling_patterns.png)
 
+## CommBench API
+
+CommBench is a runtime tool for benchmarking. It offers a C++ API for programming custom benchmarks.
+
+#### Communicator
+
+The pattern is registered into a persistent communicator. The backend communication library must be specified. Current options are: ``CommBench::MPI'', ``CommBench::NCCL'', and ``CommBench::IPC''. 
+
+```cpp
+// Create Communicator
+CommBench::Comm<Type> Comm(CommBench::Library);
+```
+
 For questions and support, please send an email to merth@stanford.edu

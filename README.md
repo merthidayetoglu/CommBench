@@ -111,7 +111,6 @@ void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime,
 
 #### Example
 
-
-
+There are multiple examples in the ``main.cpp`` that implements the proposed group-to-group patterns. Each benchmarking pattern is parameterized and expressed in a few lines of code.
 
 For questions and support, please send an email to merth@stanford.edu

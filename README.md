@@ -92,8 +92,8 @@ The communication time can be measured using the synchronization functions as be
 ```cpp
 MPI_Barrier(comm_mpi);
 double time = MPI_Wtime();
-this->start();
-this->wait();
+comm.start();
+comm.wait();
 time = MPI_Wtime() - time;
 MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 ```

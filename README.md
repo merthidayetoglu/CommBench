@@ -58,7 +58,16 @@ CommBench is a runtime tool for benchmarking. It offers a C++ API for programmin
 The pattern is registered into a persistent communicator. The backend communication library must be specified. Current options are: ``CommBench::MPI``, ``CommBench::NCCL``, and ``CommBench::IPC``. 
 
 ```cpp
-CommBench::Comm<Type> Comm(CommBench::Library);
+
+CommBench::Comm<T> Comm(CommBench::Library);
+```
+
+#### The Point-to-point Primitive
+
+The API 
+
+```cpp
+void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
 ```
 
 For questions and support, please send an email to merth@stanford.edu

@@ -2,7 +2,7 @@
 
 CommBench is a portable benchmarking tool for HPC networks involving heterogeneous multi-GPU, multi-NIC nodes. We integrate MPI, NCCL, and IPC capabilities, provide an API for users to compose desired communication patterns, take measurements, and offer ports for benchmarking on Nvidia, AMD, and Intel GPUs.
 
-## C++ API
+## API
 
 CommBench is a runtime tool for benchmarking. It offers a C++ API for programming custom benchmarks.
 

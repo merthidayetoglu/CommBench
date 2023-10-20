@@ -66,6 +66,8 @@ void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime,
 
 There are multiple examples in the ``main.cpp`` that implement the proposed group-to-group patterns (see below). Each benchmarking pattern is parameterized and expressed in a few lines of code. Custom (e.g., application dependent) benchmarks can be configured similarly.
 
+For questions and support, please send an email to merth@stanford.edu
+
 ## Group-to-Group Benchmarking
 
 To describe the performance behavior of communications across groups of processors, we define group-to-group patterns (i.e., Rail, Fan, and Dense). For gradually varying the number of devices involved in communication with various ways, we parameterize these patterns with configuration control variables $(p, g, k)$. To run CommBench, one needs to set a total of ten command line parameters as

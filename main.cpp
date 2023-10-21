@@ -28,7 +28,7 @@
  #include <sycl.hpp>
  #include <ze_api.h>
 
-// PORTS
+// GPU PORTS
 // #define PORT_CUDA
 // #define PORT_HIP
 #define PORT_SYCL

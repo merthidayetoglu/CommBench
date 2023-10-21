@@ -28,7 +28,7 @@ namespace CommBench
 {
   static int printid = -1;
 
-  enum library {MPI, GAS, NCCL, IPC, numlib};
+  enum library {MPI, NCCL, IPC, numlib};
 
   static MPI_Comm comm_mpi;
 #ifdef CAP_NCCL
@@ -559,7 +559,7 @@ namespace CommBench
       else if (data < 1e12)
         printf("data: %.4f GB\n", data / 1e9);
       else
-        printf("data: %.4f TB\n", data / 1e12);
+        print_data((size_t)data);
       printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
       printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e9, data / medTime / 1e9);
       printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e9, data / maxTime / 1e9);

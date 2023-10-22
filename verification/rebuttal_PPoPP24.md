@@ -28,3 +28,7 @@ The p value is the total number of GPUs the application uses. The g value is the
 
 In the Frontier example, k=2 because the 8 GPUs on a node are physically divided into four groups of 2, where the 2 GPU in a group are located in the same (two-die) device that is binded to a single NIC (see Figure 2 (e)). This means the NIC is shared by two GPUs and k=2 test the saturation with of a single NIC with two GPUs in isolation.
 
+#### Q2: Expand on the terminology used in Section 5.1.3: Equation 1.
+
+We will expand the terminology for the measurement payload (5.1.3).
+

@@ -47,5 +47,8 @@ We will include a section that lists our crucial findings:
 4) Across Nodes, MPI has a lower latency with short message sizes and NCCL has a higher bandwidth in large message sizes. 
 5) The GPU-NIC bindings can be static or dynamic in non-obvious ways. Understanding the association is crucial for optimizing collective communications.
 
+#### Q2: How are the GPU-NIC bindings?
+
+The GPU-NIC association can be static or dynamic (depends on how the underlying libraries handle it). MPI has static bindings (block or round-robin), and NCCL has dynamic binding (depending on the workload and the system). See Section 5.3.2 for more detail. If static, each node in the supercomputer has the same logical binding.
 
 

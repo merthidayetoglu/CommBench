@@ -20,25 +20,20 @@ Conventional benchmarks measure the end-to-end performance of functions. On a hi
 #### Reviewer A:
 
 #### Q1.1: Rationale for the p, g, k groupings is unclear.
-
 The p value is the total number of GPUs the application uses. The g value is the number of GPUs that form a group with more efficient communication between them than across groups. The g value is determined by the machine topology. The k-value is the number of GPUs in each group to actually work more closely together to shift some of the global communication into intra-group communication. The rail/fan/dense patterns reflect the communication needs of the applications. In each pattern, one can vary the k-value from 1 to g to regulate the amount of global communication shifted into intra-group communication.
 
 #### Q1.2: Particularly, for Frontier (Page 4: bottom right column), why use k=2?
-
 In the Frontier example, k=2 because the 8 GPUs on a node are physically divided into four groups of 2, where the 2 GPU in a group are located in the same (two-die) device that is binded to a single NIC (see Figure 2 (e)). This means the NIC is shared by two GPUs and k=2 test the saturation with of a single NIC with two GPUs in isolation.
 
 #### Q2: Expand on the terminology used in Section 5.1.3: Equation 1.
-
 We will expand the terminology for the measurement payload (5.1.3).
 
 #### Q3: Will your benchmarking tool be made publicly available?
-
 CommBench is publicly available and open source. We will include the link in the final version.
 
 #### Reviewer B:
 
 #### Q1: Needs a section to summarize crucial findings or results.
-
 We will include a section that lists our crucial findings:
 
 1) The software overhead of MPI and NCCL varies significantly across the levels of the communication hierarchy.
@@ -48,19 +43,24 @@ We will include a section that lists our crucial findings:
 5) The GPU-NIC bindings can be static or dynamic in non-obvious ways. Understanding the association is crucial for optimizing collective communications.
 
 #### Q2: How are the GPU-NIC bindings?
-
 The GPU-NIC association can be static or dynamic (depends on how the underlying libraries handle it). MPI has static bindings (block or round-robin), and NCCL has dynamic binding (depending on the workload and the system). See Section 5.3.2 for more detail. If static, each node in the supercomputer has the same logical binding.
 
 #### Q3: Presentation of results.
-
 We will list these crucial findings at the beginning of the evaluations, and highlight these five points clearly when explaining the performance figures.
 
 #### Q4: Optimization of Gather and Scatter.
-
 It can be considered outside of the scope or authors should motivate it as well why they included in the study.
 Striping of Gather and Scatter functions are included as an example action item towards hierarchical optimization of collective communications. We implement and validate the optimization using CommBench. We will integrate this short section into the paper more clearly.
 
 #### Reviewer C:
+
+#### Q1: Are there any overheads?
+We minimize the measurement overhead of CommBench. Specifically, we exclude setup costs and global synchronization from the measurement. The remaining overhead is a few function calls on the order of ~35 ns which is insignificant compared to network latency (2 - 200 microseconds). 
+
+#### 2: Ease of use compared to other benchmark suites.
+CommBench is programmed into a single header file that works across compilers and can be easily included in the application code. Moreover, the group-to-group patterns are pre-implemented with the proposed API and parameterized with command-line parameters (similar to other benchmarks).
+
+
 
 
 

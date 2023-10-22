@@ -47,7 +47,7 @@ void CommBench::Comm<T>::start();
 The communication time can be measured with minimal overhead using the synchronization functions as below.
 
 ```cpp
-MPI_Barrier(comm_mpi);
+MPI_Barrier(MPI_COMM_WORLD);
 double time = MPI_Wtime();
 comm.start();
 comm.wait();

@@ -35,4 +35,17 @@ We will expand the terminology for the measurement payload (5.1.3).
 
 CommBench is publicly available and open source. We will include the link in the final version.
 
+#### Reviewer B:
+
+#### Q1: Needs a section to summarize crucial findings or results.
+
+We will include a section that lists our crucial findings:
+
+1) The software overhead of MPI and NCCL varies significantly across the levels of the communication hierarchy.
+2) MPI implementation does not saturate the GPU memory bandwidth in self (in-memory) communications.
+3) Within nodes, MPI point-to-point communication does not overlap and unnecessarily prolongs the communication time. Such software-drawn boundaries should be eliminated.
+4) Across Nodes, MPI has a lower latency with short message sizes and NCCL has a higher bandwidth in large message sizes. 
+5) The GPU-NIC bindings can be static or dynamic in non-obvious ways. Understanding the association is crucial for optimizing collective communications.
+
+
 

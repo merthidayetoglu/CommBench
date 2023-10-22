@@ -29,7 +29,7 @@ In the Frontier example, k=2 because the 8 GPUs on a node are physically divided
 We will expand the terminology for the measurement payload (5.1.3).
 
 #### Q3: Will your benchmarking tool be made publicly available?
-CommBench is publicly available and open source. We will include the link in the final version.
+CommBench is publicly available, open source, and documented. We will include the link in the final version.
 
 #### Reviewer B:
 
@@ -65,6 +65,20 @@ Other benchmarks measure end-to-end collective function time. Our benchmark meas
 
 #### Q4: Workflow of evaluating a new system.
 We will describe the steps that one needs to take to repeat the measurements reported in this paper. In short, 1) compilation with specific GPU port, 2) setting up the parameters depending on the system and experiments, and 3) post-processing CommBench’s output with a script and plotting the results. Typically, it takes about 30 minutes to reproduce our results per system. We will write the instruction with more detail in the AD/AE appendix.
+
+#### Q5: Minor comment on terminology.
+The reviewer is correct. We will change ”MPI rank” to “MPI process”.
+
+#### Reviewer D:
+
+#### Q1: Grouping is conceptual.
+The reviewer raised an insightful point. We defined the proposed group-to-group pattern parametrization for convention. Those patterns do extract the physical and logical mismatch at specific levels in the network hierarchy (e.g., GPU-to-NIC).
+
+#### Q2: API.
+The parameterized patterns are currently implemented as benchmarks rather than part of the API. The API can be used to configure similar parameterized benchmarks.
+
+
+
 
 
 

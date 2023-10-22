@@ -59,5 +59,8 @@ We will list these crucial findings at the beginning of the evaluations, and hig
 
 It can be considered outside of the scope or authors should motivate it as well why they included in the study.
 Striping of Gather and Scatter functions are included as an example action item towards hierarchical optimization of collective communications. We implement and validate the optimization using CommBench. We will integrate this short section into the paper more clearly.
-Reviewer C:
+
+#### Reviewer C:
+
+
 

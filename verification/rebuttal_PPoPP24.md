@@ -51,4 +51,13 @@ We will include a section that lists our crucial findings:
 
 The GPU-NIC association can be static or dynamic (depends on how the underlying libraries handle it). MPI has static bindings (block or round-robin), and NCCL has dynamic binding (depending on the workload and the system). See Section 5.3.2 for more detail. If static, each node in the supercomputer has the same logical binding.
 
+#### Q3: Presentation of results.
+
+We will list these crucial findings at the beginning of the evaluations, and highlight these five points clearly when explaining the performance figures.
+
+#### Q4: Optimization of Gather and Scatter.
+
+It can be considered outside of the scope or authors should motivate it as well why they included in the study.
+Striping of Gather and Scatter functions are included as an example action item towards hierarchical optimization of collective communications. We implement and validate the optimization using CommBench. We will integrate this short section into the paper more clearly.
+Reviewer C:
 

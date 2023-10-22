@@ -31,7 +31,7 @@ In the Frontier example, k=2 because the 8 GPUs on a node are physically divided
 
 We will expand the terminology for the measurement payload (5.1.3).
 
-### Q3: Will your benchmarking tool be made publicly available?
+#### Q3: Will your benchmarking tool be made publicly available?
 
 CommBench is publicly available and open source. We will include the link in the final version.
 

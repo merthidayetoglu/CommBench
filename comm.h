@@ -16,6 +16,22 @@
 #ifndef COMMBENCH_H
 #define COMMBENCH_H
 
+#include <mpi.h>
+
+// GPU PORTS
+// For NVIDIA: #define PORT_CUDA
+// For AMD: #define PORT_HIP
+// For SYCL: #define PORT_SYCL
+
+#ifdef PORT_CUDA
+#include <nccl.h>
+#elif defined PORT_HIP
+#include <rccl.h>
+#elif defined PORT_SYCL
+#include <sycl.hpp>
+#include <ze_api.h>
+#endif
+
 #include <stdio.h> // for printf
 #include <string.h> // for memcpy
 #include <algorithm> // for std::sort
@@ -51,7 +67,6 @@ namespace CommBench
     else
       printf("%.4f TB", data / 1e12);
   }
-
 
   template <typename T>
   class Comm {
@@ -96,7 +111,6 @@ namespace CommBench
     size_t *recvcount;
     size_t *sendoffset;
     size_t *recvoffset;
-
 
     Comm(library lib) : lib(lib) {
 

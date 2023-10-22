@@ -8,7 +8,6 @@ We appreciate the reviewers comments and constructive suggestions. We will incor
 1) “The portability of the benchmark is in question, since the software stack is specific.”
 2) “How is the portability to other GPUs achieved, as the system seems to rely only on NCCL? How much work is it to include a new communication fabric?”
 
-
 CommBench is portable across Nvidia, AMD, and Intel GPUs (see Table 1). CommBench also has MPI, NCCL, RCCL, and IPC implementations (see Figs 7-9). The compiler and runtime flags are shown in Table 3. Supporting a new communication fabric requires implementing a few CommBench primitives (e.g., point-to-point communication and synchronization/fences) using the fabric’s operations. 
 
 #### Q2: Why CommBench?
@@ -31,4 +30,9 @@ In the Frontier example, k=2 because the 8 GPUs on a node are physically divided
 #### Q2: Expand on the terminology used in Section 5.1.3: Equation 1.
 
 We will expand the terminology for the measurement payload (5.1.3).
+
+### Q3: Will your benchmarking tool be made publicly available?
+
+CommBench is publicly available and open source. We will include the link in the final version.
+
 

@@ -71,13 +71,20 @@ The reviewer is correct. We will change ”MPI rank” to “MPI process”.
 
 #### Reviewer D:
 
-#### Q1: Grouping is conceptual.
-The reviewer raised an insightful point. We defined the proposed group-to-group pattern parametrization for convention. Those patterns do extract the physical and logical mismatch at specific levels in the network hierarchy (e.g., GPU-to-NIC).
+#### Q1.1: Grouping is conceptual.
+The reviewer raised an insightful point. We defined the proposed parametrization of the group-to-group patterns for convention. Those patterns do extract the physical and logical mismatch at specific levels in the network hierarchy (e.g., GPU-to-NIC). 
 
-#### Q2: API.
-The parameterized patterns are currently implemented as benchmarks rather than part of the API. The API can be used to configure similar parameterized benchmarks.
+#### Q1.2: API.
+The parameterized patterns are currently implemented as benchmarks rather than part of the API. The API can be used to configure similar parameterized benchmarks. 
 
+#### Q2.1: Rank assignment.
+CommBench relies on MPI’s assignment of ranks to processors (GPUs), which it assumes to be “packed”---consecutive ranks are assigned to each group of processors with the closest affinity at each scale of the communication hierarchy.  For example, all processors in a node are consecutively numbered, and if the processors in a node are further subdivided into subgroups with faster links, processors within those subgroups are also consecutively numbered.  The MPI implementations we have considered satisfy this assumption.
 
+#### Q2.2: Node assignment.
+The allocation of the nodes are determined by the job scheduler. We request from the scheduler that the nodes are in the same switch group, where nodes have uniform bandwidth across each other. Further characterizing the bandwidth across the system requires further effort than this work: One needs to be able to reserve the system and control the node locations through the job scheduler.
+
+#### Q3: Novelty.
+CommBench is the first benchmarking tool that targets hierarchical networks with GPUs. We show that grouping is useful and effective at isolating the behavior of specific levels of communication hierarchy, revealing performance characteristics of production networks that have not been previously observed. 
 
 
 

@@ -57,8 +57,16 @@ Striping of Gather and Scatter functions are included as an example action item 
 #### Q1: Are there any overheads?
 We minimize the measurement overhead of CommBench. Specifically, we exclude setup costs and global synchronization from the measurement. The remaining overhead is a few function calls on the order of ~35 ns which is insignificant compared to network latency (2 - 200 microseconds). 
 
-#### 2: Ease of use compared to other benchmark suites.
+#### Q2: Ease of use compared to other benchmark suites.
 CommBench is programmed into a single header file that works across compilers and can be easily included in the application code. Moreover, the group-to-group patterns are pre-implemented with the proposed API and parameterized with command-line parameters (similar to other benchmarks).
+
+#### Q3: Accuracy
+Other benchmarks measure end-to-end collective function time. Our benchmark measures group-to-group time as well.  Our end-to-end measurements are as accurate as other approaches; beyond that there is no way to make a meaningful comparison.
+
+#### Q4: Workflow of evaluating a new system.
+We will describe the steps that one needs to take to repeat the measurements reported in this paper. In short, 1) compilation with specific GPU port, 2) setting up the parameters depending on the system and experiments, and 3) post-processing CommBench’s output with a script and plotting the results. Typically, it takes about 30 minutes to reproduce our results per system. We will write the instruction with more detail in the AD/AE appendix.
+
+
 
 
 

@@ -67,6 +67,15 @@ namespace CommBench
     else
       printf("%.4f TB", data / 1e12);
   }
+  static void print_lib(library lib) {
+    switch(lib) {
+      case CommBench::IPC  : printf("IPC"); break;
+      case CommBench::MPI  : printf("MPI"); break;
+      case CommBench::NCCL : printf("NCCL"); break;
+      case CommBench::NCCL : printf("CPU"); break;
+      case CommBench::numlib : printf("NULL"); break;
+    }
+  }
 
   template <typename T>
   class Comm {

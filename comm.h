@@ -72,7 +72,7 @@ namespace CommBench
       case CommBench::IPC  : printf("IPC"); break;
       case CommBench::MPI  : printf("MPI"); break;
       case CommBench::NCCL : printf("NCCL"); break;
-      case CommBench::NCCL : printf("CPU"); break;
+      case CommBench::CPU  : printf("CPU"); break;
       case CommBench::numlib : printf("NULL"); break;
     }
   }

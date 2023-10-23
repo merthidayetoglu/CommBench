@@ -140,6 +140,7 @@ namespace CommBench
     }
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
+    void measure(int warmup, int numiter, size_t data);
     void measure(int warmup, int numiter);
     void report();
   };
@@ -459,6 +460,15 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::measure(int warmup, int numiter) {
+    size_t count_total = 0;
+    for(int send = 0; send < numsend; send++)
+       count_total += sendcount[send];
+    MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm_mpi);
+    measure(warmup, numiter, count_total);
+  };
+
+  template <typename T>
+  void Comm<T>::measure(int warmup, int numiter, size_t count) {
 
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
@@ -471,26 +481,13 @@ namespace CommBench
     double avgTime;
     this->measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
 
-    double data = 0;
-    for(int send = 0; send < numsend; send++)
-       data += sendcount[send] * sizeof(T);
-    MPI_Allreduce(MPI_IN_PLACE, &data, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
-
     if(myid == printid) {
-      if (data < 1e3)
-        printf("data: %d bytes\n", (int)data);
-      else if (data < 1e6)
-        printf("data: %.4f KB\n", data / 1e3);
-      else if (data < 1e9)
-        printf("data: %.4f MB\n", data / 1e6);
-      else if (data < 1e12)
-        printf("data: %.4f GB\n", data / 1e9);
-      else
-        print_data((size_t)data);
-      printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
-      printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e9, data / medTime / 1e9);
-      printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e9, data / maxTime / 1e9);
-      printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e9, data / avgTime / 1e9);
+      size_t data = count * sizeof(T);
+      printf("data: "); print_data(data); printf("\n");
+      printf("minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
+      printf("medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
+      printf("maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
+      printf("avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
       printf("\n");
     }
   };

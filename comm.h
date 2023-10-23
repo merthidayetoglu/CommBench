@@ -35,6 +35,7 @@
 #include <stdio.h> // for printf
 #include <string.h> // for memcpy
 #include <algorithm> // for std::sort
+#include <vector>
 
 #if defined(PORT_CUDA) || defined(PORT_HIP)
 #define CAP_NCCL
@@ -44,7 +45,7 @@ namespace CommBench
 {
   static int printid = -1;
 
-  enum library {MPI, NCCL, IPC, CPU, numlib};
+  enum library {MPI, NCCL, IPC, STAGE, numlib};
 
   static MPI_Comm comm_mpi;
 #ifdef CAP_NCCL
@@ -69,11 +70,11 @@ namespace CommBench
   }
   static void print_lib(library lib) {
     switch(lib) {
-      case CommBench::IPC  : printf("IPC"); break;
-      case CommBench::MPI  : printf("MPI"); break;
-      case CommBench::NCCL : printf("NCCL"); break;
-      case CommBench::CPU  : printf("CPU"); break;
-      case CommBench::numlib : printf("NULL"); break;
+      case IPC  : printf("IPC"); break;
+      case MPI  : printf("MPI"); break;
+      case NCCL : printf("NCCL"); break;
+      case STAGE  : printf("STAGE"); break;
+      case numlib : printf("NULL"); break;
     }
   }
 
@@ -108,13 +109,13 @@ namespace CommBench
     sycl::queue *q_ipc;
 #endif
 
-    // CPU
+    // STAGE
 #ifdef PORT_CUDA
-    cudaStream_t *stream_cpu;
+    std::vector<cudaStream_t> stream_stage;
 #elif defined PORT_HIP
-    hipStream_t *stream_cpu;
+    std::vector<hipStream_t> stream_stage;
 #elif defined PORT_SYCL
-    sycl::queue *q_cpu;
+    std::vector<sycl::queue> q_stage;
 #endif
 
     int numsend;
@@ -133,11 +134,6 @@ namespace CommBench
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void start();
     void wait();
-    bool test();
-    void run() {
-      start();
-      wait();
-    }
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void measure(int warmup, int numiter, size_t data);
@@ -176,13 +172,8 @@ namespace CommBench
       printf("CPU, ");
 #endif
       printf("Library: ");
-      switch(lib) {
-        case IPC  : printf("IPC\n");  break;
-        case MPI  : printf("MPI\n");  break;
-        case NCCL : printf("NCCL\n"); break;
-        case CPU  : printf("CPU\n");  break;
-        default   :                   break;
-      }
+      print_lib(lib);
+      printf("\n");
     }
     if(lib == NCCL) {
       if(!initialized) {
@@ -238,15 +229,9 @@ namespace CommBench
 
         printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
         print_data(count * sizeof(T));
-        printf(" )");
-
-        switch(lib) {
-          case IPC  : printf(" IPC\n");  break;
-          case MPI  : printf(" MPI\n");  break;
-          case NCCL : printf(" NCCL\n"); break;
-          case CPU  : printf(" CPU\n");  break;
-          default   : break;
-        }
+        printf(" ) ");
+        print_lib(lib);
+        printf("\n");
       }
     }
 
@@ -350,36 +335,19 @@ namespace CommBench
 #endif
           }
           break;
-        case CPU:
-          {
+        case STAGE:
 #ifdef PORT_CUDA
-          cudaStream_t *stream_cpu = new cudaStream_t[numsend + 1];
-          cudaStreamCreate(stream_cpu + numsend);
-          if(numsend) {
-            memcpy(stream_cpu, this->stream_cpu, numsend * sizeof(cudaStream_t));
-            delete[] this->stream_cpu;
-          }
-          this->stream_cpu = stream_cpu;
+          stream_stage.push_back(cudaStream_t);
+          cudaStreamCreate(stream_stage + numsend);
 #elif defined PORT_HIP
-          hipStream_t *stream_cpu = new hipStream_t[numsend + 1];
-          hipStreamCreate(stream_cpu + numsend);
-          if(numsend) {
-            memcpy(stream_cpu, this->stream_cpu, numsend * sizeof(hipStream_t));
-            delete[] this->stream_cpu;
-          }
-          this->stream_ipc = stream_cpu;
+          stream_stage.push_back(hipStream_t);
+          hipStreamCreate(stream_stage + numsend);
 #elif defined PORT_SYCL
-	  sycl::queue *q_cpu = new sycl::queue[numsend + 1](sycl::gpu_selector_v);
-          if(numsend) {
-            memcpy(q_cpu, this->q_cpu, numsend * sizeof(sycl::queue));
-            delete[] this->q_cpu;
-          }
-          this->q_cpu = q_cpu;
+          q_stage.push_back(sycl::queue(sycl::gpu_selector_v));
 #endif
-          }
           break;
-        default:
-          break; // do nothing
+        case numlib:
+          break;
       } // switch(lib)
       numsend++;
     }
@@ -449,10 +417,10 @@ namespace CommBench
             MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
           }
           break;
-        case CPU:
+        case STAGE:
           break;
-        default:
-          break; // do nothing
+        case numlib:
+          break;
       } // switch(lib)
       numrecv++;
     }
@@ -460,10 +428,10 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::measure(int warmup, int numiter) {
-    size_t count_total = 0;
+    double count_total = 0;
     for(int send = 0; send < numsend; send++)
        count_total += sendcount[send];
-    MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
     measure(warmup, numiter, count_total);
   };
 
@@ -579,14 +547,8 @@ namespace CommBench
 
     if(myid == printid) {
       printf("\n");
-      switch(lib) {
-        case IPC  : printf("IPC ");  break;
-        case MPI  : printf("MPI ");  break;
-        case NCCL : printf("NCCL "); break;
-        case CPU  : printf("CPU ");  break;
-        default : break;
-      }
-      printf("communication matrix\n");
+      print_lib(lib);
+      printf(" communication matrix\n");
       for(int recv = 0; recv < numproc; recv++) {
         for(int send = 0; send < numproc; send++)
           if(sendmatrix[recv][send])
@@ -644,19 +606,19 @@ namespace CommBench
 #endif
         }
         break;
-      case CPU:
+      case STAGE:
         for(int send = 0; send < numsend; send++)
           if(sendproc[send] == -1)
 #ifdef PORT_CUDA
-            cudaMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyHostToDevice, stream_cpu[send]);
+            cudaMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyHostToDevice, stream_stage[send]);
           else
-            cudaMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToHost, stream_cpu[send]);
+            cudaMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToHost, stream_stage[send]);
 #elif defined PORT_HIP
-            hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyHostToDevice, stream_cpu[send]);
+            hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyHostToDevice, stream_stage[send]);
           else
-            hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToHost, stream_cpu[send]);
+            hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToHost, stream_stage[send]);
 #elif defined PORT_SYCL
-            q_cpu[send].memcpy(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+            q_stage[send].memcpy(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
         break;
       default:
@@ -694,14 +656,14 @@ namespace CommBench
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
         break;
-      case CPU:
+      case STAGE:
         for(int recv = 0; recv < numrecv; recv++)
 #ifdef PORT_CUDA
-          cudaStreamSynchronize(stream_cpu[recv]);
+          cudaStreamSynchronize(stream_stage[recv]);
 #elif defined PORT_HIP
-          hipStreamSynchronize(stream_cpu[recv]);
+          hipStreamSynchronize(stream_stage[recv]);
 #elif defined PORT_SYCL
-          q_cpu[recv].wait();
+          q_stage[recv].wait();
 #endif
         break;
       default:

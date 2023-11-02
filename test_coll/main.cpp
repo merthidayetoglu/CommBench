@@ -41,7 +41,9 @@
 #include "../util.h"
 void print_args();
 
+namespace test {
 enum library {MPI, NCCL};
+}
 enum pattern {pt2pt, gather, scatter, broadcast, reduce, alltoall, allgather, reducescatter, allreduce};
 
 int main(int argc, char *argv[])
@@ -81,8 +83,8 @@ int main(int argc, char *argv[])
 
     printf("Library: ");
     switch(library) {
-      case NCCL : printf("NCCL\n"); break;
-      case MPI  : printf("MPI\n");  break;
+      case test::NCCL : printf("NCCL\n"); break;
+      case test::MPI  : printf("MPI\n");  break;
     }
     printf("Pattern: ");
     switch(pattern) {
@@ -152,7 +154,7 @@ int main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
     switch(library) {
-      case MPI :
+      case test::MPI :
         switch(pattern) {
           case gather        : MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
           case scatter       : MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
@@ -166,7 +168,7 @@ int main(int argc, char *argv[])
         }
         break;
 #ifdef CAP_NCCL
-      case NCCL :
+      case test::NCCL :
         switch(pattern) {
           case broadcast     : ncclBcast(sendbuf_d, count * numproc, ncclFloat32, ROOT, comm_nccl, 0);                      break;
           case reduce        : ncclReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, ROOT, comm_nccl, 0); break;
@@ -222,7 +224,7 @@ int main(int argc, char *argv[])
     avgTime /= numiter;
     size_t data = count * sizeof(float) * numproc;
     switch(library) {
-      case MPI :
+      case test::MPI :
         switch(pattern) {
           case gather        : printf("MPI_Gather\n"); break;
           case scatter       : printf("MPI_Scatter\n"); break;
@@ -234,7 +236,7 @@ int main(int argc, char *argv[])
           case allreduce     : printf("MPI_Allreduce\n"); break;
         } break;
 #ifdef CAP_NCCL
-      case NCCL :
+      case test::NCCL :
         switch(pattern) {
           case broadcast     : printf("ncclBcast\n"); break;
           case reduce        : printf("ncclReduce\n"); break;
@@ -297,8 +299,8 @@ void print_args() {
     printf("\n");
     printf("Collective tests requires five arguments:\n");
     printf("1. library:\n");
-    printf("      %d for NCCL or RCCL\n", NCCL);
-    printf("      %d for MPI\n", MPI);
+    printf("      %d for NCCL or RCCL\n", test::NCCL);
+    printf("      %d for MPI\n", test::MPI);
     printf("2. pattern:\n");
     printf("      %d for Gather\n",        gather);
     printf("      %d for Scatter\n",       scatter);

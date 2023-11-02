@@ -337,11 +337,11 @@ namespace CommBench
           break;
         case STAGE:
 #ifdef PORT_CUDA
-          stream_stage.push_back(cudaStream_t);
-          cudaStreamCreate(stream_stage + numsend);
+          stream_stage.push_back(cudaStream_t());
+          cudaStreamCreate(&stream_stage[numsend]);
 #elif defined PORT_HIP
-          stream_stage.push_back(hipStream_t);
-          hipStreamCreate(stream_stage + numsend);
+          stream_stage.push_back(hipStream_t());
+          hipStreamCreate(&stream_stage[numsend]);
 #elif defined PORT_SYCL
           q_stage.push_back(sycl::queue(sycl::gpu_selector_v));
 #endif

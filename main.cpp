@@ -23,13 +23,14 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
+ #include <nccl.h>
 // #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
+
 // GPU PORTS
-// #define PORT_CUDA
+ #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 
@@ -64,18 +65,17 @@ int main(int argc, char *argv[])
   // MPI_Get_processor_name(machine_name, &name_len);
   // printf("myid %d %s\n",myid, machine_name);
 
-  if(argc != 11) {print_args(); MPI_Finalize(); return 0;}
+  if(argc != 10) {print_args(); MPI_Finalize(); return 0;}
   // INPUT PARAMETERS
   int library = atoi(argv[1]);
   int pattern = atoi(argv[2]);
   int direction = atoi(argv[3]);
   size_t count = atol(argv[4]);
-  int window = atoi(argv[5]);
-  int warmup = atoi(argv[6]);
-  int numiter = atoi(argv[7]);
-  int numgpu = atoi(argv[8]);
-  int groupsize = atoi(argv[9]);
-  int subgroupsize = atoi(argv[10]);
+  int warmup = atoi(argv[5]);
+  int numiter = atoi(argv[6]);
+  int numgpu = atoi(argv[7]);
+  int groupsize = atoi(argv[8]);
+  int subgroupsize = atoi(argv[9]);
 
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
@@ -95,7 +95,6 @@ int main(int argc, char *argv[])
 
     printf("Bytes per Type %lu\n", sizeof(Type));
     printf("Point-to-point (P2P) count %ld ( %ld Bytes)\n", count, count * sizeof(Type));
-    printf("Number of messages %d\n", window);
     printf("\n");
   }
 
@@ -125,7 +124,6 @@ int main(int argc, char *argv[])
     CommBench::printid = 0;
     CommBench::Comm<Type> bench((CommBench::library) library);
 
-    for(int win = 0; win < window; win++)
     switch(pattern) {
       case 1: // RAIL PATTERN
         switch(direction) {
@@ -279,13 +277,12 @@ int main(int argc, char *argv[])
           } printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         default: break; // DO NOTHING
       }
-      data *= window;
       printf("DATA MOVEMENT: %.4e MB\n", data * 1e3);
       printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
       printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
       printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
       printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
-      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) * window / 1.e9 * numproc / minTime);
+      printf("EQUIVALENT PEAK BANDWIDTH: %.4e GB/s\n", count * sizeof(Type) / 1.e9 * numproc / minTime);
     }
   }
 
@@ -324,14 +321,13 @@ void print_args() {
     printf("2. pattern: 1 for Rail, 2 for Fan, 3 for Dense\n");
     printf("3. direction: 1 for outbound, 2 for inbound 3 for bi-directional, 4 for omni-directional\n");
     printf("4. count: number of elements per message\n");
-    printf("5. window: number of back-to-back messages in each round");
-    printf("6. warmup: number of warmup rounds\n");
-    printf("7. numiter: number of measurement rounds\n");
-    printf("8. p: number of processors\n");
-    printf("9. g: group size\n");
-    printf("10. k: subgroup size\n");
+    printf("5. warmup: number of warmup rounds\n");
+    printf("6. numiter: number of measurement rounds\n");
+    printf("7. p: number of processors\n");
+    printf("8. g: group size\n");
+    printf("9. k: subgroup size\n");
     printf("where on can run CommBench as\n");
-    printf("mpirun ./CommBench library pattern direction count warmup numiter window p g k\n");
+    printf("mpirun ./CommBench library pattern direction count warmup numiter p g k\n");
     printf("\n");
   }
 }

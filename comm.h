@@ -603,6 +603,8 @@ namespace CommBench
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_SYCL
           // L0 IPC INITIATE
+	  // SELF COMMUNICATION
+          q.memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
         }
         break;
@@ -650,6 +652,8 @@ namespace CommBench
           hipStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_SYCL
           // L0 IPC SYNCHRONIZE
+	  // SELF COMMUNICATION
+	  q.wait();
 #endif
           MPI_Isend(ack_sender + send, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
         }

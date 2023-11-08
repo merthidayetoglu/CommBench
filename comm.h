@@ -203,13 +203,18 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
+    int sendid_temp = sendid;
+    int recvid_temp = recvid;
+
     // REPORT
     if(printid > -1 && printid < numproc) {
-      if(myid == sendid) {
+      int sendid_temp = (sendid == -1 ? recvid : sendid);
+      int recvid_temp = (recvid == -1 ? sendid : recvid);
+      if(myid == sendid_temp) {
         MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
         MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
       }
-      if(myid == recvid) {
+      if(myid == recvid_temp) {
         MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
         MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
       }
@@ -218,15 +223,10 @@ namespace CommBench
         T* recvbuf_recvid;
         size_t sendoffset_sendid;
         size_t recvoffset_recvid;
-        if(sendid != -1) {
-          MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-        if(recvid != -1) {
-          MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
+        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
         print_data(count * sizeof(T));
         printf(" ) ");
@@ -539,9 +539,9 @@ namespace CommBench
     memset(sendmatrix, 0, numproc * numproc * sizeof(int));
     memset(recvmatrix, 0, numproc * numproc * sizeof(int));
     for(int send = 0; send < numsend; send++)
-      sendmatrix[sendproc[send]][myid]++;
+      sendmatrix[abs(sendproc[send])][myid]++;
     for(int recv = 0; recv < numrecv; recv++)
-      recvmatrix[myid][recvproc[recv]]++;
+      recvmatrix[myid][abs(recvproc[recv])]++;
     MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
     MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
 
@@ -570,8 +570,12 @@ namespace CommBench
     MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
 
     if(myid == printid) {
-      printf("send footprint: %e bytes\n", sendTotal);
-      printf("recv footprint: %e bytes\n", recvTotal);
+      printf("send footprint: ");
+      print_data(sendTotal);
+      printf("\n");
+      printf("recv footprint: ");
+      print_data(recvTotal);
+      printf("\n");
       printf("\n");
     }
   }

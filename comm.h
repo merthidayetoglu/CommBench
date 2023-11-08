@@ -204,13 +204,18 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
+    int sendid_temp = sendid;
+    int recvid_temp = recvid;
+
     // REPORT
     if(printid > -1 && printid < numproc) {
-      if(myid == sendid) {
+      int sendid_temp = (sendid == -1 ? recvid : sendid);
+      int recvid_temp = (recvid == -1 ? sendid : recvid);
+      if(myid == sendid_temp) {
         MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
         MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
       }
-      if(myid == recvid) {
+      if(myid == recvid_temp) {
         MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
         MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
       }
@@ -219,15 +224,10 @@ namespace CommBench
         T* recvbuf_recvid;
         size_t sendoffset_sendid;
         size_t recvoffset_recvid;
-        if(sendid != -1) {
-          MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-        if(recvid != -1) {
-          MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
+        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
         print_data(count * sizeof(T));
         printf(" ) ");

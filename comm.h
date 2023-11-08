@@ -544,9 +544,9 @@ namespace CommBench
     memset(sendmatrix, 0, numproc * numproc * sizeof(int));
     memset(recvmatrix, 0, numproc * numproc * sizeof(int));
     for(int send = 0; send < numsend; send++)
-      sendmatrix[sendproc[send]][myid]++;
+      sendmatrix[abs(sendproc[send])][myid]++;
     for(int recv = 0; recv < numrecv; recv++)
-      recvmatrix[myid][recvproc[recv]]++;
+      recvmatrix[myid][abs(recvproc[recv])]++;
     MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
     MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
 
@@ -575,8 +575,12 @@ namespace CommBench
     MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
 
     if(myid == printid) {
-      printf("send footprint: %e bytes\n", sendTotal);
-      printf("recv footprint: %e bytes\n", recvTotal);
+      printf("send footprint: ");
+      print_data(sendTotal);
+      printf("\n");
+      printf("recv footprint: ");
+      print_data(recvTotal);
+      printf("\n");
       printf("\n");
     }
   }

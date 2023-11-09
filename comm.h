@@ -137,8 +137,9 @@ namespace CommBench
     void wait();
 
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
-    void measure(int warmup, int numiter, size_t data);
     void measure(int warmup, int numiter);
+    void measure(int warmup, int numiter, size_t data);
+    void measure_count(int warmup, int numiter, size_t data);
     void report();
   };
 
@@ -433,15 +434,24 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::measure(int warmup, int numiter) {
-    double count_total = 0;
-    for(int send = 0; send < numsend; send++)
-       count_total += sendcount[send];
-    MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
-    measure(warmup, numiter, count_total);
-  };
+    measure(warmup, numiter, 0);
+  }
 
   template <typename T>
   void Comm<T>::measure(int warmup, int numiter, size_t count) {
+    if(count == 0) {
+      double count_total;
+      for(int send = 0; send < numsend; send++)
+         count_total += sendcount[send];
+      MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
+      measure_count(warmup, numiter, count_total);
+    }
+    else
+      measure_count(warmup, numiter, count);
+  }
+
+  template <typename T>
+  void Comm<T>::measure_count(int warmup, int numiter, size_t count) {
 
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
@@ -629,6 +639,8 @@ namespace CommBench
           else
             hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToHost, stream_stage[send]);
 #elif defined PORT_SYCL
+            q_stage[send].memcpy(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+	  else
             q_stage[send].memcpy(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
         break;

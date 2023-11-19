@@ -54,7 +54,8 @@ namespace CommBench
 #ifdef PORT_SYCL
   static sycl::queue q(sycl::gpu_selector_v);
 #endif
-  static bool initialized = false;
+  static bool initialized_MPI = false;
+  static bool initialized_NCCL = false;
 
   static void print_data(size_t data) {
     if (data < 1e3)
@@ -146,7 +147,7 @@ namespace CommBench
   template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
 
-    if(!initialized)
+    if(!initialized_MPI)
       MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
 
     int myid;
@@ -154,9 +155,11 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    if(!initialized)
+    if(!initialized_MPI) {
+      initialized_MPI = true;
       if(myid == printid)
         printf("******************** MPI COMMUNICATOR IS CREATED\n");
+    }
 
     numsend = 0;
     numrecv = 0;
@@ -178,13 +181,14 @@ namespace CommBench
       printf("\n");
     }
     if(lib == NCCL) {
-      if(!initialized) {
+      if(!initialized_NCCL) {
 #ifdef CAP_NCCL
         ncclUniqueId id;
         if(myid == 0)
           ncclGetUniqueId(&id);
         MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
         ncclCommInitRank(&comm_nccl, numproc, id, myid);
+        initialized_NCCL = true;
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
 #endif
@@ -195,7 +199,6 @@ namespace CommBench
       hipStreamCreate(&stream_nccl);
 #endif
     }
-    initialized = true;
   }
 
   template <typename T>
@@ -207,7 +210,7 @@ namespace CommBench
 
 
     // REPORT
-    if(printid > -1 && printid < numproc) {
+    if(printid > -1) {
       int sendid_temp = (sendid == -1 ? recvid : sendid);
       int recvid_temp = (recvid == -1 ? sendid : recvid);
       if(myid == sendid_temp) {

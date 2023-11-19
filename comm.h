@@ -205,8 +205,6 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    int sendid_temp = sendid;
-    int recvid_temp = recvid;
 
     // REPORT
     if(printid > -1 && printid < numproc) {
@@ -440,10 +438,10 @@ namespace CommBench
   template <typename T>
   void Comm<T>::measure(int warmup, int numiter, size_t count) {
     if(count == 0) {
-      double count_total;
+      long count_total = 0;
       for(int send = 0; send < numsend; send++)
          count_total += sendcount[send];
-      MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
+      MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_LONG, MPI_SUM, comm_mpi);
       measure_count(warmup, numiter, count_total);
     }
     else

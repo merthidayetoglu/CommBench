@@ -24,10 +24,10 @@ int main(int argc, char *argv[]) {
     setup_gpu();
 
     //allocate GPU memory buffer
-    int count = 268435456;//8192,16384,32768,65536,131072,262144,524288,1048576,2097152,4194304,8388608,16777216,33554432,67108864,134217728,268435456
+    int count = 268435456;
     int *sendbuf_d;
     int *recvbuf_d;
-    cudaMalloc(&sendbuf_d, count * sizeof(int));//2gb
+    cudaMalloc(&sendbuf_d, count * sizeof(int));//1gb
     cudaMalloc(&recvbuf_d, count * sizeof(int));
 
     // register communication pattern

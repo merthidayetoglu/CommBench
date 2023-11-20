@@ -696,6 +696,28 @@ namespace CommBench
         break;
     }
   }
+
+ template <typename T>
+ static double measure(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
+    for (auto &i : commlist) {
+       i.measure(warmup, numiter);
+    }
+    std::vector<double> t;
+    double time;
+    for (int i = 0 ; i < count ; i++) {
+       MPI_Barrier(MPI_COMM_WORLD);
+       time = MPI_Wtime();
+       for (auto &i : commlist) {
+          i.start();
+          i.wait();
+       }
+       time = MPI_Wtime() - time;
+       MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+       t.push_back(time);
+    }
+    return *std::min_element(t.begin(), t.end());
+  }
+
 } // namespace CommBench
 
 #endif

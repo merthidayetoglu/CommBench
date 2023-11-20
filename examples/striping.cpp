@@ -22,17 +22,19 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     MPI_Comm_size(MPI_COMM_WORLD, &numproc);
     setup_gpu();
-    // INPUT PARAMETERS
-    CommBench::printid = 0;
-    Comm<int> partition(IPC);
-    Comm<int> translate(NCCL);
-    Comm<int> assemble(IPC);
+
     //allocate GPU memory buffer
     int count = 268435456;//8192,16384,32768,65536,131072,262144,524288,1048576,2097152,4194304,8388608,16777216,33554432,67108864,134217728,268435456
     int *sendbuf_d;
     int *recvbuf_d;
     cudaMalloc(&sendbuf_d, count * sizeof(int));//2gb
     cudaMalloc(&recvbuf_d, count * sizeof(int));
+
+    // register communication pattern
+    CommBench::printid = 0;
+    Comm<int> partition(IPC);
+    Comm<int> translate(NCCL);
+    Comm<int> assemble(IPC);
     partition.add(sendbuf_d, count/4, sendbuf_d, 0, count/4, 0, 1);
     partition.add(sendbuf_d, (2*count)/4, sendbuf_d, 0, count/4, 0, 2);
     partition.add(sendbuf_d, (3*count)/4, sendbuf_d, 0, count/4, 0, 3);
@@ -44,7 +46,10 @@ int main(int argc, char *argv[]) {
     assemble.add(recvbuf_d, 0, recvbuf_d, (2*count)/4, count/4, 6, 4);
     assemble.add(recvbuf_d, 0, recvbuf_d, (3*count)/4, count/4, 7, 4);
 
+    // create sequence
     std::vector<Comm<int>> striping = {partition, translate, assemble};
+
+    // measure end-to-end
     CommBench::measure(striping, 5, 10, count);
 
     cudaFree(sendbuf_d);

@@ -705,8 +705,8 @@ namespace CommBench
        i.measure(warmup, numiter);
     }
     std::vector<double> t;
-    MPI_Barrier(MPI_COMM_WORLD);
     for(int iter = -warmup; iter < numiter; iter++) {
+      MPI_Barrier(MPI_COMM_WORLD);
       double time = MPI_Wtime();
       for (auto &i : commlist) {
         i.start();

@@ -22,7 +22,7 @@ After registering events, we use ``void CommBench::measure(std::vector<Comm<T>> 
 
 ![Latency](https://github.com/merthidayetoglu/CommBench/blob/master/examples/images/latency.png)
 
-![Speedup](https://githhub.com/merthidayetoglu/CommBench/blob/master/examples/images/speedup.png)
+![Speedup](https://github.com/merthidayetoglu/CommBench/blob/master/examples/images/speedup.png)
 
 The above pictures shows the optimization result. We have tried different combinations of communication libraries among three communicator (IPC only works for intra-node communication), and we found ``IPC`` + ``NCCL`` has the best performance when data size is large. When data size is small, ``direct MPI`` has the best performance.
 

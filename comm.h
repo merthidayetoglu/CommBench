@@ -697,27 +697,69 @@ namespace CommBench
     }
   }
 
- template <typename T>
- static double measure(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
+  static void print_stats(std::vector<double>, size_t);
+
+  template <typename T>
+  static void measure(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
     for (auto &i : commlist) {
        i.measure(warmup, numiter);
     }
     std::vector<double> t;
-    double time;
-    for (int i = 0 ; i < count ; i++) {
-       MPI_Barrier(MPI_COMM_WORLD);
-       time = MPI_Wtime();
-       for (auto &i : commlist) {
-          i.start();
-          i.wait();
-       }
-       time = MPI_Wtime() - time;
-       MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-       t.push_back(time);
+    MPI_Barrier(MPI_COMM_WORLD);
+    for(int iter = -warmup; iter < numiter; iter++) {
+      double time = MPI_Wtime();
+      for (auto &i : commlist) {
+        i.start();
+        i.wait();
+      }
+      time = MPI_Wtime() - time;
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+      if(iter >= 0)
+        t.push_back(time);
     }
-    return *std::min_element(t.begin(), t.end());
+    print_stats(t, count * sizeof(T));
   }
 
+  static void print_stats(std::vector<double> times, size_t data) {
+
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+
+    std::sort(times.begin(), times.end(),  [](const double & a, const double & b) -> bool {return a < b;});
+
+    int numiter = times.size();
+
+    if(myid == printid) {
+      printf("%d measurement iterations (sorted):\n", numiter);
+      for(int iter = 0; iter < numiter; iter++) {
+        printf("time: %.4e", times[iter] * 1e6);
+        if(iter == 0)
+          printf(" -> min\n");
+        else if(iter == numiter / 2)
+          printf(" -> median\n");
+        else if(iter == numiter - 1)
+          printf(" -> max\n");
+        else
+          printf("\n");
+      }
+      printf("\n");
+    }
+    double minTime = times[0];
+    double medTime = times[numiter / 2];
+    double maxTime = times[numiter - 1];
+    double avgTime = 0;
+    for(int iter = 0; iter < numiter; iter++)
+      avgTime += times[iter];
+    avgTime /= numiter;
+    if(myid == printid) {
+      printf("data: "); print_data(data); printf("\n");
+      printf("minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
+      printf("medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
+      printf("maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
+      printf("avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
+      printf("\n");
+    }
+  }
 } // namespace CommBench
 
 #endif

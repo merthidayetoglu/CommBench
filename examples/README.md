@@ -2,7 +2,7 @@
 
 ### High-level Goal
 
-This example uses multi-rail striping algorithm to perform point-to-point GPU communication between 2 GPUs on different node. Each node consists of 4 GPUs, which is logically binding to 4 NICs respectively. A direct P2P GPU communication would only utilize 1 NIC's bandwidth while there are 4 NICs available. We first partition data into 4 chunks and transfer data chunks to GPUs at the transmitter node, then send data through each GPUs and their corresponding NICs, and finally assemble data at the receiver node.
+This example uses multi-rail striping algorithm to perform point-to-point GPU communication between 2 GPUs on different nodes. Each node consists of 4 GPUs, which are logically binded to 4 NICs in a one-to-one manner, respectively. A direct P2P GPU communication would only utilize 1 NIC's bandwidth while there are 4 NICs available. We first partition data into 4 chunks and transfer each chunk to a GPU at the transmitter node. Then we send data through each GPUs and their corresponding NICs, and finally assemble data at the receiver node.
 
 ### Code Explanation
 

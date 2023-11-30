@@ -41,7 +41,7 @@ template <typename T>
 void CommBench::Comm<T>::start();
 
 template <typename T>
-void CommBench::Comm<T>::start();
+void CommBench::Comm<T>::wait();
 ```
 
 The communication time can be measured with minimal overhead using the synchronization functions as below.

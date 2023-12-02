@@ -63,7 +63,7 @@ It is tedious to take accurate measurements, mainly because it has to be repeate
 template <typename T>
 void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime)
 ```
-For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latencies are recorded for calculating the statistics.
+For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latency in each round is recorded for calculating the statistics.
 
 #### Example
 

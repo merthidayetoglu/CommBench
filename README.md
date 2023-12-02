@@ -57,7 +57,7 @@ MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 
 #### Measurement
 
-It is tedious to take accurate measurements. We provide a measurement functions that executes the communications multiple times and reports the statistics.
+It is tedious to take accurate measurements, mainly because it has to be repeated several times to find the peak performance. We provide a measurement functions that executes the communications multiple times and reports the statistics.
 
 ```cpp
 template <typename T>

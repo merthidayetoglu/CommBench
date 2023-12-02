@@ -41,7 +41,7 @@ template <typename T>
 void CommBench::Comm<T>::start();
 
 template <typename T>
-void CommBench::Comm<T>::start();
+void CommBench::Comm<T>::wait();
 ```
 
 The communication time can be measured with minimal overhead using the synchronization functions as below.
@@ -57,12 +57,13 @@ MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 
 #### Measurement
 
-It is tedious to take accurate measurements. We provide a measurement functions that executes the communications multiple times and reports the statistics.
+It is tedious to take accurate measurements, mainly because it has to be repeated several times to find the peak performance. We provide a measurement functions that executes the communications multiple times and reports the statistics.
 
 ```cpp
 template <typename T>
 void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime)
 ```
+For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latency in each round is recorded for calculating the statistics.
 
 #### Example
 

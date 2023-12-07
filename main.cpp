@@ -23,8 +23,8 @@
 #define ROOT 0
 
 // GPU PORTS
-#define PORT_CUDA
-// #define PORT_HIP
+// #define PORT_CUDA
+#define PORT_HIP
 // #define PORT_SYCL
 
 #include "comm.h"
@@ -41,8 +41,8 @@ struct Type
   // complex<double> x, y, z;
 };
 
-enum Pattern {rail, fan, dense};
-enum Direction {outbound, inbound, bidirect, omnidirect};
+enum Pattern {rail, fan, dense, numpattern};
+enum Direction {outbound, inbound, bidirect, omnidirect, numdirect};
 
 int main(int argc, char *argv[])
 {
@@ -115,6 +115,16 @@ int main(int argc, char *argv[])
   sendbuf_d = new Type[count];
   recvbuf_d = new Type[count];
 #endif
+
+  for(int sender = 0; sender < 8; sender++)
+  for(int recver = 0; recver < 8; recver++) {
+    CommBench::printid = 0;
+    CommBench::Comm<Type> bench((CommBench::library) library);
+    bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+    bench.measure(5, 10);
+  }
+
+  return 0;
 
   {
     CommBench::printid = 0;
@@ -314,18 +324,28 @@ void print_args() {
     printf("\n");
     printf("CommBench requires ten arguments:\n");
     printf("1. library:\n");
-    printf("      %d for MPI\n", CommBench::MPI);
-    printf("      %d for NCCL or RCCL\n", CommBench::NCCL);
-    printf("      %d for IPC\n", CommBench::IPC);
+    for(int lib = 0; lib < CommBench::numlib; lib++)
+      switch(lib) {
+        case CommBench::null : printf("      %d for null\n", CommBench::null); break;
+        case CommBench::MPI  : printf("      %d for MPI\n", CommBench::MPI); break;
+        case CommBench::NCCL : printf("      %d for NCCL or RCCL\n", CommBench::NCCL); break;
+        case CommBench::IPC  : printf("      %d for IPC\n", CommBench::IPC);
+      }
     printf("2. pattern:\n");
-    printf("      %d for rail\n", Pattern::rail);
-    printf("      %d for fan\n", Pattern::fan);
-    printf("      %d for dense\n", Pattern::dense);
+    for(int pat = 0; pat < numpattern; pat++)
+      switch(pat) {
+        case Pattern::rail  : printf("      %d for rail\n", Pattern::rail); break;
+        case Pattern::fan   : printf("      %d for fan\n", Pattern::fan); break;
+        case Pattern::dense : printf("      %d for dense\n", Pattern::dense); break;
+      }
     printf("3. direction:\n");
-    printf("      %d for outbound\n", Direction::outbound);
-    printf("      %d for inbound\n", Direction::inbound);
-    printf("      %d for bidirect\n", Direction::bidirect);
-    printf("      %d for omnidirect\n", Direction::omnidirect);
+    for(int dir = 0; dir < numdirect; dir++)
+      switch(dir) {
+        case Direction::outbound   : printf("      %d for outbound\n", Direction::outbound); break;
+        case Direction::inbound    : printf("      %d for inbound\n", Direction::inbound); break;
+        case Direction::bidirect   : printf("      %d for bidirect\n", Direction::bidirect); break;
+        case Direction::omnidirect : printf("      %d for omnidirect\n", Direction::omnidirect); break;
+      }
     printf("4. count: number of elements per message\n");
     printf("5. warmup: number of warmup rounds\n");
     printf("6. numiter: number of measurement rounds\n");

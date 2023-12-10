@@ -24,8 +24,8 @@
 
 // GPU PORTS
 // #define PORT_CUDA
-#define PORT_HIP
-// #define PORT_SYCL
+// #define PORT_HIP
+#define PORT_SYCL
 
 #include "comm.h"
 
@@ -56,10 +56,6 @@ int main(int argc, char *argv[])
   #pragma omp parallel
   if(omp_get_thread_num() == 0)
     numthread = omp_get_num_threads();
-  // char machine_name[MPI_MAX_PROCESSOR_NAME];
-  // int name_len = 0;
-  // MPI_Get_processor_name(machine_name, &name_len);
-  // printf("myid %d %s\n",myid, machine_name);
 
   if(argc != 10) {print_args(); MPI_Finalize(); return 0;}
   // INPUT PARAMETERS
@@ -101,30 +97,8 @@ int main(int argc, char *argv[])
   // ALLOCATE
   Type *sendbuf_d;
   Type *recvbuf_d;
-#ifdef PORT_CUDA
-  cudaMalloc(&sendbuf_d, count * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * sizeof(Type));
-#elif defined PORT_HIP
-  hipMalloc(&sendbuf_d, count * sizeof(Type));
-  hipMalloc(&recvbuf_d, count * sizeof(Type));
-#elif defined PORT_SYCL
-  sycl::queue q(sycl::gpu_selector_v);
-  sendbuf_d = sycl::malloc_device<Type>(count, q);
-  recvbuf_d = sycl::malloc_device<Type>(count, q);
-#else
-  sendbuf_d = new Type[count];
-  recvbuf_d = new Type[count];
-#endif
-
-  for(int sender = 0; sender < 8; sender++)
-  for(int recver = 0; recver < 8; recver++) {
-    CommBench::printid = 0;
-    CommBench::Comm<Type> bench((CommBench::library) library);
-    bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
-    bench.measure(5, 10);
-  }
-
-  return 0;
+  CommBench::allocate(sendbuf_d, count);
+  CommBench::allocate(recvbuf_d, count);
 
   {
     CommBench::printid = 0;
@@ -134,26 +108,23 @@ int main(int argc, char *argv[])
       case Pattern::rail: // RAIL PATTERN
         switch(direction) {
 	  case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
-            for(int send = 0; send < subgroupsize; send++)
+            for(int sender = 0; sender < subgroupsize; sender++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++) {
-                int sender = send;
-                int recver = recvgroup * groupsize + send;
+                int recver = recvgroup * groupsize + sender;
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               }
             break;
           case Direction::inbound: // UNI-DIRECTIONAL (INBOUND)
-            for(int recv = 0; recv < subgroupsize; recv++)
+            for(int recver = 0; recver < subgroupsize; recver++)
               for(int sendgroup = 1; sendgroup < numgroup; sendgroup++) {
-                int sender = sendgroup * groupsize + recv;
-                int recver = recv;
+                int sender = sendgroup * groupsize + recver;
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               }
             break;
 	  case Direction::bidirect: // BI-DIRECTIONAL
-            for(int send = 0; send < subgroupsize; send++)
+            for(int sender = 0; sender < subgroupsize; sender++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++) {
-                int sender = send;
-                int recver = recvgroup * groupsize + send;
+                int recver = recvgroup * groupsize + sender;
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
               }
@@ -173,28 +144,25 @@ int main(int argc, char *argv[])
       case Pattern::fan: // FAN PATTERN
         switch(direction) {
 	  case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
-            for(int send = 0; send < subgroupsize; send++)
+            for(int sender = 0; sender < subgroupsize; sender++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
                 for(int recv = 0; recv < groupsize; recv++) {
-                  int sender = send;
                   int recver = recvgroup * groupsize + recv;
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 }
             break;
 	  case Direction::inbound: // UNI-DIRECTIONAL (INBOUND)
-            for(int recv = 0; recv < subgroupsize; recv++)
+            for(int recver = 0; recver < subgroupsize; recver++)
               for(int sendgroup = 1; sendgroup < numgroup; sendgroup++)
                 for(int send = 0; send < groupsize; send++) {
-                  int recver = recv;
                   int sender = sendgroup * groupsize + send;
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 }
             break;
 	  case Direction::bidirect: // BI-DIRECTIONAL
-            for(int send = 0; send < subgroupsize; send++)
+            for(int sender = 0; sender < subgroupsize; sender++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
                 for(int recv = 0; recv < groupsize; recv++) {
-                  int sender = send;
                   int recver = recvgroup * groupsize + recv;
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
@@ -205,28 +173,25 @@ int main(int argc, char *argv[])
       case Pattern::dense: // DENSE PATTERN
         switch(direction) {
 	  case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
-            for(int send = 0; send < subgroupsize; send++)
+            for(int sender = 0; sender < subgroupsize; sender++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
                 for(int recv = 0; recv < subgroupsize; recv++) {
-                  int sender = send;
                   int recver = recvgroup * groupsize + recv;
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 }
             break;
 	  case Direction::inbound: // UNI-DIRECTIONAL (INBOUND)
-            for(int recv = 0; recv < subgroupsize; recv++)
+            for(int recver = 0; recver < subgroupsize; recver++)
               for(int sendgroup = 1; sendgroup < numgroup; sendgroup++)
                 for(int send = 0; send < subgroupsize; send++) {
                   int sender = sendgroup * groupsize + send;
-                  int recver = recv;
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 }
             break;
 	  case Direction::bidirect: // BI-DIRECTIONAL
-            for(int send = 0; send < subgroupsize; send++)
+            for(int sender = 0; sender < subgroupsize; sender++)
               for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
                 for(int recv = 0; recv < subgroupsize; recv++) {
-                  int sender = send;
                   int recver = recvgroup * groupsize + recv;
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
@@ -249,8 +214,6 @@ int main(int argc, char *argv[])
 	break; // DO NOTHING
     }
 
-    // bench.measure(warmup, numiter, count * numproc); // SIMPLIFIED VIEW
-
     bench.report(); // SEE COMMUNICATION PATTERN
 
     // MEASURE
@@ -263,49 +226,42 @@ int main(int argc, char *argv[])
       switch(pattern) {
         case Pattern::rail:
           switch(direction) {
-	    case Direction::outbound   : printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-	    case Direction::inbound    : printf("INBOUND");          data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-	    case Direction::bidirect   : printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-	    case Direction::omnidirect : printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1); break;
-          } printf(" RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+	    case Direction::outbound   : printf("OUTBOUND");         data =     count * sizeof(Type) * subgroupsize * (numgroup - 1); break;
+	    case Direction::inbound    : printf("INBOUND");          data =     count * sizeof(Type) * subgroupsize * (numgroup - 1); break;
+	    case Direction::bidirect   : printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1); break;
+	    case Direction::omnidirect : printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1); break;
+          }
+          printf(" RAIL (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
 	case Pattern::fan:
           switch(direction) {
-	    case Direction::outbound   : printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-	    case Direction::inbound    : printf("IN-BOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-	    case Direction::bidirect   : printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * groupsize; break;
-          } printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
+	    case Direction::outbound   : printf("OUTBOUND");         data =     count * sizeof(Type) * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case Direction::inbound    : printf("IN-BOUND");         data =     count * sizeof(Type) * subgroupsize * (numgroup - 1) * groupsize; break;
+	    case Direction::bidirect   : printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1) * groupsize; break;
+          }
+          printf(" FAN (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
 	case Pattern::dense:
           switch(direction) {
-	    case Direction::outbound   : printf("OUTBOUND");         data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-	    case Direction::inbound    : printf("INBOUND");          data =     count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-	    case Direction::bidirect   : printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
-	    case Direction::omnidirect : printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) / 1.e9 * subgroupsize * (numgroup - 1) * subgroupsize; break;
+	    case Direction::outbound   : printf("OUTBOUND");         data =     count * sizeof(Type) * subgroupsize * (numgroup - 1) * subgroupsize; break;
+	    case Direction::inbound    : printf("INBOUND");          data =     count * sizeof(Type) * subgroupsize * (numgroup - 1) * subgroupsize; break;
+	    case Direction::bidirect   : printf("BI-DIRECTIONAL");   data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1) * subgroupsize; break;
+	    case Direction::omnidirect : printf("OMNI-DIRECTIONAL"); data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1) * subgroupsize; break;
           } printf(" DENSE (%d, %d, %d) PATTERN\n", numgpu, groupsize, subgroupsize); break;
         default: break; // DO NOTHING
       }
-      printf("DATA MOVEMENT: %e GB\n", data);
-      printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data, data / minTime);
-      printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data, data / medTime);
-      printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data, data / maxTime);
-      printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data, data / avgTime);
+      printf("DATA MOVEMENT: ");
+      CommBench::print_data(data);
+      printf("\n");
+      printf("minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
+      printf("medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
+      printf("maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
+      printf("avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
       printf("EQUIVALENT PEAK BANDWIDTH (pd/t): %.4e GB/s\n", count * sizeof(Type) / 1.e9 * numproc / minTime);
     }
   }
 
-// DEALLOCATE
-#ifdef PORT_CUDA
-  cudaFree(sendbuf_d);
-  cudaFree(recvbuf_d);
-#elif defined PORT_HIP
-  hipFree(sendbuf_d);
-  hipFree(recvbuf_d);
-#elif defined PORT_SYCL
-  sycl::free(sendbuf_d, q);
-  sycl::free(recvbuf_d, q);
-#else
-  delete[] sendbuf_d;
-  delete[] recvbuf_d;
-#endif
+  // DEALLOCATE
+  CommBench::free(sendbuf_d);
+  CommBench::free(recvbuf_d);
 
   // FINALIZE
   MPI_Finalize();

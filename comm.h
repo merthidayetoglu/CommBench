@@ -760,6 +760,60 @@ namespace CommBench
       printf("\n");
     }
   }
+
+  // MEMORY MANAGEMENT
+  template <typename T>
+  void allocate(T *&buffer, size_t n) {
+#ifdef PORT_CUDA
+    cudaMalloc(&buffer, n * sizeof(T));
+#elif defined PORT_HIP
+    hipMalloc(&buffer, n * sizeof(T));
+#elif defined PORT_SYCL
+    buffer = sycl::malloc_device<T>(n, CommBench::q);
+#else
+    buffer = new T[n];
+#endif
+  }
+
+  template <typename T>
+  void allocateHost(T *&buffer, size_t n) {
+#ifdef PORT_CUDA
+    cudaMallocHost(&buffer, n * sizeof(T));
+#elif defined PORT_HIP
+    hipHostMalloc(&buffer, n * sizeof(T));
+#elif defined PORT_SYCL
+    buffer = sycl::malloc_host<T>(n, CommBench::q);
+#else
+    buffer = new T[n];
+#endif
+  }
+
+  template <typename T>
+  void free(T *buffer) {
+#ifdef PORT_CUDA
+    cudaFree(buffer);
+#elif defined PORT_HIP
+    hipFree(buffer);
+#elif defined PORT_SYCL
+    sycl::free(buffer, CommBench::q);
+#else
+    delete[] buffer;
+#endif
+  }
+
+  template <typename T>
+  void freeHost(T *buffer) {
+#ifdef PORT_CUDA
+    cudaFreeHost(buffer);
+#elif defined PORT_HIP
+    hipHostFree(buffer);
+#elif defined PORT_SYCL
+    sycl::free(buffer, CommBench::q);
+#else
+    delete[] buffer;
+#endif
+  }
+
 } // namespace CommBench
 
 #endif

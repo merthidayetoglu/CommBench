@@ -64,7 +64,7 @@ For benchmarking multiple steps of communication patterns where each step depend
 ```cpp
 void CommBench::measure(std::vector<Comm<T>>, int warmup, int numiter, size_t count);
 ```
-In this case, the sequence of communications are given in a vector, e.g., ``std::vector<Comm<T>> comm_sequence = {comm_1, comm_2, comm_3}``, and CommBench internally figures out the data dependencies across steps and runs them asynchronously while preserving the dependencies.
+In this case, the sequence of communications are given in a vector, e.g., ``std::vector<Comm<T>> comm_sequence = {comm_1, comm_2, comm_3}``. CommBench internally figures out the data dependencies across steps and executes them asynchronously while preserving the dependencies.
 
 ![Striping](examples/striping/images/striping_abstract.png)
 

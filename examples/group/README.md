@@ -45,5 +45,6 @@ For convenience, we define unidirectional, bidirectional, and omnidirectional da
 
 ![Scaling Patterns](figures/scaling_patterns.png)
 
+There are multiple examples in the ``group.cpp`` that implement the proposed group-to-group patterns. Each benchmarking pattern is parameterized and expressed in a few lines of code. Custom (e.g., application dependent) benchmarks can be configured similarly.
 
 For questions and support, please send an email to merth@stanford.edu

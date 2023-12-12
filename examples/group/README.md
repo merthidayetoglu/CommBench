@@ -35,7 +35,7 @@ CommBench is the second (and final) iteration of the communication benchmarking 
 
 We propose a few pre-implemented benchmarking patterns that isolates data movement acoss groups. There are three parameters, $p$, $g$, and $k$ to configure the benchmark, where $p$ is the total number of processors, $g$ is the group size, and $k$ is the subgroup size where the communication is initiated in the originating group.
 
-![Comm Patterns](https://github.com/merthidayetoglu/CommBench/blob/master/figures/comm_patterns.png)
+![Comm Patterns](figures/comm_patterns.png)
 
 To define benchmark configuration without ambiguity, one needs to specify $(p, g, k)$, pattern, and the direction of data movement.
 
@@ -43,7 +43,7 @@ To define benchmark configuration without ambiguity, one needs to specify $(p, g
 
 For convenience, we define unidirectional, bidirectional, and omnidirectional data movement for the group communication patterns. The terminals of unidirectional and bidirectional data movement are located in the originating group. Omnidirectional data movement happens across all groups.
 
-![Scaling Patterns](https://github.com/merthidayetoglu/CommBench/blob/master/figures/scaling_patterns.png)
+![Scaling Patterns](figures/scaling_patterns.png)
 
 
 For questions and support, please send an email to merth@stanford.edu

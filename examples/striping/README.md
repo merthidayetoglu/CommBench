@@ -1,4 +1,4 @@
-## Striping Example
+## Striping Microbenchmark
 
 ### High-level Goal
 

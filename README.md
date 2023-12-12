@@ -69,6 +69,6 @@ In this case, the communications are given in a vector, e.g., ``cpp std::vector<
 
 ![Striping](examples/striping/images/striping_abstract.png)
 
-As an example, the above shows striping of point-to-point communications across nodes. This utilize the networks within nodes and across nodes towards measuring the peak bandwidth across nodes using all GPUs. This microbenchmark is more explained in https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping.
+As an example, the above shows striping of point-to-point communications across nodes. This utilize the networks within nodes and across nodes towards measuring the peak bandwidth across nodes using all GPUs. This microbenchmark is more explained in [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping).
 
 For questions and support, please send an email to merth@stanford.edu

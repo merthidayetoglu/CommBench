@@ -16,7 +16,7 @@ Comm<int> assemble(IPC);
 
 We use ``add`` function to register data transfer events for each communicator. As we explained in High-level Goal, ``partition`` and ``assemble`` is responsible for intra-node communication at the transmitter and receiver node respectively, and ``translate`` is responsible for inter-node communication using 4 NICs' bandwidth.
 
-After registering events, we use ``measure(std::vector<Comm<T>> commlist, int warmup, int numiter, size_t count)`` function to run the events back-to-back and measuring the latency (performance) at the same time.
+After registering events, we use ``measure`` function to run the events back-to-back and measuring the latency (performance) at the same time.
 
 ### Optimization 
 

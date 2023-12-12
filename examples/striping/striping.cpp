@@ -1,8 +1,8 @@
 
 // HEADERS
-// #define PORT_CUDA
+#define PORT_CUDA
 // #define PORT_HIP
- #define PORT_SYCL
+// #define PORT_SYCL
 #include "comm.h"
 
 // UTILITIES
@@ -31,9 +31,9 @@ int main(int argc, char *argv[]) {
     Comm<int> assemble(library::MPI);
 
     // allocate staging buffer
-    int groupsize = 12;
+    int groupsize = 4;
     int *temp_d;
-    allocate(temp_d, count);
+    allocate(temp_d, count / groupsize);
 
     // compose steps
     for(int i = 1; i < groupsize; i++)

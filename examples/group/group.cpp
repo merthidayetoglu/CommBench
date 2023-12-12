@@ -14,9 +14,9 @@
  */
 
 // GPU PORTS
-// #define PORT_CUDA
+#define PORT_CUDA
 // #define PORT_HIP
-#define PORT_SYCL
+// #define PORT_SYCL
 
 // COMMBENCH
 #include "comm.h"
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
   CommBench::printid = ROOT;
   CommBench::Comm<Type> bench((CommBench::library) library);
 
-  double data = 0;
+  size_t data = 0;
   switch(pattern) {
     case Pattern::rail: // RAIL PATTERN
       switch(direction) {
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
               int recver = recvgroup * groupsize + sender;
               bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
             }
-          data = count * sizeof(Type) * subgroupsize * (numgroup - 1);
+          data = count * subgroupsize * (numgroup - 1);
           break;
         case Direction::inbound: // UNI-DIRECTIONAL (INBOUND)
           for(int recver = 0; recver < subgroupsize; recver++)
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
               int sender = sendgroup * groupsize + recver;
               bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
             }
-          data = count * sizeof(Type) * subgroupsize * (numgroup - 1);
+          data = count * subgroupsize * (numgroup - 1);
           break;
         case Direction::bidirect: // BI-DIRECTIONAL
           for(int sender = 0; sender < subgroupsize; sender++)
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
               bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
             }
-          data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1);
+          data = 2 * count * subgroupsize * (numgroup - 1);
           break;
         case Direction::omnidirect: // OMNI-DIRECTIONAL
           for(int sendgroup = 0; sendgroup < numgroup; sendgroup++)
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
                   int recver = recvgroup * groupsize + send;
                   bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 }
-          data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1);
+          data = 2 * count * subgroupsize * (numgroup - 1);
           break;
       }
       break;
@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
                 int recver = recvgroup * groupsize + recv;
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               }
-          data = count * sizeof(Type) * subgroupsize * (numgroup - 1) * groupsize;
+          data = count * subgroupsize * (numgroup - 1) * groupsize;
           break;
         case Direction::inbound: // UNI-DIRECTIONAL (INBOUND)
           for(int recver = 0; recver < subgroupsize; recver++)
@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
                 int sender = sendgroup * groupsize + send;
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               }
-          data = count * sizeof(Type) * subgroupsize * (numgroup - 1) * groupsize;
+          data = count * subgroupsize * (numgroup - 1) * groupsize;
           break;
         case Direction::bidirect: // BI-DIRECTIONAL
           for(int sender = 0; sender < subgroupsize; sender++)
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
               }
-          data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1) * groupsize;
+          data = 2 * count * subgroupsize * (numgroup - 1) * groupsize;
           break;
       }
       break;
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
                 int recver = recvgroup * groupsize + recv;
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               }
-          data = count * sizeof(Type) * subgroupsize * (numgroup - 1) * subgroupsize;
+          data = count * subgroupsize * (numgroup - 1) * subgroupsize;
           break;
         case Direction::inbound: // UNI-DIRECTIONAL (INBOUND)
           for(int recver = 0; recver < subgroupsize; recver++)
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
                 int sender = sendgroup * groupsize + send;
                 bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               }
-          data = count * sizeof(Type) * subgroupsize * (numgroup - 1) * subgroupsize;
+          data = count * subgroupsize * (numgroup - 1) * subgroupsize;
           break;
         case Direction::bidirect: // BI-DIRECTIONAL
           for(int sender = 0; sender < subgroupsize; sender++)
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
               bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
               bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
             }
-          data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1) * subgroupsize;
+          data = 2 * count * subgroupsize * (numgroup - 1) * subgroupsize;
           break;
         case Direction::omnidirect: // OMNI-DIRECTIONAL
           for(int sendgroup = 0; sendgroup < numgroup; sendgroup++)
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
                     int recver = recvgroup * groupsize + recv;
                     bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
                   }
-          data = 2 * count * sizeof(Type) * subgroupsize * (numgroup - 1) * subgroupsize;
+          data = 2 * count * subgroupsize * (numgroup - 1) * subgroupsize;
           break;
       }
       break;
@@ -189,7 +189,6 @@ int main(int argc, char *argv[])
       break; // DO NOTHING
   }
 
-  bench.report();
   bench.measure(warmup, numiter, data);
     
   // DEALLOCATE

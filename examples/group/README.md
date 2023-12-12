@@ -1,4 +1,4 @@
-## Group-to-Group Benchmarking
+## Group-to-Group Microbenchmarks
 
 To describe the performance behavior of communications across groups of processors, we define group-to-group patterns (i.e., Rail, Fan, and Dense). For gradually varying the number of devices involved in communication with various ways, we parameterize these patterns with configuration control variables $(p, g, k)$. To run CommBench, one needs to set a total of ten command line parameters as
 ```cpp

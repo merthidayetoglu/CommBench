@@ -61,7 +61,7 @@ It is tedious to take accurate measurements, mainly because it has to be repeate
 
 ```cpp
 template <typename T>
-void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime)
+void Comm<T>::measure(int warmup, int numiter);
 ```
 For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latency in each round is recorded for calculating the statistics.
 

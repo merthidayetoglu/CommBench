@@ -53,10 +53,17 @@ MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 #### Measurement
 
 It is tedious to take accurate measurements, mainly because it has to be repeated several times to find the peak performance. We provide a measurement functions that executes the communications multiple times and reports the statistics.
-
 ```cpp
 void CommBench::Comm<T>::measure(int warmup, int numiter);
 ```
 For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latency in each round is recorded for calculating the statistics.
+
+### Multi-Step Communications
+
+For benchmarking multiple steps of communication patterns where each step depends on the previous, CommBench provides the followint function:
+```cpp
+void CommBench::measure(std::vector<Comm<T>> comm_sequence, int warmup, int numiter);
+```
+In this case, the communications are given in a vector, e.g., ``cpp std::vector<Comm<T>> comm_sequence = {comm_1, comm_2, comm_3};``, and CommBench internally figures out the data dependencies across steps and runs them asynchronously while preserving the dependencies. 
 
 For questions and support, please send an email to merth@stanford.edu

@@ -6,7 +6,7 @@ For questions and support, please send an email to merth@stanford.edu
 
 ## API
 
-CommBench is a runtime tool for implementing collective communications. It offers a C++ API for programming the desired communication patterns and run them asynchronously. CommBench is implemented with MPI and offers a global API, where functions must be hit by all processes in ``MPI_COMM_WORLD`` as if the program is sequential.
+CommBench is a runtime tool for implementing custom microbenchmarks. It offers a C++ API for programming a desired pattern using a composition of point-to-point communications. When programming a microbenchmark, CommBench's API functions must be hit by all processes as if the program is sequential.
 
 #### Communicator
 
@@ -19,7 +19,7 @@ CommBench::Comm<T> Comm(CommBench::Library);
 
 #### Pattern Composition
 
-CommBench relies on point-to-point communications. The API offers a single function ``add`` for registering point-to-point communications that can be used as the building block for the desired pattern. The function requires the pointers to the send and recieve buffers as well as the offset to the data. For IPC implementation, the pointers must point to the head of the buffer, as returned by virtual memory allocation. The rest of the arguments are the number of elements (their type is templatized) and the MPI ranks of the sender and reciever processes in the global communicator (i.e., ``MPI_COMM_WORLD``). For GPU-aware MPI and NCCL, we assume each process runs a GPU.
+CommBench relies on point-to-point communications. The API offers a single function ``add`` for registering point-to-point communications that can be used as the building block for the desired pattern. The function requires the pointers to the send and recieve buffers as well as the offset to the data. For reliability, the pointers must point to the head of the buffer, as returned by virtual memory allocation. The rest of the arguments are the number of elements (their type is templatized) and the MPI ranks of the sender and reciever processes in the global communicator (i.e., ``MPI_COMM_WORLD``).
 
 ```cpp
 void CommBench::Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
@@ -32,11 +32,10 @@ void CommBench::Comm<T>::report();
 
 #### Synchronization
 
-Synchronization across the GPUs is made by ``start()`` and ``wait()`` functions. The former launches the registered communications all at once using nonblocking API of the chosen library. The latter blocks the program until the communication buffers are safe to be reused. Among all GPUs, only those who are involved in the communications are effected. Others move on executing the program. For example, in a point-to-point communication, the sending process returns from the ``wait()`` function when the send buffer is safe to be reused. Likewise, the recieving process returns from the ``wait()`` function when the recieve buffer is safe to be reused. The GPUs that are not involved return from both ``start()`` and ``wait()`` functions immediately.
+Synchronization across the GPUs is made by ``start()`` and ``wait()`` functions. The former launches the registered communications all at once using nonblocking API of the chosen library. The latter blocks the program until the communication buffers are safe to be reused. Among all GPUs, only those who are involved in the communications are effected. Others move on executing the program. For example, in a point-to-point communication, the sending process returns from ``wait()`` when the send buffer is safe to be reused. Likewise, the recieving process returns from ``wait()`` when the recieve buffer is safe to be reused. The GPUs that are not involved return from both ``start()`` and ``wait()`` functions immediately. In sparse communications, each GPU can be sender and receiver, and the ``wait()`` function blocks a process until all associated communications are completed.
 
 ```cpp
 void CommBench::Comm<T>::start();
-
 void CommBench::Comm<T>::wait();
 ```
 

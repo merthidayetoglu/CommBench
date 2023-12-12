@@ -1,37 +1,27 @@
-#include <stdio.h> // for printf
-#include <stdlib.h> // for atoi
-#include <cstring> // for memcpy
-#include <algorithm> // for sort
-#include <mpi.h>
-#include <omp.h>
-#define ROOT 0
+
 // HEADERS
 #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 #include "comm.h"
+
 // UTILITIES
 #include "util.h"
 using namespace CommBench;
 using namespace std;
 int main(int argc, char *argv[]) {
-    // INITIALIZE
-    int myid;
-    int numproc;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-    MPI_Comm_size(MPI_COMM_WORLD, &numproc);
+
     setup_gpu();
 
     //allocate GPU memory buffer
     int count = 268435456;
     int *sendbuf_d;
     int *recvbuf_d;
-    cudaMalloc(&sendbuf_d, count * sizeof(int));//1gb
-    cudaMalloc(&recvbuf_d, count * sizeof(int));
+    allocate(sendbuf_d, count);//1gb
+    allocate(recvbuf_d, count);
 
     // register communication pattern
-    CommBench::printid = 0;
+    printid = 0;
     Comm<int> partition(IPC);
     Comm<int> translate(NCCL);
     Comm<int> assemble(IPC);
@@ -52,8 +42,8 @@ int main(int argc, char *argv[]) {
     // measure end-to-end
     CommBench::measure(striping, 5, 10, count);
 
-    cudaFree(sendbuf_d);
-    cudaFree(recvbuf_d);
+    free(sendbuf_d);
+    free(recvbuf_d);
 
     MPI_Finalize();
 }

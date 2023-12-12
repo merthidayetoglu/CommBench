@@ -67,6 +67,6 @@ void CommBench::measure(std::vector<Comm<T>> comm_sequence, int warmup, int numi
 In this case, the communications are given in a vector, e.g., ``cpp std::vector<Comm<T>> comm_sequence = {comm_1, comm_2, comm_3};``, and CommBench internally figures out the data dependencies across steps and runs them asynchronously while preserving the dependencies.
 
 
-![Striping](examples/striping/images/comparison.png)
+![Striping](examples/striping/images/striping_abstract.png)
 
 For questions and support, please send an email to merth@stanford.edu

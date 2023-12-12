@@ -666,9 +666,6 @@ namespace CommBench
 
   template <typename T>
   static void measure(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
-    for (auto &i : commlist) {
-       i.measure(warmup, numiter);
-    }
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       MPI_Barrier(MPI_COMM_WORLD);

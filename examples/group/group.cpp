@@ -41,6 +41,9 @@ enum Direction {outbound, inbound, bidirect, omnidirect, numdirect};
 
 int main(int argc, char *argv[])
 {
+  // INITIALIZE MPI
+  MPI_Init(&argc, &argv);
+
   // INPUT PARAMETERS
   int library;
   int pattern;
@@ -193,6 +196,9 @@ int main(int argc, char *argv[])
   CommBench::free(sendbuf_d);
   CommBench::free(recvbuf_d);
 
+  // FINALIZE MPI
+  MPI_Finalize();
+
 } // main()
 
 #include <omp.h>
@@ -246,7 +252,6 @@ void print_args(int argc, char *argv[],
       printf("Point-to-point (P2P) count %ld ( %ld Bytes)\n", count, count * sizeof(Type));
       printf("\n");
     }
-    setup_gpu();
   }
   else {
     if(myid == ROOT) {
@@ -287,5 +292,6 @@ void print_args(int argc, char *argv[],
     }
     abort();
   }
+  setup_gpu();
 }
 

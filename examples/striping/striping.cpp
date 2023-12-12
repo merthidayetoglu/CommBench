@@ -1,15 +1,19 @@
 
 // HEADERS
-#define PORT_CUDA
+// #define PORT_CUDA
 // #define PORT_HIP
-// #define PORT_SYCL
+ #define PORT_SYCL
 #include "comm.h"
 
 // UTILITIES
+#define ROOT 0
 #include "util.h"
 using namespace CommBench;
 using namespace std;
+
 int main(int argc, char *argv[]) {
+
+    MPI_Init(&argc, &argv);
 
     setup_gpu();
 
@@ -21,29 +25,38 @@ int main(int argc, char *argv[]) {
     allocate(recvbuf_d, count);
 
     // register communication pattern
-    printid = 0;
-    Comm<int> partition(IPC);
-    Comm<int> translate(NCCL);
-    Comm<int> assemble(IPC);
-    partition.add(sendbuf_d, count/4, sendbuf_d, 0, count/4, 0, 1);
-    partition.add(sendbuf_d, (2*count)/4, sendbuf_d, 0, count/4, 0, 2);
-    partition.add(sendbuf_d, (3*count)/4, sendbuf_d, 0, count/4, 0, 3);
-    translate.add(sendbuf_d, 0, recvbuf_d, 0, count/4, 0, 4);
-    translate.add(sendbuf_d, 0, recvbuf_d, 0, count/4, 1, 5);
-    translate.add(sendbuf_d, 0, recvbuf_d, 0, count/4, 2, 6);
-    translate.add(sendbuf_d, 0, recvbuf_d, 0, count/4, 3, 7);
-    assemble.add(recvbuf_d, 0, recvbuf_d, count/4, count/4, 5, 4);
-    assemble.add(recvbuf_d, 0, recvbuf_d, (2*count)/4, count/4, 6, 4);
-    assemble.add(recvbuf_d, 0, recvbuf_d, (3*count)/4, count/4, 7, 4);
+    CommBench::printid = 0;
+    Comm<int> partition(library::MPI);
+    Comm<int> translate(library::MPI);
+    Comm<int> assemble(library::MPI);
+
+    // allocate staging buffer
+    int groupsize = 12;
+    int *temp_d;
+    allocate(temp_d, count);
+
+    // compose steps
+    for(int i = 1; i < groupsize; i++)
+      partition.add(sendbuf_d, i * count / groupsize, temp_d, 0, count / groupsize, 0, i);
+    translate.add(sendbuf_d, 0, recvbuf_d, 0, count / groupsize, 0, groupsize);
+    for(int i = 1; i < groupsize; i++)
+      translate.add(temp_d, 0, temp_d, 0, count / groupsize, i, groupsize + i);
+    for(int i = 1; i < groupsize; i++)
+      assemble.add(recvbuf_d, i * count / groupsize, temp_d, 0, count / groupsize, i, 0);
 
     // create sequence
-    std::vector<Comm<int>> striping = {partition, translate, assemble};
+    vector<Comm<int>> striping = {partition, translate, assemble};
+
+    // steps in isolation
+    for(auto comm : striping)
+      comm.measure(5, 10, count);
 
     // measure end-to-end
-    CommBench::measure(striping, 5, 10, count);
+    measure(striping, 5, 10, count);
 
     free(sendbuf_d);
     free(recvbuf_d);
+    free(temp_d);
 
     MPI_Finalize();
 }

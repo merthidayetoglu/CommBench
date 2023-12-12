@@ -64,9 +64,10 @@ For benchmarking multiple steps of communication patterns where each step depend
 ```cpp
 void CommBench::measure(std::vector<Comm<T>>, int warmup, int numiter, size_t count);
 ```
-In this case, the communications are given in a vector, e.g., ``cpp std::vector<Comm<T>> comm_sequence = {comm_1, comm_2, comm_3};``, and CommBench internally figures out the data dependencies across steps and runs them asynchronously while preserving the dependencies. As an example, the below shows striping of point-to-point communications across nodes. The asynchronous execution of this pattern finds opportunites to overlap communications within and across nodes using all GPUs, and utilizes the overall hierarchical network (intra-node, extra-node) towards measuring the peak bandwidth across nodes. See [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping) specifically for implementation with CommBench. The measurement will report the end-to-end latency and throughput in terms $t$ and $d/t$, respectively, where $d$ is based on ``count`` and the size of data type ``T``.
+In this case, the communications are given in a vector, e.g., ``cpp std::vector<Comm<T>> comm_sequence = {comm_1, comm_2, comm_3};``, and CommBench internally figures out the data dependencies across steps and runs them asynchronously while preserving the dependencies.
 
 ![Striping](examples/striping/images/striping_abstract.png)
 
+As an example, the below shows striping of point-to-point communications across nodes. The asynchronous execution of this pattern finds opportunites to overlap communications within and across nodes using all GPUs, and utilizes the overall hierarchical network (intra-node, extra-node) towards measuring the peak bandwidth across nodes. See [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping) specifically for implementation with CommBench. The measurement will report the end-to-end latency and throughput in terms $t$ and $d/t$, respectively, where $d$ is based on ``count`` and the size of data type ``T``.
 
 For questions and support, please send an email to merth@stanford.edu

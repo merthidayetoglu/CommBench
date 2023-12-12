@@ -6,7 +6,7 @@ For questions and support, please send an email to merth@stanford.edu
 
 ## API
 
-CommBench is a runtime tool for implementing custom microbenchmarks. It offers a C++ API for programming the desired communication patterns and run them asynchronously. CommBench is implemented with MPI and offers a global API, where functions must be hit by all processes in ``MPI_COMM_WORLD`` as if the program is sequential.
+CommBench is a runtime tool for implementing custom microbenchmarks. It offers a C++ API for programming a desired pattern that is composed of point-to-point communications. When programming a microbenchmark, CommBench's API functions must be hit by all processes as if the program is sequential.
 
 #### Communicator
 

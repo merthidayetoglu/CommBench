@@ -19,7 +19,7 @@ CommBench::Comm<T> Comm(CommBench::Library);
 
 #### Pattern Composition
 
-CommBench relies on point-to-point communications. The API offers a single function ``add`` for registering point-to-point communications that can be used as the building block for the desired pattern. The function requires the pointers to the send and recieve buffers as well as the offset to the data. For IPC implementation, the pointers must point to the head of the buffer, as returned by virtual memory allocation. The rest of the arguments are the number of elements (their type is templatized) and the MPI ranks of the sender and reciever processes in the global communicator (i.e., ``MPI_COMM_WORLD``). For GPU-aware MPI and NCCL, we assume each process runs a GPU.
+CommBench relies on point-to-point communications. The API offers a single function ``add`` for registering point-to-point communications that can be used as the building block for the desired pattern. The function requires the pointers to the send and recieve buffers as well as the offset to the data. For reliability, the pointers must point to the head of the buffer, as returned by virtual memory allocation. The rest of the arguments are the number of elements (their type is templatized) and the MPI ranks of the sender and reciever processes in the global communicator (i.e., ``MPI_COMM_WORLD``).
 
 ```cpp
 void CommBench::Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);

@@ -58,15 +58,16 @@ void CommBench::Comm<T>::measure(int warmup, int numiter);
 ```
 For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latency in each round is recorded for calculating the statistics.
 
-### Multi-Step Communications
+## Multi-Step Benchmarks
 
-For benchmarking multiple steps of communication patterns where each step depends on the previous, CommBench provides the followint function:
+For benchmarking multiple steps of communication patterns where each step depends on the previous, CommBench provides the following function:
 ```cpp
-void CommBench::measure(std::vector<Comm<T>> comm_sequence, int warmup, int numiter);
+void CommBench::measure(std::vector<Comm<T>> sequence, int warmup, int numiter, size_t count);
 ```
-In this case, the communications are given in a vector, e.g., ``cpp std::vector<Comm<T>> comm_sequence = {comm_1, comm_2, comm_3};``, and CommBench internally figures out the data dependencies across steps and runs them asynchronously while preserving the dependencies. As an example, the above shows striping of point-to-point communications across nodes. The asynchronous execution of this pattern finds opportunites to overlap communications within and across nodes using all GPUs, and utilizes the overall hierarchical network (intra-node, extra-node) towards measuring the peak bandwidth across nodes. See [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping) specifically for implementation with CommBench.
+In this case, the sequence of communications are given in a vector, e.g., ``sequence = {comm_1, comm_2, comm_3}``. CommBench internally figures out the data dependencies across steps and executes them asynchronously while preserving the dependencies across point-to-point functions.
 
 ![Striping](examples/striping/images/striping_abstract.png)
 
+As an example, the below shows striping of point-to-point communications across nodes. The asynchronous execution of this pattern finds opportunites to overlap communications within and across nodes using all GPUs, and utilizes the overall hierarchical network (intra-node, extra-node) efficiently towards measuring the peak bandwidth across nodes. See [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping) for an implementation with CommBench. The measurement will report the end-to-end latency ($t$) and throughput ($d/t$), where $d$ is the data movement across nodes and calculated based on ``count`` and the size of data type ``T``.
 
 For questions and support, please send an email to merth@stanford.edu

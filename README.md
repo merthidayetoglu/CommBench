@@ -69,6 +69,6 @@ In this case, the communications are given in a vector, e.g., ``cpp std::vector<
 
 ![Striping](examples/striping/images/striping_abstract.png)
 
-As an example, the above shows striping of point-to-point communications across nodes. This utilize the networks within nodes and across nodes towards measuring the peak bandwidth across nodes using all GPUs. This microbenchmark is implemented in [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping) specifically for the Frontier system.
+As an example, the above shows striping of point-to-point communications across nodes. The asynchronous execution of this pattern finds opportunites to overlap communications within and across nodes using all GPUs, and utilizes the overall hierarchical network (intra-node, extra-node) towards measuring the peak bandwidth across nodes. See [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping) specifically for implementation with CommBench.
 
 For questions and support, please send an email to merth@stanford.edu

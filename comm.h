@@ -28,7 +28,6 @@
 #elif defined PORT_HIP
 #include <rccl.h>
 #elif defined PORT_SYCL
-#include "sycl/ext/oneapi/backend/level_zero.hpp"
 #include <sycl.hpp>
 #include <ze_api.h>
 #endif

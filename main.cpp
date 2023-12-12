@@ -13,21 +13,15 @@
  * limitations under the License.
  */
 
-#include <stdio.h> // for printf
-#include <stdlib.h> // for atoi
-#include <cstring> // for memcpy
-#include <algorithm> // for sort
-#include <mpi.h>
-#include <omp.h>
-
-#define ROOT 0
-
 // GPU PORTS
 // #define PORT_CUDA
 // #define PORT_HIP
 #define PORT_SYCL
 
+// COMMBENCH
 #include "comm.h"
+
+#define ROOT 0
 
 // UTILITIES
 #include "util.h"
@@ -47,7 +41,6 @@ enum Direction {outbound, inbound, bidirect, omnidirect, numdirect};
 
 int main(int argc, char *argv[])
 {
-
   // INPUT PARAMETERS
   int library;
   int pattern;
@@ -202,6 +195,7 @@ int main(int argc, char *argv[])
 
 } // main()
 
+#include <omp.h>
 void print_args(int argc, char *argv[],
 		int &library, 
 		int &pattern, 

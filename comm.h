@@ -682,6 +682,27 @@ namespace CommBench
     print_stats(t, count * sizeof(T));
   }
 
+  template <typename T>
+  static void measure_concur(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
+    std::vector<double> t;
+    for(int iter = -warmup; iter < numiter; iter++) {
+      MPI_Barrier(MPI_COMM_WORLD);
+      double time = MPI_Wtime();
+      for (auto &i : commlist) {
+        i.start();
+      }
+      for (auto &i : commlist) {      
+        i.wait();
+      }
+      time = MPI_Wtime() - time;
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+      if(iter >= 0)
+        t.push_back(time);
+    }
+    print_stats(t, count * sizeof(T));
+  }
+
+
   static void print_stats(std::vector<double> times, size_t data) {
 
     int myid;

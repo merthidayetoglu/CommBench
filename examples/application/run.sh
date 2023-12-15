@@ -17,7 +17,9 @@ export MPICH_OFI_NIC_VERBOSE=2
 export MPICH_ENV_DISPLAY=1
 
 export SLURM_CPU_BIND="cores"
+gpupernode=4
+numnode=4
 
-  srun -N 4 --ntasks-per-node=4 -C gpu -c 32 --gpus-per-task=1  --gpu-bind=none ./test_app 4 4 test_app_file1.txt
+  srun -N 4 --ntasks-per-node=4 -C gpu -c 32 --gpus-per-task=1  --gpu-bind=none ./test_app $gpupernode $numnode  test_app_file1.txt
 
 date

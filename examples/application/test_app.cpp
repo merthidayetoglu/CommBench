@@ -52,9 +52,6 @@ int main(int argc, char* argv[]) {
 	setup_gpu();
 
 	parsefile(numgpus, filename, patterns); //in kb
-	if (myid == ROOT) {
-		printf("%d\n", c);
-	}
 	//check parsefile
 	//if (myid == ROOT) {
 	//	for(int i = 0 ; i < numgpus ; i++){

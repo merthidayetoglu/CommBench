@@ -75,10 +75,13 @@ int main(int argc, char* argv[]) {
 	}
 	CommBench::printid = 0;
 	Comm<Type> inter(library::NCCL);
-	Comm<Type> intra(library::IPC);
+	Comm<Type> intra(library::NCCL);
+	Comm<Type> comb(library::NCCL);
 
 	for(i = 0 ; i < numgpus ; i++) {
 		for(j = 0 ; j < numgpus ; j++) {
+			if(patterns[i][j] != 0)
+                          comb.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
 			if (i/nodesize == j/nodesize) {//intra
 				if(patterns[i][j] != 0) {
 					intra.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
@@ -92,8 +95,11 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	}
-	inter.measure(5, 10, inter_count);
+
+	comb.measure(5, 10, inter_count+intra_count);
+
 	intra.measure(5, 10, intra_count);
+	inter.measure(5, 10, inter_count);
         
 	vector<Comm<Type>> vec = {inter, intra};
 	measure_concur(vec, 5, 10, inter_count+intra_count);

@@ -66,8 +66,8 @@ int main(int argc, char* argv[]) {
 	for(i = 0 ; i < numgpus ; i++) {
 		for(j = 0 ; j < numgpus ; j++) {
 			Type* sendbuf;
-        	        Type* recvbuf;
-	                allocate(sendbuf, patterns[i][j]);
+			Type* recvbuf;
+			allocate(sendbuf, patterns[i][j]);
 			allocate(recvbuf, patterns[i][j]);
 			sendbuf_d.push_back(sendbuf);
 			recvbuf_d.push_back(recvbuf);
@@ -75,11 +75,11 @@ int main(int argc, char* argv[]) {
 	}
 	CommBench::printid = 0;
 	Comm<Type> inter(library::NCCL);
-	Comm<Type> intra(library::NCCL);
+	Comm<Type> intra(library::IPC);
 	Comm<Type> comb(library::NCCL);
 
-	for(i = 0 ; i < numgpus ; i++) {
-		for(j = 0 ; j < numgpus ; j++) {
+	for(i = 0 ; i < numgpus ; i++) {//sendnode
+		for(j = 0 ; j < numgpus ; j++) {//recvnode
 			if(patterns[i][j] != 0)
                           comb.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
 			if (i/nodesize == j/nodesize) {//intra
@@ -103,12 +103,12 @@ int main(int argc, char* argv[]) {
         
 	vector<Comm<Type>> vec = {inter, intra};
 	measure_concur(vec, 5, 10, inter_count+intra_count);
+  
+	measure_MPIAlltoAll<int>(patterns, 5, 10, inter_count+intra_count, MPI_INT);
 
 	for(i = 0 ; i < numgpus ; i++) {
-                for(j = 0 ; j < numgpus ; j++) {
-                        free(sendbuf_d[i*numgpus + j]);
-			free(recvbuf_d[i*numgpus + j]);
-                }
-        }
+                cudaFree(sendbuf_d[i]);
+		cudaFree(recvbuf_d[i]);
+	}
 	MPI_Finalize();
 }

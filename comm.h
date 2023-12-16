@@ -589,7 +589,7 @@ namespace CommBench
 #elif defined PORT_SYCL
           // L0 IPC INITIATE
 	  // SELF COMMUNICATION
-          // q.memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+          q.memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
         }
         break;

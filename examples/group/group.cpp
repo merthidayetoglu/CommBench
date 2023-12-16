@@ -14,9 +14,9 @@
  */
 
 // GPU PORTS
-#define PORT_CUDA
+// #define PORT_CUDA
 // #define PORT_HIP
-// #define PORT_SYCL
+ #define PORT_SYCL
 
 // COMMBENCH
 #include "comm.h"
@@ -36,7 +36,7 @@ struct Type
 };
 
 // GROUP-TO-GROUP PATTERNS
-enum Pattern {rail, fan, dense, numpattern};
+enum Pattern {self, rail, fan, dense, stage, numpattern};
 enum Direction {outbound, inbound, bidirect, omnidirect, numdirect};
 
 int main(int argc, char *argv[])
@@ -69,6 +69,24 @@ int main(int argc, char *argv[])
 
   size_t data = 0;
   switch(pattern) {
+    case Pattern::self:
+      switch(direction) {
+        case Direction::outbound:
+        case Direction::inbound:
+          for(int i = 0; i < numgpu; i++)
+            bench.add(sendbuf_d, 0, recvbuf_d, 0, count, i, i);
+          data = count;
+          break;
+	case Direction::bidirect:
+	case Direction::omnidirect:
+          for(int i = 0; i < numgpu; i++) {
+            bench.add(sendbuf_d, 0, recvbuf_d, 0, count, i, i);
+            bench.add(sendbuf_d, 0, recvbuf_d, 0, count, i, i);
+          }
+          data = 2 * count;
+          break;
+      }
+      break;
     case Pattern::rail: // RAIL PATTERN
       switch(direction) {
         case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
@@ -267,6 +285,7 @@ void print_args(int argc, char *argv[],
       printf("2. pattern:\n");
       for(int pat = 0; pat < numpattern; pat++)
         switch(pat) {
+          case Pattern::self  : printf("      %d for self\n", Pattern::self); break;
           case Pattern::rail  : printf("      %d for rail\n", Pattern::rail); break;
           case Pattern::fan   : printf("      %d for fan\n", Pattern::fan); break;
           case Pattern::dense : printf("      %d for dense\n", Pattern::dense); break;

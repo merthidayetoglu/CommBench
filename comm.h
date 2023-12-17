@@ -232,22 +232,22 @@ namespace CommBench
       int sendid_temp = (sendid == -1 ? recvid : sendid);
       int recvid_temp = (recvid == -1 ? sendid : recvid);
       if(myid == sendid_temp) {
-        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, mpi_comm);
-        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, mpi_comm);
+        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       }
       if(myid == recvid_temp) {
-        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, mpi_comm);
-        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, mpi_comm);
+        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       }
       if(myid == printid) {
         T* sendbuf_sendid;
         T* recvbuf_recvid;
         size_t sendoffset_sendid;
         size_t recvoffset_recvid;
-        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid_temp, 0, mpi_comm, MPI_STATUS_IGNORE);
-        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid_temp, 0, mpi_comm, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid_temp, 0, mpi_comm, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid_temp, 0, mpi_comm, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
         printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", 
             sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
         print_data(count * sizeof(T));
@@ -681,14 +681,14 @@ namespace CommBench
   static void measure(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(mpi_comm);
+      MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
       for (auto &i : commlist) {
         i.start();
         i.wait();
       }
       time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, mpi_comm);
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter >= 0)
         t.push_back(time);
     }
@@ -699,7 +699,7 @@ namespace CommBench
   static void measure_concur(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(mpi_comm);
+      MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
       for (auto &i : commlist) {
         i.start();
@@ -708,7 +708,7 @@ namespace CommBench
         i.wait();
       }
       time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, mpi_comm);
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter >= 0)
         t.push_back(time);
     }
@@ -723,14 +723,14 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    int sendcount[numproc];
-    int recvcount[numproc];
+    std::vector<int> sendcount;
+    std::vector<int> recvcount;
     for(int i = 0; i < numproc; i++) {
-      sendcount[i] = pattern[i][myid];
-      recvcount[i] = pattern[myid][i];
+      sendcount.push_back(pattern[i][myid]);
+      recvcount.push_back(pattern[myid][i]);
     }
-    int senddispl[numproc + 1] = {0};
-    int recvdispl[numproc + 1] = {0};
+    std::vector<int> senddispl(numproc + 1, 0);
+    std::vector<int> recvdispl(numproc + 1, 0);
     for(int i = 1; i < numproc + 1; i++) {
       senddispl[i] = senddispl[i-1] + sendcount[i-1];
       recvdispl[i] = recvdispl[i-1] + recvcount[i-1];
@@ -755,14 +755,14 @@ namespace CommBench
     for(int iter = -warmup; iter < numiter; iter++) {
       MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
-      MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_BYTE, recvbuf, recvcount, recvdispl, MPI_BYTE, comm_mpi);
+      MPI_Alltoallv(sendbuf, &sendcount[0], &senddispl[0], MPI_BYTE, recvbuf, &recvcount[0], &recvdispl[0], MPI_BYTE, comm_mpi);
       time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, mpi_comm);
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter >= 0)
         t.push_back(time);
     }
     int data;
-    MPI_Allreduce(senddispl + numproc, &data, 1, MPI_INT, MPI_SUM, comm_mpi);
+    MPI_Allreduce(&senddispl[numproc], &data, 1, MPI_INT, MPI_SUM, comm_mpi);
     print_stats(t, data * sizeof(T));
   }
 

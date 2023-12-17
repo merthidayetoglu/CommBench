@@ -224,6 +224,8 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
+    if(count == 0)
+      return;
 
     // REPORT
     if(printid > -1) {

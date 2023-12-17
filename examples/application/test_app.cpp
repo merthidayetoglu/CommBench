@@ -80,18 +80,13 @@ int main(int argc, char* argv[]) {
 
 	for(i = 0 ; i < numgpus ; i++) {//sendnode
 		for(j = 0 ; j < numgpus ; j++) {//recvnode
-			if(patterns[i][j] != 0)
                           comb.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
 			if (i/nodesize == j/nodesize) {//intra
-				if(patterns[i][j] != 0) {
 					intra.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
 					intra_count += patterns[i][j];
-				}
 			}else{//inter
-			      	if(patterns[i][j] != 0) {
 					inter.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
 					inter_count += patterns[i][j];
-				}
 			}
 		}
 	}
@@ -107,8 +102,8 @@ int main(int argc, char* argv[]) {
 	measure_MPIAlltoAll<int>(patterns, 5, 10);
 
 	for(i = 0 ; i < numgpus ; i++) {
-                cudaFree(sendbuf_d[i]);
-		cudaFree(recvbuf_d[i]);
+                free(sendbuf_d[i]);
+		free(recvbuf_d[i]);
 	}
 	MPI_Finalize();
 }

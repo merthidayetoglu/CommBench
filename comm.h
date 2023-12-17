@@ -716,7 +716,7 @@ namespace CommBench
   }
 
   template <typename T>
-  static void measure_MPIAlltoAll(std::vector<std::vector<int>> pattern, int warmup, int numiter) {
+  static void measure_MPI_Alltoallv(std::vector<std::vector<int>> pattern, int warmup, int numiter) {
 
     int myid;
     int numproc;

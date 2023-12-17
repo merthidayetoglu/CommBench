@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
 	vector<Comm<Type>> vec = {inter, intra};
 	measure_concur(vec, 5, 10, inter_count+intra_count);
   
-	measure_MPIAlltoAll<int>(patterns, 5, 10);
+	measure_MPI_Alltoallv<int>(patterns, 5, 10);
 
 	for(i = 0 ; i < numgpus ; i++) {
                 free(sendbuf_d[i]);

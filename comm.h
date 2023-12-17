@@ -83,6 +83,17 @@ namespace CommBench
     }
   }
 
+  // MEMORY MANAGEMENT
+  template <typename T>
+  void allocate(T *&buffer,size_t n);
+  template <typename T>
+  void allocate_host(T *&buffer, size_t n);
+  template <typename T>
+  void free(T *buffer, size_t n);
+  template <typename T>
+  void free_host(T *buffer, size_t n);
+
+
   template <typename T>
   class Comm {
 
@@ -703,54 +714,55 @@ namespace CommBench
   }
 
   template <typename T>
-  static void measure_MPIAlltoAll(std::vector<std::vector<int>> patterns, int warmup, int numiter, int count, MPI_Datatype type) {
-    std::vector<double> t;
+  static void measure_MPIAlltoAll(std::vector<std::vector<int>> pattern, int warmup, int numiter) {
+
     int myid;
     int numproc;
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    T* send_buf[numproc];
-    T* recv_buf[numproc];
-    int i, j;
-    int send_c = 0, recv_c = 0;
-    int send_count[numproc][numproc];
-    int recv_count[numproc][numproc];
-    int send_off[numproc][numproc];
-    int recv_off[numproc][numproc];
-    for(i = 0 ; i < numproc ; i++) {
-            send_c = 0;
-            recv_c = 0;
-            for(j = 0 ; j < numproc ; j++) {
-                    send_c += patterns[i][j];
-                    recv_c += patterns[j][i];
-                    send_count[i][j] = patterns[i][j];
-                    recv_count[i][j] = patterns[j][i];
-                    if (j == 0) {
-                            send_off[i][j] = 0;
-                            recv_off[i][j] = 0;
-                    } else {
-                            send_off[i][j] = patterns[i][j-1] + send_off[i][j-1];
-                            recv_off[i][j] = patterns[j-1][i] + recv_off[i][j-1];
-                    }
-             }
-             send_buf[i] = (T*)malloc(sizeof(T)*send_c);
-             recv_buf[i] = (T*)malloc(sizeof(T)*recv_c);
+    int sendcount[numproc];
+    int recvcount[numproc];
+    for(int i = 0; i < numproc; i++) {
+      sendcount[i] = pattern[i][myid];
+      recvcount[i] = pattern[myid][i];
+    }
+    int senddispl[numproc + 1] = {0};
+    int recvdispl[numproc + 1] = {0};
+    for(int i = 1; i < numproc + 1; i++) {
+      senddispl[i] = senddispl[i-1] + sendcount[i-1];
+      recvdispl[i] = recvdispl[i-1] + recvcount[i-1];
+
     }
 
+    //for(int i = 0; i < numproc; i++)
+    //  printf("myid %d i: %d sendcount %d senddispl %d recvcount %d recvdispl %d\n", myid, i, sendcount[i], senddispl[i], recvcount[i], recvdispl[i]);
+
+    T *sendbuf;
+    T *recvbuf;
+    allocate(sendbuf, senddispl[numproc]);
+    allocate(recvbuf, recvdispl[numproc]);
+    for(int p = 0; p < numproc; p++) {
+      sendcount[p] *= sizeof(T);
+      recvcount[p] *= sizeof(T);
+      senddispl[p] *= sizeof(T);
+      recvdispl[p] *= sizeof(T);
+    }
+
+    std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
-      MPI_Alltoallv(send_buf[myid], send_count[myid], send_off[myid], type, recv_buf[myid], recv_count[myid], recv_off[myid], type, comm_mpi);
+      MPI_Alltoallv(sendbuf, sendcount, senddispl, MPI_BYTE, recvbuf, recvcount, recvdispl, MPI_BYTE, comm_mpi);
       time = MPI_Wtime() - time;
       MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
       if(iter >= 0)
         t.push_back(time);
     }
-    print_stats(t, count * sizeof(T));
+    int data;
+    MPI_Allreduce(senddispl + numproc, &data, 1, MPI_INT, MPI_SUM, comm_mpi);
+    print_stats(t, data * sizeof(T));
   }
-
-
 
   static void print_stats(std::vector<double> times, size_t data) {
 
@@ -803,7 +815,7 @@ namespace CommBench
 #elif defined PORT_SYCL
     buffer = sycl::malloc_device<T>(n, CommBench::q);
 #else
-    buffer = new T[n];
+    allocateHost(buffer, n);
 #endif
   }
 
@@ -829,7 +841,7 @@ namespace CommBench
 #elif defined PORT_SYCL
     sycl::free(buffer, CommBench::q);
 #else
-    delete[] buffer;
+    freeHost(T);
 #endif
   }
 
@@ -847,5 +859,4 @@ namespace CommBench
   }
 
 } // namespace CommBench
-
 #endif

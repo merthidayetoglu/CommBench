@@ -1,10 +1,10 @@
 #define PORT_CUDA
 
-#include "../../comm.h"
+#include "comm.h"
 
 #define ROOT 0
 #define Type int
-#include "../../util.h"
+#include "util.h"
 #include <vector>
 #include <fstream>
 #include <sstream>
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
 		for(j = 0 ; j < numgpus ; j++) {
 			Type* sendbuf;
 			Type* recvbuf;
-			allocate(sendbuf, patterns[i][j]);
+		        allocate(sendbuf, patterns[i][j]);
 			allocate(recvbuf, patterns[i][j]);
 			sendbuf_d.push_back(sendbuf);
 			recvbuf_d.push_back(recvbuf);
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
 	vector<Comm<Type>> vec = {inter, intra};
 	measure_concur(vec, 5, 10, inter_count+intra_count);
   
-	measure_MPIAlltoAll<int>(patterns, 5, 10, inter_count+intra_count, MPI_INT);
+	measure_MPIAlltoAll<int>(patterns, 5, 10);
 
 	for(i = 0 ; i < numgpus ; i++) {
                 cudaFree(sendbuf_d[i]);

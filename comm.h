@@ -18,15 +18,28 @@
 
 #include <mpi.h>
 
+// TURN OFF FOR CUDA / HIP ONLY
+#if defined(PORT_CUDA) || defined(PORT_HIP)
+#define CAP_NCCL
+#endif
+
 // GPU PORTS
 // For NVIDIA: #define PORT_CUDA
 // For AMD: #define PORT_HIP
 // For SYCL: #define PORT_SYCL
 
 #ifdef PORT_CUDA
+#ifdef CAP_NCCL
 #include <nccl.h>
+#else
+#include <cuda.h>
+#endif
 #elif defined PORT_HIP
+#ifdef CAP_NCCL
 #include <rccl.h>
+#else
+#include <hip_runtime.h>
+#endif
 #elif defined PORT_SYCL
 #include <sycl.hpp>
 #include <ze_api.h>
@@ -36,10 +49,6 @@
 #include <string.h> // for memcpy
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
-
-#if defined(PORT_CUDA) || defined(PORT_HIP)
-#define CAP_NCCL
-#endif
 
 namespace CommBench
 {

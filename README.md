@@ -32,7 +32,9 @@ void CommBench::Comm<T>::report();
 
 #### Synchronization
 
-Synchronization across the GPUs is made by ``start()`` and ``wait()`` functions. The former launches the registered communications all at once using nonblocking API of the chosen library. The latter blocks the program until the communication buffers are safe to be reused. Among all GPUs, only those who are involved in the communications are effected. Others move on executing the program. For example, in a point-to-point communication, the sending process returns from ``wait()`` when the send buffer is safe to be reused. Likewise, the recieving process returns from ``wait()`` when the recieve buffer is safe to be reused. The GPUs that are not involved return from both ``start()`` and ``wait()`` functions immediately. In sparse communications, each GPU can be sender and receiver, and the ``wait()`` function blocks a process until all associated communications are completed.
+Synchronization across the GPUs is made by ``start()`` and ``wait()`` functions. The former launches the registered communications all at once using nonblocking API of the chosen library. The latter blocks the program until the communication buffers are safe to be reused.
+
+Among all GPUs, only those who are involved in the communications are effected by the ``wait()`` call. Others move on executing the program. For example, in a point-to-point communication, the sending process returns from ``wait()`` when the send buffer is safe to be reused. Likewise, the recieving process returns from ``wait()`` when the recieve buffer is safe to be reused. The GPUs that are not involved return from both ``start()`` and ``wait()`` functions immediately. In sparse communications, each GPU can be sender and receiver, and the ``wait()`` function blocks a process until all associated communications are completed.
 
 ```cpp
 void CommBench::Comm<T>::start();

@@ -96,6 +96,15 @@ namespace CommBench
   template <typename T>
   void allocate(T *&buffer,size_t n);
   template <typename T>
+  void allocate(T *&buffer, size_t n, int i) {
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+    if(myid == i)
+      allocate(T);
+    else
+      T = nullptr;
+  };
+  template <typename T>
   void allocateHost(T *&buffer, size_t n);
   template <typename T>
   void free(T *buffer);

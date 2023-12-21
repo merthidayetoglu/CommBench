@@ -50,6 +50,9 @@
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
 
+template <typename T>
+void allocate(T *&buffer, size_t n);
+
 namespace CommBench
 {
   static int printid = -1;

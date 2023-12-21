@@ -96,11 +96,11 @@ namespace CommBench
   template <typename T>
   void allocate(T *&buffer,size_t n);
   template <typename T>
-  void allocate_host(T *&buffer, size_t n);
+  void allocateHost(T *&buffer, size_t n);
   template <typename T>
-  void free(T *buffer, size_t n);
+  void free(T *buffer);
   template <typename T>
-  void free_host(T *buffer, size_t n);
+  void freeHost(T *buffer);
 
   template <typename T>
   class Comm {
@@ -858,7 +858,7 @@ namespace CommBench
 #elif defined PORT_SYCL
     sycl::free(buffer, CommBench::q);
 #else
-    freeHost(T);
+    freeHost(buffer);
 #endif
   }
 

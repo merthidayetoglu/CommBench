@@ -96,15 +96,6 @@ namespace CommBench
   template <typename T>
   void allocate(T *&buffer,size_t n);
   template <typename T>
-  void allocate(T *&buffer, size_t n, int i) {
-    int myid;
-    MPI_Comm_rank(comm_mpi, &myid);
-    if(myid == i)
-      allocate(buffer, n);
-    else
-      buffer = nullptr;
-  };
-  template <typename T>
   void allocateHost(T *&buffer, size_t n);
   template <typename T>
   void free(T *buffer);
@@ -176,6 +167,8 @@ namespace CommBench
     void measure(int warmup, int numiter, size_t data);
     void measure_count(int warmup, int numiter, size_t data);
     void report();
+
+    void allocate(T *&buffer, size_t n, int i);
   };
 
   template <typename T>
@@ -233,6 +226,16 @@ namespace CommBench
       hipStreamCreate(&stream_nccl);
 #endif
     }
+  }
+
+  template <typename T>
+  void Comm<T>::allocate(T *&buffer, size_t n, int i) {
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+    if(myid == i)
+      CommBench::allocate(buffer, n);
+    else
+      buffer = nullptr;
   }
 
   template <typename T>

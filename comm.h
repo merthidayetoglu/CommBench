@@ -100,9 +100,9 @@ namespace CommBench
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
     if(myid == i)
-      allocate(T);
+      allocate(buffer, n);
     else
-      T = nullptr;
+      buffer = nullptr;
   };
   template <typename T>
   void allocateHost(T *&buffer, size_t n);
@@ -239,8 +239,8 @@ namespace CommBench
   void Comm<T>::add_lazy(size_t count, int sendid, int recvid) {
     T *sendbuf;
     T *recvbuf;
-    allocate(sendbuf, count);
-    allocate(recvbuf, count);
+    allocate(sendbuf, count, sendid);
+    allocate(recvbuf, count, recvid);
     add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
   }
 

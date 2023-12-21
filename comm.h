@@ -50,9 +50,6 @@
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
 
-template <typename T>
-void allocate(T *&buffer, size_t n);
-
 namespace CommBench
 {
   static int printid = -1;
@@ -104,7 +101,6 @@ namespace CommBench
   void free(T *buffer, size_t n);
   template <typename T>
   void free_host(T *buffer, size_t n);
-
 
   template <typename T>
   class Comm {

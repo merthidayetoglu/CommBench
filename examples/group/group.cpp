@@ -16,7 +16,7 @@
 // GPU PORTS
 // #define PORT_CUDA
 // #define PORT_HIP
- #define PORT_SYCL
+#define PORT_SYCL
 
 // COMMBENCH
 #include "comm.h"
@@ -58,30 +58,24 @@ int main(int argc, char *argv[])
 
   int numgroup = numgpu / groupsize;
 
-  // ALLOCATE
-  Type *sendbuf_d;
-  Type *recvbuf_d;
-  CommBench::allocate(sendbuf_d, count);
-  CommBench::allocate(recvbuf_d, count);
-
   CommBench::printid = ROOT;
   CommBench::Comm<Type> bench((CommBench::library) library);
 
-  size_t data = 0;
+  size_t data;
   switch(pattern) {
     case Pattern::self:
       switch(direction) {
         case Direction::outbound:
         case Direction::inbound:
           for(int i = 0; i < numgpu; i++)
-            bench.add(sendbuf_d, 0, recvbuf_d, 0, count, i, i);
+            bench.add_lazy(count, i, i);
           data = count;
           break;
 	case Direction::bidirect:
 	case Direction::omnidirect:
           for(int i = 0; i < numgpu; i++) {
-            bench.add(sendbuf_d, 0, recvbuf_d, 0, count, i, i);
-            bench.add(sendbuf_d, 0, recvbuf_d, 0, count, i, i);
+            bench.add_lazy(count, i, i);
+            bench.add_lazy(count, i, i);
           }
           data = 2 * count;
           break;
@@ -93,7 +87,7 @@ int main(int argc, char *argv[])
          for(int sender = 0; sender < subgroupsize; sender++)
             for(int recvgroup = 1; recvgroup < numgroup; recvgroup++) {
               int recver = recvgroup * groupsize + sender;
-              bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+              bench.add_lazy(count, sender, recver);
             }
           data = count * subgroupsize * (numgroup - 1);
           break;
@@ -101,7 +95,7 @@ int main(int argc, char *argv[])
           for(int recver = 0; recver < subgroupsize; recver++)
             for(int sendgroup = 1; sendgroup < numgroup; sendgroup++) {
               int sender = sendgroup * groupsize + recver;
-              bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+              bench.add_lazy(count, sender, recver);
             }
           data = count * subgroupsize * (numgroup - 1);
           break;
@@ -109,8 +103,8 @@ int main(int argc, char *argv[])
           for(int sender = 0; sender < subgroupsize; sender++)
             for(int recvgroup = 1; recvgroup < numgroup; recvgroup++) {
               int recver = recvgroup * groupsize + sender;
-              bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
-              bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
+              bench.add_lazy(count, sender, recver);
+              bench.add_lazy(count, recver, sender);
             }
           data = 2 * count * subgroupsize * (numgroup - 1);
           break;
@@ -121,7 +115,7 @@ int main(int argc, char *argv[])
                 for(int send = 0; send < subgroupsize; send++) {
                   int sender = sendgroup * groupsize + send;
                   int recver = recvgroup * groupsize + send;
-                  bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                  bench.add_lazy(count, sender, recver);
                 }
           data = 2 * count * subgroupsize * (numgroup - 1);
           break;
@@ -134,7 +128,7 @@ int main(int argc, char *argv[])
             for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
               for(int recv = 0; recv < groupsize; recv++) {
                 int recver = recvgroup * groupsize + recv;
-                bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                bench.add_lazy(count, sender, recver);
               }
           data = count * subgroupsize * (numgroup - 1) * groupsize;
           break;
@@ -143,7 +137,7 @@ int main(int argc, char *argv[])
             for(int sendgroup = 1; sendgroup < numgroup; sendgroup++)
               for(int send = 0; send < groupsize; send++) {
                 int sender = sendgroup * groupsize + send;
-                bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                bench.add_lazy(count, sender, recver);
               }
           data = count * subgroupsize * (numgroup - 1) * groupsize;
           break;
@@ -152,8 +146,8 @@ int main(int argc, char *argv[])
             for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
               for(int recv = 0; recv < groupsize; recv++) {
                 int recver = recvgroup * groupsize + recv;
-                bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
-                bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
+                bench.add_lazy(count, sender, recver);
+                bench.add_lazy(count, recver, sender);
               }
           data = 2 * count * subgroupsize * (numgroup - 1) * groupsize;
           break;
@@ -166,7 +160,7 @@ int main(int argc, char *argv[])
             for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
               for(int recv = 0; recv < subgroupsize; recv++) {
                 int recver = recvgroup * groupsize + recv;
-                bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                bench.add_lazy(count, sender, recver);
               }
           data = count * subgroupsize * (numgroup - 1) * subgroupsize;
           break;
@@ -175,7 +169,7 @@ int main(int argc, char *argv[])
             for(int sendgroup = 1; sendgroup < numgroup; sendgroup++)
               for(int send = 0; send < subgroupsize; send++) {
                 int sender = sendgroup * groupsize + send;
-                bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                bench.add_lazy(count, sender, recver);
               }
           data = count * subgroupsize * (numgroup - 1) * subgroupsize;
           break;
@@ -184,8 +178,8 @@ int main(int argc, char *argv[])
             for(int recvgroup = 1; recvgroup < numgroup; recvgroup++)
               for(int recv = 0; recv < subgroupsize; recv++) {
                 int recver = recvgroup * groupsize + recv;
-              bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
-              bench.add(sendbuf_d, 0, recvbuf_d, 0, count, recver, sender);
+              bench.add_lazy(count, sender, recver);
+              bench.add_lazy(count, recver, sender);
             }
           data = 2 * count * subgroupsize * (numgroup - 1) * subgroupsize;
           break;
@@ -197,7 +191,7 @@ int main(int argc, char *argv[])
                   for(int recv = 0; recv < subgroupsize; recv++) {
                     int sender = sendgroup * groupsize + send;
                     int recver = recvgroup * groupsize + recv;
-                    bench.add(sendbuf_d, 0, recvbuf_d, 0, count, sender, recver);
+                    bench.add_lazy(count, sender, recver);
                   }
           data = 2 * count * subgroupsize * (numgroup - 1) * subgroupsize;
           break;
@@ -209,10 +203,6 @@ int main(int argc, char *argv[])
 
   bench.measure(warmup, numiter, data);
     
-  // DEALLOCATE
-  CommBench::free(sendbuf_d);
-  CommBench::free(recvbuf_d);
-
   // FINALIZE MPI
   MPI_Finalize();
 

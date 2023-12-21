@@ -159,6 +159,13 @@ namespace CommBench
     Comm(library lib);
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
+    void add(size_t count, int sendid, int recvid) {
+      T *sendbuf;
+      T *recvbuf;
+      allocate(sendbuf, count);
+      allocate(recvbuf, count);
+      add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
+    }
     void start();
     void wait();
 

@@ -53,6 +53,7 @@
 #endif
 #endif
 
+// CPP LIBRARIES
 #include <stdio.h> // for printf
 #include <string.h> // for memcpy
 #include <algorithm> // for std::sort
@@ -70,8 +71,10 @@ namespace CommBench
 #endif
 #ifdef PORT_SYCL
   static sycl::queue q(sycl::gpu_selector_v);
+#ifdef CAP_ZE
   static ze_context_handle_t ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
   static ze_device_handle_t dev = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+#endif
 #endif
 
   static bool initialized_MPI = false;

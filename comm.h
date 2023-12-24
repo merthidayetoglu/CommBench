@@ -18,16 +18,22 @@
 
 #include <mpi.h>
 
-// TURN OFF FOR CUDA / HIP ONLY
-#if defined(PORT_CUDA) || defined(PORT_HIP)
-#define CAP_NCCL
-#endif
-
 // GPU PORTS
 // For NVIDIA: #define PORT_CUDA
 // For AMD: #define PORT_HIP
 // For SYCL: #define PORT_SYCL
 
+// TURN OFF FOR CUDA / HIP ONLY
+#if defined(PORT_CUDA) || defined(PORT_HIP)
+#define CAP_NCCL
+#endif
+
+// TURN OFF FOR SYCL / ONLY
+#if defined(PORT_SYCL)
+#define CAP_ZE
+#endif
+
+// DEPENDENCIES
 #ifdef PORT_CUDA
 #ifdef CAP_NCCL
 #include <nccl.h>
@@ -42,7 +48,9 @@
 #endif
 #elif defined PORT_SYCL
 #include <sycl.hpp>
+#ifdef CAP_ZE
 #include <ze_api.h>
+#endif
 #endif
 
 #include <stdio.h> // for printf

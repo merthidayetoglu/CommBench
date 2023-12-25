@@ -122,6 +122,7 @@ int main(int argc, char *argv[])
       }
       break;
     case Pattern::fan: // FAN PATTERN
+      count = count / groupsize;
       switch(direction) {
         case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
           for(int sender = 0; sender < subgroupsize; sender++)
@@ -154,6 +155,7 @@ int main(int argc, char *argv[])
       }
       break;
     case Pattern::dense: // DENSE PATTERN
+      count = count / subgroupsize;
       switch(direction) {
         case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
           for(int sender = 0; sender < subgroupsize; sender++)

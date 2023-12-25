@@ -10,7 +10,7 @@ CommBench is a runtime tool for implementing custom microbenchmarks. It offers a
 
 #### Communicator
 
-The benchmarking pattern is registered into a persistent communicator. The data type must be provided at compile time with the template parameter ``T``. Communication library for the implementation must be specified at this stage because the communiator builds specific data structures accordingly. Current options are: ``CommBench::MPI``, ``CommBench::NCCL``, and ``CommBench::IPC``. 
+The benchmarking pattern is registered into a persistent communicator. The data type must be provided at compile time with the template parameter ``T``. Communication library for the implementation must be specified at this stage because the communiator builds specific data structures accordingly. Current options are: ``MPI``, ``NCCL``, and ``IPC``. 
 
 ```cpp
 template <typename T>
@@ -23,6 +23,11 @@ CommBench relies on point-to-point communications. The API offers a single funct
 
 ```cpp
 void CommBench::Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
+```
+For quick tests, a shorter version ``add_lazy`` is added. It allocates buffers internally.
+
+```cpp
+void CommBench::Comm<T>::add_lazy(size_t count, int sendid, int recvid);
 ```
 
 For seeing the benchmarking pattern as a sparse communication matrix, one can call the ``report()`` function.

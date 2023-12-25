@@ -21,7 +21,7 @@ CommBench::Comm<T> Comm(CommBench::Library);
 
 CommBench relies on point-to-point communications. The API offers a single function ``add`` for registering point-to-point communications that can be used as the building block for the desired pattern.
 
-For quick tests, a shorter version ``add_lazy`` is added. It allocates buffers internally.
+For quick tests, ``add_lazy`` allocates communication buffers buffers internally.
 
 ```cpp
 void CommBench::Comm<T>::add_lazy(size_t count, int sendid, int recvid);

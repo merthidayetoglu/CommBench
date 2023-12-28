@@ -23,23 +23,41 @@
 // For AMD: #define PORT_HIP
 // For SYCL: #define PORT_SYCL
 
-#ifdef PORT_CUDA
-#include <nccl.h>
-#elif defined PORT_HIP
-#include <rccl.h>
-#elif defined PORT_SYCL
-#include <sycl.hpp>
-#include <ze_api.h>
+// TURN OFF FOR CUDA / HIP ONLY
+#if defined(PORT_CUDA) || defined(PORT_HIP)
+#define CAP_NCCL
 #endif
 
+// TURN OFF FOR SYCL / ONLY
+#if defined(PORT_SYCL)
+#define CAP_ZE
+#endif
+
+// DEPENDENCIES
+#ifdef PORT_CUDA
+#ifdef CAP_NCCL
+#include <nccl.h>
+#else
+#include <cuda.h>
+#endif
+#elif defined PORT_HIP
+#ifdef CAP_NCCL
+#include <rccl.h>
+#else
+#include <hip_runtime.h>
+#endif
+#elif defined PORT_SYCL
+#include <sycl.hpp>
+#ifdef CAP_ZE
+#include <ze_api.h>
+#endif
+#endif
+
+// CPP LIBRARIES
 #include <stdio.h> // for printf
 #include <string.h> // for memcpy
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
-
-#if defined(PORT_CUDA) || defined(PORT_HIP)
-#define CAP_NCCL
-#endif
 
 namespace CommBench
 {
@@ -53,8 +71,10 @@ namespace CommBench
 #endif
 #ifdef PORT_SYCL
   static sycl::queue q(sycl::gpu_selector_v);
+#ifdef CAP_ZE
   static ze_context_handle_t ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
   static ze_device_handle_t dev = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+#endif
 #endif
 
   static bool initialized_MPI = false;
@@ -82,6 +102,16 @@ namespace CommBench
       case numlib : printf("NUMLIB"); break;
     }
   }
+
+  // MEMORY MANAGEMENT
+  template <typename T>
+  void allocate(T *&buffer,size_t n);
+  template <typename T>
+  void allocateHost(T *&buffer, size_t n);
+  template <typename T>
+  void free(T *buffer);
+  template <typename T>
+  void freeHost(T *buffer);
 
   template <typename T>
   class Comm {
@@ -139,6 +169,7 @@ namespace CommBench
     Comm(library lib);
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
+    void add_lazy(size_t count, int sendid, int recvid);
     void start();
     void wait();
 
@@ -147,6 +178,8 @@ namespace CommBench
     void measure(int warmup, int numiter, size_t data);
     void measure_count(int warmup, int numiter, size_t data);
     void report();
+
+    void allocate(T *&buffer, size_t n, int i);
   };
 
   template <typename T>
@@ -207,34 +240,55 @@ namespace CommBench
   }
 
   template <typename T>
+  void Comm<T>::allocate(T *&buffer, size_t n, int i) {
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+    if(myid == i)
+      CommBench::allocate(buffer, n);
+    else
+      buffer = nullptr;
+  }
+
+  template <typename T>
+  void Comm<T>::add_lazy(size_t count, int sendid, int recvid) {
+    T *sendbuf;
+    T *recvbuf;
+    allocate(sendbuf, count, sendid);
+    allocate(recvbuf, count, recvid);
+    add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
+  }
+
+  template <typename T>
   void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
     int myid;
     int numproc;
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
+    if(count == 0)
+      return;
 
     // REPORT
     if(printid > -1) {
       int sendid_temp = (sendid == -1 ? recvid : sendid);
       int recvid_temp = (recvid == -1 ? sendid : recvid);
       if(myid == sendid_temp) {
-        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
-        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
+        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       }
       if(myid == recvid_temp) {
-        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
-        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, MPI_COMM_WORLD);
+        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       }
       if(myid == printid) {
         T* sendbuf_sendid;
         T* recvbuf_recvid;
         size_t sendoffset_sendid;
         size_t recvoffset_recvid;
-        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid_temp, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
         printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", 
             sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
         print_data(count * sizeof(T));
@@ -668,14 +722,14 @@ namespace CommBench
   static void measure(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
       for (auto &i : commlist) {
         i.start();
         i.wait();
       }
       time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter >= 0)
         t.push_back(time);
     }
@@ -686,7 +740,7 @@ namespace CommBench
   static void measure_concur(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
       for (auto &i : commlist) {
         i.start();
@@ -695,7 +749,7 @@ namespace CommBench
         i.wait();
       }
       time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter >= 0)
         t.push_back(time);
     }
@@ -703,54 +757,55 @@ namespace CommBench
   }
 
   template <typename T>
-  static void measure_MPIAlltoAll(std::vector<std::vector<int>> patterns, int warmup, int numiter, int count, MPI_Datatype type) {
-    std::vector<double> t;
+  static void measure_MPI_Alltoallv(std::vector<std::vector<int>> pattern, int warmup, int numiter) {
+
     int myid;
     int numproc;
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    T* send_buf[numproc];
-    T* recv_buf[numproc];
-    int i, j;
-    int send_c = 0, recv_c = 0;
-    int send_count[numproc][numproc];
-    int recv_count[numproc][numproc];
-    int send_off[numproc][numproc];
-    int recv_off[numproc][numproc];
-    for(i = 0 ; i < numproc ; i++) {
-            send_c = 0;
-            recv_c = 0;
-            for(j = 0 ; j < numproc ; j++) {
-                    send_c += patterns[i][j];
-                    recv_c += patterns[j][i];
-                    send_count[i][j] = patterns[i][j];
-                    recv_count[i][j] = patterns[j][i];
-                    if (j == 0) {
-                            send_off[i][j] = 0;
-                            recv_off[i][j] = 0;
-                    } else {
-                            send_off[i][j] = patterns[i][j-1] + send_off[i][j-1];
-                            recv_off[i][j] = patterns[j-1][i] + recv_off[i][j-1];
-                    }
-             }
-             send_buf[i] = (T*)malloc(sizeof(T)*send_c);
-             recv_buf[i] = (T*)malloc(sizeof(T)*recv_c);
+    std::vector<int> sendcount;
+    std::vector<int> recvcount;
+    for(int i = 0; i < numproc; i++) {
+      sendcount.push_back(pattern[i][myid]);
+      recvcount.push_back(pattern[myid][i]);
+    }
+    std::vector<int> senddispl(numproc + 1, 0);
+    std::vector<int> recvdispl(numproc + 1, 0);
+    for(int i = 1; i < numproc + 1; i++) {
+      senddispl[i] = senddispl[i-1] + sendcount[i-1];
+      recvdispl[i] = recvdispl[i-1] + recvcount[i-1];
+
     }
 
+    //for(int i = 0; i < numproc; i++)
+    //  printf("myid %d i: %d sendcount %d senddispl %d recvcount %d recvdispl %d\n", myid, i, sendcount[i], senddispl[i], recvcount[i], recvdispl[i]);
+
+    T *sendbuf;
+    T *recvbuf;
+    allocate(sendbuf, senddispl[numproc]);
+    allocate(recvbuf, recvdispl[numproc]);
+    for(int p = 0; p < numproc; p++) {
+      sendcount[p] *= sizeof(T);
+      recvcount[p] *= sizeof(T);
+      senddispl[p] *= sizeof(T);
+      recvdispl[p] *= sizeof(T);
+    }
+
+    std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
-      MPI_Alltoallv(send_buf[myid], send_count[myid], send_off[myid], type, recv_buf[myid], recv_count[myid], recv_off[myid], type, comm_mpi);
+      MPI_Alltoallv(sendbuf, &sendcount[0], &senddispl[0], MPI_BYTE, recvbuf, &recvcount[0], &recvdispl[0], MPI_BYTE, comm_mpi);
       time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter >= 0)
         t.push_back(time);
     }
-    print_stats(t, count * sizeof(T));
+    int data;
+    MPI_Allreduce(&senddispl[numproc], &data, 1, MPI_INT, MPI_SUM, comm_mpi);
+    print_stats(t, data * sizeof(T));
   }
-
-
 
   static void print_stats(std::vector<double> times, size_t data) {
 
@@ -803,7 +858,7 @@ namespace CommBench
 #elif defined PORT_SYCL
     buffer = sycl::malloc_device<T>(n, CommBench::q);
 #else
-    buffer = new T[n];
+    allocateHost(buffer, n);
 #endif
   }
 
@@ -829,7 +884,7 @@ namespace CommBench
 #elif defined PORT_SYCL
     sycl::free(buffer, CommBench::q);
 #else
-    delete[] buffer;
+    freeHost(buffer);
 #endif
   }
 
@@ -847,5 +902,4 @@ namespace CommBench
   }
 
 } // namespace CommBench
-
 #endif

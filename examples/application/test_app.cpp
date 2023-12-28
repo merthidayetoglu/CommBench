@@ -1,10 +1,10 @@
-#define PORT_CUDA
+#define PORT_SYCL
 
-#include "../../comm.h"
+#include "comm.h"
 
 #define ROOT 0
 #define Type int
-#include "../../util.h"
+#include "util.h"
 #include <vector>
 #include <fstream>
 #include <sstream>
@@ -61,39 +61,22 @@ int main(int argc, char* argv[]) {
 	//		printf("\n");
 	//	}
 	//}
-	vector<Type*> sendbuf_d;
-	vector<Type*> recvbuf_d;
-	for(i = 0 ; i < numgpus ; i++) {
-		for(j = 0 ; j < numgpus ; j++) {
-			Type* sendbuf;
-			Type* recvbuf;
-			allocate(sendbuf, patterns[i][j]);
-			allocate(recvbuf, patterns[i][j]);
-			sendbuf_d.push_back(sendbuf);
-			recvbuf_d.push_back(recvbuf);
-		}
-	}
 	CommBench::printid = 0;
-	Comm<Type> inter(library::NCCL);
-	Comm<Type> intra(library::IPC);
-	Comm<Type> comb(library::NCCL);
+	Comm<Type> inter(library::MPI);
+	Comm<Type> intra(library::MPI);
+	Comm<Type> comb(library::MPI);
 
 	for(i = 0 ; i < numgpus ; i++) {//sendnode
-		for(j = 0 ; j < numgpus ; j++) {//recvnode
-			if(patterns[i][j] != 0)
-                          comb.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
-			if (i/nodesize == j/nodesize) {//intra
-				if(patterns[i][j] != 0) {
-					intra.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
-					intra_count += patterns[i][j];
-				}
-			}else{//inter
-			      	if(patterns[i][j] != 0) {
-					inter.add(sendbuf_d[i*numgpus+j], 0, recvbuf_d[i*numgpus+j], 0, patterns[i][j], i, j);
-					inter_count += patterns[i][j];
-				}
-			}
-		}
+          for(j = 0 ; j < numgpus ; j++) {//recvnode
+            comb.add_lazy(patterns[i][j], i, j);
+            if (i/nodesize == j/nodesize) {//intra
+	      intra.add_lazy(patterns[i][j], i, j);
+              intra_count += patterns[i][j];
+            }else{//inter
+	      inter.add_lazy(patterns[i][j], i, j);
+              inter_count += patterns[i][j];
+            }
+          }
 	}
 
 	comb.measure(5, 10, inter_count+intra_count);
@@ -104,11 +87,7 @@ int main(int argc, char* argv[]) {
 	vector<Comm<Type>> vec = {inter, intra};
 	measure_concur(vec, 5, 10, inter_count+intra_count);
   
-	measure_MPIAlltoAll<int>(patterns, 5, 10, inter_count+intra_count, MPI_INT);
+	measure_MPI_Alltoallv<int>(patterns, 5, 10);
 
-	for(i = 0 ; i < numgpus ; i++) {
-                cudaFree(sendbuf_d[i]);
-		cudaFree(recvbuf_d[i]);
-	}
 	MPI_Finalize();
 }

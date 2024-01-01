@@ -21,6 +21,50 @@ namespace CommBench {
     template <typename T>
     class Comm {
         public:
+                // REGISTRY
+            int numsend;
+            int numrecv;
+            std::vector<T*> sendbuf;
+            std::vector<T*> recvbuf;
+            std::vector<int> sendproc;
+            std::vector<int> recvproc;
+            std::vector<size_t> sendcount;
+            std::vector<size_t> recvcount;
+            std::vector<size_t> sendoffset;
+            std::vector<size_t> recvoffset;
+
+            // MPI
+            std::vector<MPI_Request> sendrequest;
+            std::vector<MPI_Request> recvrequest;
+
+            // NCCL
+        #ifdef PORT_CUDA
+            cudaStream_t stream_nccl;
+        #elif defined PORT_HIP
+            hipStream_t stream_nccl;
+        #endif
+
+            // IPC
+            T **recvbuf_ipc;
+            size_t *recvoffset_ipc;
+            std::vector<int> ack_sender;
+            std::vector<int> ack_recver;
+        #ifdef PORT_CUDA
+            cudaStream_t *stream_ipc;
+        #elif defined PORT_HIP
+            hipStream_t *stream_ipc;
+        #elif defined PORT_SYCL
+            sycl::queue *q_ipc;
+        #endif
+
+            // STAGE
+        #ifdef PORT_CUDA
+            std::vector<cudaStream_t> stream_stage;
+        #elif defined PORT_HIP
+            std::vector<hipStream_t> stream_stage;
+        #elif defined PORT_SYCL
+            std::vector<sycl::queue> q_stage;
+        #endif
             const library lib;
             Comm(library lib);
             void add_lazy(size_t count, int sendid, int recvid);
@@ -160,19 +204,57 @@ void CommBench::Comm<T>::measure(int warmup, int numiter, double &minTime, doubl
 
 template <typename T>
 CommBench::Comm<T>::Comm(CommBench::library lib) : lib(lib) {
-    int flag;
-    MPI_Initialized(&flag);
-    if(flag) {
-        MPI_Comm_dup(MPI_COMM_WORLD, &CommBench::comm_mpi);
-    } else {
-        return;
-    }  
+    if(!initialized_MPI)
+      MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
+
     int myid;
     int numproc;
-    MPI_Comm_rank(CommBench::comm_mpi, &myid);
-    MPI_Comm_size(CommBench::comm_mpi, &numproc);
-    if(myid == CommBench::printid) {
-        printf("success.\n");
+    MPI_Comm_rank(comm_mpi, &myid);
+    MPI_Comm_size(comm_mpi, &numproc);
+
+    if(!initialized_MPI) {
+      initialized_MPI = true;
+      if(myid == printid)
+        printf("******************** MPI COMMUNICATOR IS CREATED\n");
+    }
+
+    numsend = 0;
+    numrecv = 0;
+
+    if(myid == printid) {
+      printf("Create Comm with %d processors\n", numproc);
+      printf("  Port: ");
+#ifdef PORT_CUDA
+      printf("CUDA ");
+#elif defined PORT_HIP
+      printf("HIP, ");
+#elif defined PORT_SYCL
+      printf("SYCL, ");
+#else
+      printf("CPU, ");
+#endif
+      printf("Library: ");
+      print_lib(lib);
+      printf("\n");
+    }
+    if(lib == NCCL) {
+      if(!initialized_NCCL) {
+#ifdef CAP_NCCL
+        ncclUniqueId id;
+        if(myid == 0)
+          ncclGetUniqueId(&id);
+        MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
+        ncclCommInitRank(&comm_nccl, numproc, id, myid);
+        initialized_NCCL = true;
+        if(myid == printid)
+          printf("******************** NCCL COMMUNICATOR IS CREATED\n");
+#endif
+      }
+#ifdef PORT_CUDA
+      cudaStreamCreate(&stream_nccl);
+#elif defined PORT_HIP
+      hipStreamCreate(&stream_nccl);
+#endif
     }
 };
 

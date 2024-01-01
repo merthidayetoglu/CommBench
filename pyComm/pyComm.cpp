@@ -127,7 +127,10 @@ namespace CommBench {
         #endif
             const library lib;
             Comm(library lib);
+            void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
             void add_lazy(size_t count, int sendid, int recvid);
+            void start();
+            void wait();
             void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
             void measure(int warmup, int numiter);
             void measure(int warmup, int numiter, size_t data);
@@ -141,6 +144,301 @@ void CommBench::mpi_init() {
 
 void CommBench::mpi_fin() {
     MPI_Finalize();
+}
+
+template <typename T>
+void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
+    int myid;
+    int numproc;
+    MPI_Comm_rank(comm_mpi, &myid);
+    MPI_Comm_size(comm_mpi, &numproc);
+
+    if(count == 0)
+      return;
+
+    // REPORT
+    if(printid > -1) {
+      int sendid_temp = (sendid == -1 ? recvid : sendid);
+      int recvid_temp = (recvid == -1 ? sendid : recvid);
+      if(myid == sendid_temp) {
+        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
+      }
+      if(myid == recvid_temp) {
+        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
+      }
+      if(myid == printid) {
+        T* sendbuf_sendid;
+        T* recvbuf_recvid;
+        size_t sendoffset_sendid;
+        size_t recvoffset_recvid;
+        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", 
+            sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
+        print_data(count * sizeof(T));
+        printf(" ) ");
+        print_lib(lib);
+        printf("\n");
+      }
+    }
+
+    // SENDER DATA STRUCTURES
+    if(myid == sendid || (sendid == -1 && myid == recvid)) {
+
+      // EXTEND REGISTRY
+      this->sendbuf.push_back(sendbuf);
+      this->sendproc.push_back(recvid);
+      this->sendcount.push_back(count);
+      this->sendoffset.push_back(sendoffset);
+
+      // SETUP CAPABILITY
+      switch(lib) {
+        case null:
+          break;
+        case MPI:
+          sendrequest.push_back(MPI_Request());
+          break;
+        case NCCL:
+          break;
+        case IPC:
+          sendrequest.push_back(MPI_Request());
+          ack_sender.push_back(int());
+          // RECV REMOTE MEMORY HANDLE
+	  {
+            T **recvbuf_ipc = new T*[numsend + 1];
+            size_t *recvoffset_ipc = new size_t[numsend + 1];
+            if(numsend) {
+              memcpy(recvbuf_ipc, this->recvbuf_ipc, numsend * sizeof(T*));
+              memcpy(recvoffset_ipc, this->recvoffset_ipc, numsend * sizeof(size_t));
+              delete[] this->recvbuf_ipc;
+              delete[] this->recvoffset_ipc;
+            }
+            this->recvbuf_ipc = recvbuf_ipc;
+            this->recvoffset_ipc = recvoffset_ipc;
+          }
+          if(sendid == recvid) {
+            recvbuf_ipc[numsend] = recvbuf;
+            recvoffset_ipc[numsend] = recvoffset;
+          }
+          else {
+            int error = -1;
+#ifdef PORT_CUDA
+            cudaIpcMemHandle_t memhandle;
+            MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            error = cudaIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, cudaIpcMemLazyEnablePeerAccess);
+#elif defined PORT_HIP
+            hipIpcMemHandle_t memhandle;
+            MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
+#elif defined PORT_SYCL
+	    ze_ipc_mem_handle_t memhandle;
+	    void *test;
+            MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+	    error = zeMemOpenIpcHandle(ctx, dev, memhandle, 0u, &test);
+#endif
+            if(error) {
+              printf("IpcOpenMemHandle error %d\n", error);
+              return;
+            }
+            MPI_Recv(recvoffset_ipc + numsend, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+          }
+          {
+#ifdef PORT_CUDA
+            cudaStream_t *stream_ipc = new cudaStream_t[numsend + 1];
+            cudaStreamCreate(stream_ipc + numsend);
+            if(numsend) {
+              memcpy(stream_ipc, this->stream_ipc, numsend * sizeof(cudaStream_t));
+              delete[] this->stream_ipc;
+            }
+            this->stream_ipc = stream_ipc;
+#elif defined PORT_HIP
+            hipStream_t *stream_ipc = new hipStream_t[numsend + 1];
+            hipStreamCreate(stream_ipc + numsend);
+            if(numsend) {
+              memcpy(stream_ipc, this->stream_ipc, numsend * sizeof(hipStream_t));
+              delete[] this->stream_ipc;
+            }
+            this->stream_ipc = stream_ipc;
+#endif
+          }
+          break;
+        case STAGE:
+#ifdef PORT_CUDA
+          stream_stage.push_back(cudaStream_t());
+          cudaStreamCreate(&stream_stage[numsend]);
+#elif defined PORT_HIP
+          stream_stage.push_back(hipStream_t());
+          hipStreamCreate(&stream_stage[numsend]);
+#elif defined PORT_SYCL
+          q_stage.push_back(sycl::queue(sycl::gpu_selector_v));
+#endif
+          break;
+        case numlib:
+          break;
+      } // switch(lib)
+      numsend++;
+    }
+
+    // RECEIVER DATA STRUCTURES
+    if(myid == recvid || recvid == -1 && myid == sendid) {
+
+      // EXTEND REGISTRY
+      this->recvbuf.push_back(recvbuf);
+      this->recvproc.push_back(sendid);
+      this->recvcount.push_back(count);
+      this->recvoffset.push_back(recvoffset);
+
+      // SETUP LIBRARY
+      switch(lib) {
+        case null:
+          break;
+        case MPI:
+          recvrequest.push_back(MPI_Request());
+          break;
+        case NCCL:
+          break;
+        case IPC:
+          recvrequest.push_back(MPI_Request());
+          ack_recver.push_back(int());
+          // SEND REMOTE MEMORY HANDLE
+          if(sendid != recvid)
+          {
+            int error = -1;
+#ifdef PORT_CUDA
+            cudaIpcMemHandle_t myhandle;
+            error = cudaIpcGetMemHandle(&myhandle, recvbuf);
+            MPI_Send(&myhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
+#elif defined PORT_HIP
+            hipIpcMemHandle_t myhandle;
+            error = hipIpcGetMemHandle(&myhandle, recvbuf);
+            MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
+#elif defined PORT_SYCL
+	    void *zeBuffer = nullptr;
+            ze_device_mem_alloc_desc_t deviceDesc = {};
+            zeMemAllocDevice(ctx, &deviceDesc, 128, 128, dev, &zeBuffer);
+            ze_ipc_mem_handle_t myhandle;
+            error = zeMemGetIpcHandle(ctx, recvbuf, &myhandle);
+            MPI_Send(&myhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi);
+#endif
+            if(error) {
+              printf("IpcGetMemHandle error %d\n", error);
+              return;
+            }
+            MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
+          }
+          break;
+        case STAGE:
+          break;
+        case numlib:
+          break;
+      } // switch(lib)
+      numrecv++;
+    }
+}
+
+template <typename T>
+void Comm<T>::start() {
+    switch(lib) {
+      case MPI:
+        for (int send = 0; send < numsend; send++)
+          MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm_mpi, &sendrequest[send]);
+        for (int recv = 0; recv < numrecv; recv++)
+          MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, &recvrequest[recv]);
+        break;
+      case NCCL:
+#ifdef CAP_NCCL
+        ncclGroupStart();
+        for(int send = 0; send < numsend; send++)
+          ncclSend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), ncclInt8, sendproc[send], comm_nccl, stream_nccl);
+        for(int recv = 0; recv < numrecv; recv++)
+          ncclRecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), ncclInt8, recvproc[recv], comm_nccl, stream_nccl);
+        ncclGroupEnd();
+#endif
+        break;
+      case IPC:
+        for(int send = 0; send < numsend; send++) {
+#ifdef PORT_CUDA
+          cudaMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
+#elif defined PORT_HIP
+          hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
+#elif defined PORT_SYCL
+          // L0 IPC INITIATE
+	  // SELF COMMUNICATION
+          // q.memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+#endif
+        }
+        break;
+      case STAGE:
+        for(int send = 0; send < numsend; send++)
+          if(sendproc[send] == -1)
+#ifdef PORT_CUDA
+            cudaMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyHostToDevice, stream_stage[send]);
+          else
+            cudaMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToHost, stream_stage[send]);
+#elif defined PORT_HIP
+            hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyHostToDevice, stream_stage[send]);
+          else
+            hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToHost, stream_stage[send]);
+#elif defined PORT_SYCL
+            q_stage[send].memcpy(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+	  else
+            q_stage[send].memcpy(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+#endif
+        break;
+      default:
+        break;
+    }
+}
+
+template <typename T>
+void Comm<T>::wait() {
+    switch(lib) {
+      case MPI:
+        MPI_Waitall(numsend, sendrequest.data(), MPI_STATUSES_IGNORE);
+        MPI_Waitall(numrecv, recvrequest.data(), MPI_STATUSES_IGNORE);
+        break;
+      case NCCL:
+#ifdef PORT_CUDA
+        cudaStreamSynchronize(stream_nccl);
+#elif defined PORT_HIP
+        hipStreamSynchronize(stream_nccl);
+#endif
+        break;
+      case IPC:
+        for(int recv = 0; recv < numrecv; recv++)
+          MPI_Irecv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, &recvrequest[recv]);
+        for(int send = 0; send < numsend; send++) {
+#ifdef PORT_CUDA
+          cudaStreamSynchronize(stream_ipc[send]);
+#elif defined PORT_HIP
+          hipStreamSynchronize(stream_ipc[send]);
+#elif defined PORT_SYCL
+          // L0 IPC SYNCHRONIZE
+	  // SELF COMMUNICATION
+	  q.wait();
+#endif
+          MPI_Isend(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, &sendrequest[send]);
+        }
+        MPI_Waitall(numrecv, recvrequest.data(), MPI_STATUSES_IGNORE);
+        MPI_Waitall(numsend, sendrequest.data(), MPI_STATUSES_IGNORE);
+        break;
+      case STAGE:
+        for(int recv = 0; recv < numrecv; recv++)
+#ifdef PORT_CUDA
+          cudaStreamSynchronize(stream_stage[recv]);
+#elif defined PORT_HIP
+          hipStreamSynchronize(stream_stage[recv]);
+#elif defined PORT_SYCL
+          q_stage[recv].wait();
+#endif
+        break;
+      default:
+        break;
+    }
 }
 
 template <typename T>
@@ -386,11 +684,7 @@ PYBIND11_MODULE(pyComm, m) {
         .def("mpi_fin", &CommBench::mpi_fin)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
         // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, double&, double&, double&, double&)>(&CommBench::Comm::measure), "measure the latency")
-<<<<<<< HEAD
         .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency")
-=======
-        .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm::measure), "measure the latency");
->>>>>>> ceb8f3338c2c8b91d4e461fa7513a141b1705737
         // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, size_t)(&CommBench::Comm::measure), "measure the latency">)
         // .def("measure_count", static_cast<void (CommBench::Comm::*)(int, int, size_t)>(&CommBench::Comm::measure_count), "measure the latency");
         // .def("add", &CommBench::Comm<int>::add)

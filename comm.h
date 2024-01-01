@@ -61,7 +61,7 @@
 
 namespace CommBench
 {
-  static int printid = 0;
+  static int printid = -1;
 
   enum library {null, MPI, NCCL, IPC, STAGE, numlib};
 
@@ -86,6 +86,10 @@ namespace CommBench
 
   void mpi_fin() {
     MPI_Finalize();
+  }
+
+  void setprintid(int newprintid) {
+    printif = newprintid;
   }
 
   static void print_data(size_t data) {

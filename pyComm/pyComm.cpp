@@ -18,6 +18,32 @@ namespace CommBench {
     void mpi_init();
     void mpi_fin();
 
+    static bool initialized_MPI = false;
+    static bool initialized_NCCL = false;
+
+    static void print_data(size_t data) {
+        if (data < 1e3)
+            printf("%d bytes", (int)data);
+        else if (data < 1e6)
+            printf("%.4f KB", data / 1e3);
+        else if (data < 1e9)
+            printf("%.4f MB", data / 1e6);
+        else if (data < 1e12)
+            printf("%.4f GB", data / 1e9);
+        else
+            printf("%.4f TB", data / 1e12);
+    }
+    static void print_lib(library lib) {
+        switch(lib) {
+            case null : printf("NULL"); break;
+            case IPC  : printf("IPC"); break;
+            case MPI  : printf("MPI"); break;
+            case NCCL : printf("NCCL"); break;
+            case STAGE  : printf("STAGE"); break;
+            case numlib : printf("NUMLIB"); break;
+        }
+    }
+
     template <typename T>
     class Comm {
         public:

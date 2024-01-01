@@ -10,6 +10,30 @@ namespace py = pybind11;
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
 
+#define PORT_CUDA
+
+// DEPENDENCIES
+#ifdef PORT_CUDA
+#ifdef CAP_NCCL
+#include <nccl.h>
+#else
+#include <cuda.h>
+#endif
+#elif defined PORT_HIP
+#ifdef CAP_NCCL
+#include <rccl.h>
+#else
+#include <hip_runtime.h>
+#endif
+#elif defined PORT_SYCL
+#include <sycl.hpp>
+#ifdef CAP_ZE
+#include <ze_api.h>
+#endif
+#endif
+
+#define PORT_CUDA
+
 namespace CommBench {
     static int printid = 0;
     enum library {null, MPI, NCCL, IPC, STAGE, numlib};
@@ -17,6 +41,16 @@ namespace CommBench {
 
     void mpi_init();
     void mpi_fin();
+
+    // MEMORY MANAGEMENT
+    template <typename T>
+    void allocate(T *&buffer,size_t n);
+    template <typename T>
+    void allocateHost(T *&buffer, size_t n);
+    template <typename T>
+    void free(T *buffer);
+    template <typename T>
+    void freeHost(T *buffer);
 
     static bool initialized_MPI = false;
     static bool initialized_NCCL = false;
@@ -228,6 +262,59 @@ void CommBench::Comm<T>::measure(int warmup, int numiter, double &minTime, doubl
     avgTime /= numiter;
 }
 
+  // MEMORY MANAGEMENT
+template <typename T>
+void CommBench::allocate(T *&buffer, size_t n) {
+#ifdef PORT_CUDA
+    cudaMalloc(&buffer, n * sizeof(T));
+#elif defined PORT_HIP
+    hipMalloc(&buffer, n * sizeof(T));
+#elif defined PORT_SYCL
+    buffer = sycl::malloc_device<T>(n, CommBench::q);
+#else
+    allocateHost(buffer, n);
+#endif
+}
+
+template <typename T>
+void CommBench::allocateHost(T *&buffer, size_t n) {
+#ifdef PORT_CUDA
+    cudaMallocHost(&buffer, n * sizeof(T));
+#elif defined PORT_HIP
+    hipHostMalloc(&buffer, n * sizeof(T));
+#elif defined PORT_SYCL
+    buffer = sycl::malloc_host<T>(n, CommBench::q);
+#else
+    buffer = new T[n];
+#endif
+}
+
+template <typename T>
+void CommBench::free(T *buffer) {
+#ifdef PORT_CUDA
+    cudaFree(buffer);
+#elif defined PORT_HIP
+    hipFree(buffer);
+#elif defined PORT_SYCL
+    sycl::free(buffer, CommBench::q);
+#else
+    freeHost(buffer);
+#endif
+}
+
+template <typename T>
+void CommBench::freeHost(T *buffer) {
+#ifdef PORT_CUDA
+    cudaFreeHost(buffer);
+#elif defined PORT_HIP
+    hipHostFree(buffer);
+#elif defined PORT_SYCL
+    sycl::free(buffer, CommBench::q);
+#else
+    delete[] buffer;
+#endif
+  }
+
 template <typename T>
 CommBench::Comm<T>::Comm(CommBench::library lib) : lib(lib) {
     if(!initialized_MPI)
@@ -299,7 +386,7 @@ PYBIND11_MODULE(pyComm, m) {
         .def("mpi_fin", &CommBench::mpi_fin)
         .def("add_lazy", &CommBench::add_lazy)
         // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, double&, double&, double&, double&)>(&CommBench::Comm::measure), "measure the latency")
-        .def("measure", static_cast<void (CommBench::Comm::*)(int, int)>(&CommBench::Comm::measure), "measure the latency")
+        .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency")
         // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, size_t)(&CommBench::Comm::measure), "measure the latency">)
         // .def("measure_count", static_cast<void (CommBench::Comm::*)(int, int, size_t)>(&CommBench::Comm::measure_count), "measure the latency");
         // .def("add", &CommBench::Comm<int>::add)

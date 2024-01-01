@@ -61,7 +61,7 @@
 
 namespace CommBench
 {
-  static int printid = -1;
+  static int printid = 0;
 
   enum library {null, MPI, NCCL, IPC, STAGE, numlib};
 

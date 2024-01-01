@@ -80,6 +80,14 @@ namespace CommBench
   static bool initialized_MPI = false;
   static bool initialized_NCCL = false;
 
+  void CommBench::mpi_init() {
+    MPI_Init(NULL, NULL);
+  }
+
+  void CommBench::mpi_fin() {
+    MPI_Finalize();
+  }
+
   static void print_data(size_t data) {
     if (data < 1e3)
       printf("%d bytes", (int)data);

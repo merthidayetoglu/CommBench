@@ -384,9 +384,13 @@ PYBIND11_MODULE(pyComm, m) {
         .def(py::init<CommBench::library>())
         .def("mpi_init", &CommBench::mpi_init)
         .def("mpi_fin", &CommBench::mpi_fin)
-        .def("add_lazy", &CommBench::add_lazy)
+        .def("add_lazy", &CommBench::Comm<int>::add_lazy)
         // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, double&, double&, double&, double&)>(&CommBench::Comm::measure), "measure the latency")
+<<<<<<< HEAD
         .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency")
+=======
+        .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm::measure), "measure the latency");
+>>>>>>> ceb8f3338c2c8b91d4e461fa7513a141b1705737
         // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, size_t)(&CommBench::Comm::measure), "measure the latency">)
         // .def("measure_count", static_cast<void (CommBench::Comm::*)(int, int, size_t)>(&CommBench::Comm::measure_count), "measure the latency");
         // .def("add", &CommBench::Comm<int>::add)

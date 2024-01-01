@@ -13,6 +13,7 @@ import numpy as np
 #    print(mpi_rank, mpi_size)
 pyComm.Comm.mpi_init()
 c = pyComm.Comm(pyComm.library.MPI)
+c.measure(5, 10)
 pyComm.Comm.mpi_fin()
 
 #c.add(a, 0, b, 0, a.size, 0, 1)

@@ -4,13 +4,24 @@
 
 namespace py = pybind11;
 
-#include <mpi.h>
-#include <stdio.h> // for printf
-#include <string.h> // for memcpy
-#include <algorithm> // for std::sort
-#include <vector> // for std::vector
-
 #define PORT_CUDA
+
+#include <mpi.h>
+
+// GPU PORTS
+// For NVIDIA: #define PORT_CUDA
+// For AMD: #define PORT_HIP
+// For SYCL: #define PORT_SYCL
+
+// TURN OFF FOR CUDA / HIP ONLY
+#if defined(PORT_CUDA) || defined(PORT_HIP)
+#define CAP_NCCL
+#endif
+
+// TURN OFF FOR SYCL / ONLY
+#if defined(PORT_SYCL)
+#define CAP_ZE
+#endif
 
 // DEPENDENCIES
 #ifdef PORT_CUDA
@@ -32,7 +43,11 @@ namespace py = pybind11;
 #endif
 #endif
 
-#define PORT_CUDA
+// CPP LIBRARIES
+#include <stdio.h> // for printf
+#include <string.h> // for memcpy
+#include <algorithm> // for std::sort
+#include <vector> // for std::vector
 
 namespace CommBench {
     static int printid = 0;
@@ -135,6 +150,7 @@ namespace CommBench {
             void measure(int warmup, int numiter);
             void measure(int warmup, int numiter, size_t data);
             void measure_count(int warmup, int numiter, size_t data);
+            void report();
     };
 };
 
@@ -147,7 +163,7 @@ void CommBench::mpi_fin() {
 }
 
 template <typename T>
-void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
+void CommBench::Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
     int myid;
     int numproc;
     MPI_Comm_rank(comm_mpi, &myid);
@@ -341,7 +357,7 @@ void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, 
 }
 
 template <typename T>
-void Comm<T>::start() {
+void CommBench::Comm<T>::start() {
     switch(lib) {
       case MPI:
         for (int send = 0; send < numsend; send++)
@@ -395,7 +411,7 @@ void Comm<T>::start() {
 }
 
 template <typename T>
-void Comm<T>::wait() {
+void CommBench::Comm<T>::wait() {
     switch(lib) {
       case MPI:
         MPI_Waitall(numsend, sendrequest.data(), MPI_STATUSES_IGNORE);
@@ -669,6 +685,58 @@ CommBench::Comm<T>::Comm(CommBench::library lib) : lib(lib) {
     }
 };
 
+template <typename T>
+void CommBench::Comm<T>::report() {
+    int myid;
+    int numproc;
+    MPI_Comm_rank(comm_mpi, &myid);
+    MPI_Comm_size(comm_mpi, &numproc);
+
+    int sendmatrix[numproc][numproc];
+    int recvmatrix[numproc][numproc];
+    memset(sendmatrix, 0, numproc * numproc * sizeof(int));
+    memset(recvmatrix, 0, numproc * numproc * sizeof(int));
+    for(int send = 0; send < numsend; send++)
+      sendmatrix[abs(sendproc[send])][myid]++;
+    for(int recv = 0; recv < numrecv; recv++)
+      recvmatrix[myid][abs(recvproc[recv])]++;
+    MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
+
+    if(myid == printid) {
+      printf("\n");
+      print_lib(lib);
+      printf(" communication matrix\n");
+      for(int recv = 0; recv < numproc; recv++) {
+        for(int send = 0; send < numproc; send++)
+          if(sendmatrix[recv][send])
+            printf("%d ", sendmatrix[recv][send]);
+          else
+            printf(". ");
+        printf("\n");
+      }
+    }
+
+    double sendTotal = 0;
+    double recvTotal = 0;
+    for(int send = 0; send < numsend; send++)
+       sendTotal += sendcount[send] * sizeof(T);
+    for(int recv = 0; recv < numrecv; recv++)
+       recvTotal += recvcount[recv] * sizeof(T);
+
+    MPI_Allreduce(MPI_IN_PLACE, &sendTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
+
+    if(myid == printid) {
+      printf("send footprint: ");
+      print_data(sendTotal);
+      printf("\n");
+      printf("recv footprint: ");
+      print_data(recvTotal);
+      printf("\n");
+      printf("\n");
+    }
+}
 
 PYBIND11_MODULE(pyComm, m) {
     py::enum_<CommBench::library>(m, "library")

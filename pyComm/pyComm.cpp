@@ -19,7 +19,7 @@ namespace CommBench {
         public:
             const library lib;
             Comm(library lib);
-    }
+    };
 }
 
 template <typename T>

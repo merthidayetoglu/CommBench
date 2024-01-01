@@ -53,6 +53,16 @@ namespace CommBench {
     static int printid = 0;
     enum library {null, MPI, NCCL, IPC, STAGE, numlib};
     static MPI_Comm comm_mpi;
+    #ifdef CAP_NCCL
+    static ncclComm_t comm_nccl;
+    #endif
+    #ifdef PORT_SYCL
+    static sycl::queue q(sycl::gpu_selector_v);
+    #ifdef CAP_ZE
+    static ze_context_handle_t ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+    static ze_device_handle_t dev = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+    #endif
+    #endif
 
     void mpi_init();
     void mpi_fin();
@@ -151,6 +161,7 @@ namespace CommBench {
             void measure(int warmup, int numiter, size_t data);
             void measure_count(int warmup, int numiter, size_t data);
             void report();
+            void allocate(T *&buffer, size_t n, int i);
     };
 };
 
@@ -160,6 +171,16 @@ void CommBench::mpi_init() {
 
 void CommBench::mpi_fin() {
     MPI_Finalize();
+}
+
+template <typename T>
+void CommBench::Comm<T>::allocate(T *&buffer, size_t n, int i) {
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+    if(myid == i)
+      CommBench::allocate(buffer, n);
+    else
+      buffer = nullptr;
 }
 
 template <typename T>
@@ -752,7 +773,7 @@ PYBIND11_MODULE(pyComm, m) {
         .def("mpi_fin", &CommBench::mpi_fin)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
         // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, double&, double&, double&, double&)>(&CommBench::Comm::measure), "measure the latency")
-        .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency")
+        .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency");
         // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, size_t)(&CommBench::Comm::measure), "measure the latency">)
         // .def("measure_count", static_cast<void (CommBench::Comm::*)(int, int, size_t)>(&CommBench::Comm::measure_count), "measure the latency");
         // .def("add", &CommBench::Comm<int>::add)

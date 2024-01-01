@@ -80,11 +80,11 @@ namespace CommBench
   static bool initialized_MPI = false;
   static bool initialized_NCCL = false;
 
-  void CommBench::mpi_init() {
+  void mpi_init() {
     MPI_Init(NULL, NULL);
   }
 
-  void CommBench::mpi_fin() {
+  void mpi_fin() {
     MPI_Finalize();
   }
 

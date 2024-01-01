@@ -49,12 +49,12 @@ void CommBench::Comm<T>::add_lazy(size_t count, int sendid, int recvid) {
 }
 
 template <typename T>
-void Comm<T>::measure(int warmup, int numiter) {
+void CommBench::Comm<T>::measure(int warmup, int numiter) {
     measure(warmup, numiter, 0);
 }
 
 template <typename T>
-void Comm<T>::measure(int warmup, int numiter, size_t count) {
+void CommBench::Comm<T>::measure(int warmup, int numiter, size_t count) {
     if(count == 0) {
       long count_total = 0;
       for(int send = 0; send < numsend; send++)
@@ -67,7 +67,7 @@ void Comm<T>::measure(int warmup, int numiter, size_t count) {
 }
 
 template <typename T>
-void Comm<T>::measure_count(int warmup, int numiter, size_t count) {
+void CommBench::Comm<T>::measure_count(int warmup, int numiter, size_t count) {
 
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
@@ -92,7 +92,7 @@ void Comm<T>::measure_count(int warmup, int numiter, size_t count) {
 };
 
 template <typename T>
-void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime) {
+void CommBench::Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime) {
 
     double times[numiter];
     double starts[numiter];

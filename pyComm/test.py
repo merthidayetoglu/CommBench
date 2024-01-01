@@ -13,6 +13,7 @@ import numpy as np
 #    print(mpi_rank, mpi_size)
 pyComm.Comm.mpi_init()
 c = pyComm.Comm(pyComm.library.MPI)
+c.add_lazy(1024, 0, 1)
 c.measure(5, 10)
 pyComm.Comm.mpi_fin()
 

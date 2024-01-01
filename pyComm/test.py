@@ -12,7 +12,7 @@ import numpy as np
 #    mpi_size = MPI.COMM_WORLD.Get_size()
 #    print(mpi_rank, mpi_size)
 pyComm.Comm.mpi_init()
-#c = Comm(pyComm.library.MPI)
+c = pyComm.Comm(pyComm.library.MPI)
 pyComm.Comm.mpi_fin()
 
 #c.add(a, 0, b, 0, a.size, 0, 1)

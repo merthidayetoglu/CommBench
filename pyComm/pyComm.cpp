@@ -14,7 +14,6 @@ namespace CommBench {
     static int printid = 0;
     enum library {null, MPI, NCCL, IPC, STAGE, numlib};
     static MPI_Comm comm_mpi;
-    static bool initialized_MPI = false;
 
     void mpi_init();
     void mpi_fin();
@@ -25,8 +24,6 @@ namespace CommBench {
             const library lib;
             Comm(library lib);
     };
-<<<<<<< HEAD
-=======
 };
 
 void CommBench::mpi_init() {
@@ -35,13 +32,17 @@ void CommBench::mpi_init() {
 
 void CommBench::mpi_fin() {
     MPI_Finalize();
->>>>>>> 2550bf06872e0318b5ac157dc56b1faa89896fbb
 }
 
 template <typename T>
 CommBench::Comm<T>::Comm(CommBench::library lib) : lib(lib) {
-    if(!CommBench::initialized_MPI)
-	MPI_Comm_dup(MPI_COMM_WORLD, &CommBench::comm_mpi);
+    int flag;
+    MPI_Initialized(&flag);
+    if(flag) {
+        MPI_Comm_dup(MPI_COMM_WORLD, &CommBench::comm_mpi);
+    } else {
+        return;
+    }  
     int myid;
     int numproc;
     MPI_Comm_rank(CommBench::comm_mpi, &myid);
@@ -63,8 +64,8 @@ PYBIND11_MODULE(pyComm, m) {
     py::class_<CommBench::Comm<int>>(m, "Comm")
         .def(py::init<CommBench::library>())
         .def("mpi_init", &CommBench::mpi_init)
-	.def("mpi_fin", &CommBench::mpi_fin);
-	// .def("add", &CommBench::Comm<int>::add)
+        .def("mpi_fin", &CommBench::mpi_fin);
+        // .def("add", &CommBench::Comm<int>::add)
         // .def("start", &CommBench::Comm<int>::start)
         // .def("wait", &CommBench::Comm<int>::wait);
 }

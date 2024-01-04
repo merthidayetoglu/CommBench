@@ -28,7 +28,7 @@
 #define CAP_NCCL
 #endif
 
-// TURN OFF FOR SYCL / ONLY
+// TURN OFF FOR SYCL ONLY
 #if defined(PORT_SYCL)
 #define CAP_ZE
 #endif
@@ -77,16 +77,14 @@ namespace CommBench
 #endif
 #endif
 
-  static bool initialized_MPI = false;
-  static bool initialized_NCCL = false;
+  static int init_mpi;
+  static bool init_mpi_comm = false;
+  static bool init_nccl_comm = false;
 
-  void mpi_init() {
-    MPI_Init(NULL, NULL);
-  }
-
-  void mpi_fin() {
-    MPI_Finalize();
-  }
+  template <typename T>
+  std::vector<T*> dev_alloc;
+  template <typename T>
+  std::vector<T*> host_alloc;
 
   void setprintid(int newprintid) {
     printid = newprintid;
@@ -124,6 +122,15 @@ namespace CommBench
   void free(T *buffer);
   template <typename T>
   void freeHost(T *buffer);
+  template <typename T>
+  void freeall() {
+    for(auto &i : dev_alloc) {
+      free(i)
+    }
+    for(auto &i : host_alloc) {
+      freeHost(i);
+    }
+  };
 
   template <typename T>
   class Comm {
@@ -192,12 +199,26 @@ namespace CommBench
     void report();
 
     void allocate(T *&buffer, size_t n, int i);
+    void finalize() {
+      MPI_Initialized(&init_mpi);
+      if(!init_mpi) {
+        MPI_Finalize();
+        int myid;
+        MPI_Comm_rank(comm_mpi, &myid);
+        if(myid == printid)
+          printf("#################### MPI IS FINALIZED\n");
+      }
+    };
   };
 
   template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
 
-    if(!initialized_MPI)
+    MPI_Initialized(&init_mpi);
+
+    if(!init_mpi)
+      MPI_Init(NULL, NULL);
+    if(!init_mpi_comm)
       MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
 
     int myid;
@@ -205,8 +226,11 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    if(!initialized_MPI) {
-      initialized_MPI = true;
+    if(!init_mpi)
+      if(myid == printid)
+        printf("#################### MPI IS INITIALIZED\n");
+    if(!init_mpi_comm) {
+      init_mpi_comm = true;
       if(myid == printid)
         printf("******************** MPI COMMUNICATOR IS CREATED\n");
     }
@@ -231,14 +255,14 @@ namespace CommBench
       printf("\n");
     }
     if(lib == NCCL) {
-      if(!initialized_NCCL) {
+      if(!init_nccl_comm) {
 #ifdef CAP_NCCL
         ncclUniqueId id;
         if(myid == 0)
           ncclGetUniqueId(&id);
         MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
         ncclCommInitRank(&comm_nccl, numproc, id, myid);
-        initialized_NCCL = true;
+        init_nccl_comm = true;
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
 #endif
@@ -872,6 +896,7 @@ namespace CommBench
 #else
     allocateHost(buffer, n);
 #endif
+    dev_alloc.push_back(buffer);
   }
 
   template <typename T>
@@ -885,10 +910,16 @@ namespace CommBench
 #else
     buffer = new T[n];
 #endif
+    host_alloc.push_back(buffer);
   }
 
   template <typename T>
   void free(T *buffer) {
+    for(auto &i : dev_alloc) {
+      if(i == buffer) {
+        dev_alloc.erase(i);
+      }
+    }
 #ifdef PORT_CUDA
     cudaFree(buffer);
 #elif defined PORT_HIP
@@ -902,6 +933,11 @@ namespace CommBench
 
   template <typename T>
   void freeHost(T *buffer) {
+    for(auto &i : host_alloc) {
+      if(i == buffer) {
+        host_alloc.erase(i);
+      }
+    }
 #ifdef PORT_CUDA
     cudaFreeHost(buffer);
 #elif defined PORT_HIP

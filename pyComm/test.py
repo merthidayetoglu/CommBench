@@ -10,6 +10,8 @@ import numpy as np
 #    mpi_size = MPI.COMM_WORLD.Get_size()
 #    print(mpi_rank, mpi_size)
 pyComm.Comm.setprintid(0)
+buf = pyComm.Comm.allocate(1024)
+pyComm.Comm.free(buf)
 c = pyComm.Comm(pyComm.library.MPI)
 c.add_lazy(1024, 0, 1)
 c.measure(5, 10)

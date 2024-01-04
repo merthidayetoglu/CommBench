@@ -14,7 +14,6 @@ c = pyComm.Comm(pyComm.library.MPI)
 c.add_lazy(1024, 0, 1)
 c.measure(5, 10)
 c.finalize()
-pyComm.Comm.freeall()
 
 #c.add(a, 0, b, 0, a.size, 0, 1)
 #c.start()

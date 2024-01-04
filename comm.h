@@ -81,11 +81,6 @@ namespace CommBench
   static bool init_mpi_comm = false;
   static bool init_nccl_comm = false;
 
-  template <typename T>
-  std::vector<T*> dev_alloc;
-  template <typename T>
-  std::vector<T*> host_alloc;
-
   void setprintid(int newprintid) {
     printid = newprintid;
   }
@@ -122,16 +117,6 @@ namespace CommBench
   void free(T *buffer);
   template <typename T>
   void freeHost(T *buffer);
-  template <typename T>
-  void freeall() {
-    for(auto &i : dev_alloc) {
-      free(i)
-    }
-    for(auto &i : host_alloc) {
-      freeHost(i);
-    }
-  };
-
   template <typename T>
   class Comm {
 
@@ -896,7 +881,6 @@ namespace CommBench
 #else
     allocateHost(buffer, n);
 #endif
-    dev_alloc.push_back(buffer);
   }
 
   template <typename T>
@@ -910,16 +894,10 @@ namespace CommBench
 #else
     buffer = new T[n];
 #endif
-    host_alloc.push_back(buffer);
   }
 
   template <typename T>
   void free(T *buffer) {
-    for(auto &i : dev_alloc) {
-      if(i == buffer) {
-        dev_alloc.erase(i);
-      }
-    }
 #ifdef PORT_CUDA
     cudaFree(buffer);
 #elif defined PORT_HIP
@@ -933,11 +911,6 @@ namespace CommBench
 
   template <typename T>
   void freeHost(T *buffer) {
-    for(auto &i : host_alloc) {
-      if(i == buffer) {
-        host_alloc.erase(i);
-      }
-    }
 #ifdef PORT_CUDA
     cudaFreeHost(buffer);
 #elif defined PORT_HIP

@@ -59,6 +59,14 @@
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
 
+template <typename T>
+class ptr_wrapper {
+  public:
+    ptr_wrapper(T* ptr) : ptr(ptr) {}
+  private:
+    T* ptr;
+}
+
 namespace CommBench
 {
   static int printid = -1;
@@ -118,7 +126,9 @@ namespace CommBench
   template <typename T>
   void freeHost(T *buffer);
   template <typename T>
-  T* pyAllocate(size_t n);
+  ptr_wrapper<T> pyAllocate(size_t n);
+  template <typename T>
+  void pyFree(ptr_wrapper<T> ptr);
 
   template <typename T>
   class Comm {
@@ -926,10 +936,15 @@ namespace CommBench
   }
 
   template <typename T>
-  T* pyAllocate(size_t n) {
+  ptr_wrapper<T> pyAllocate(size_t n) {
     T* buffer;
     allocate(buffer, n);
     return buffer;
+  }
+
+  template <typename T>
+  void pyFree(ptr_wrapper<T> ptr) {
+    free(ptr);
   }
 
 } // namespace CommBench

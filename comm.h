@@ -118,6 +118,9 @@ namespace CommBench
   template <typename T>
   void freeHost(T *buffer);
   template <typename T>
+  T* pyAllocate(size_t n);
+
+  template <typename T>
   class Comm {
 
     public :
@@ -920,6 +923,13 @@ namespace CommBench
 #else
     delete[] buffer;
 #endif
+  }
+
+  template <typename T>
+  T* pyAllocate(size_t n) {
+    T* buffer;
+    allocate(buffer, n);
+    return buffer;
   }
 
 } // namespace CommBench

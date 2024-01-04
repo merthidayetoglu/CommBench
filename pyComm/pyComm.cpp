@@ -16,13 +16,12 @@ PYBIND11_MODULE(pyComm, m) {
         .value("numlib", CommBench::library::numlib);
     py::class_<CommBench::Comm<int>>(m, "Comm")
         .def(py::init<CommBench::library>())
+        .def("allocate", &CommBench::pyAllocate)
+        .def("free", &CommBench::free)
         .def("finalize", &CommBench::Comm<int>::finalize)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
         .def("setprintid", &CommBench::setprintid)
         .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency");
-        // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, double&, double&, double&, double&)>(&CommBench::Comm::measure), "measure the latency")
-        // .def("measure", static_cast<void (CommBench::Comm::*)(int, int, size_t)(&CommBench::Comm::measure), "measure the latency">)
-        // .def("measure_count", static_cast<void (CommBench::Comm::*)(int, int, size_t)>(&CommBench::Comm::measure_count), "measure the latency");
         // .def("add", &CommBench::Comm<int>::add)
         // .def("start", &CommBench::Comm<int>::start)
         // .def("wait", &CommBench::Comm<int>::wait);

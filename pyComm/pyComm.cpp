@@ -17,8 +17,6 @@ PYBIND11_MODULE(pyComm, m) {
         .value("numlib", CommBench::library::numlib);
     py::class_<CommBench::Comm<int>>(m, "Comm")
         .def(py::init<CommBench::library>())
-        .def("allocate", &CommBench::pyAllocate)
-        .def("free", &CommBench::pyFree)
         .def("finalize", &CommBench::Comm<int>::finalize)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
         .def("setprintid", &CommBench::setprintid)

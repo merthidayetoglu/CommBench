@@ -65,7 +65,7 @@ class ptr_wrapper {
     ptr_wrapper(T* ptr) : ptr(ptr) {}
   private:
     T* ptr;
-}
+};
 
 namespace CommBench
 {

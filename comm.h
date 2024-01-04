@@ -120,15 +120,15 @@ namespace CommBench
   void freeHost(T *buffer);
 
   template <typename T>
-  struct pymemalloc {
+  struct pyalloc {
     T* ptr;
-    void alloc(size_t n) {
+    pyalloc(size_t n) {
       allocate(ptr, n);
     }
     void pyfree() {
       free(ptr);
     }
-}
+  };
 
   template <typename T>
   class Comm {
@@ -933,18 +933,6 @@ namespace CommBench
 #else
     delete[] buffer;
 #endif
-  }
-
-  template <typename T>
-  ptr_wrapper<T> pyAllocate(size_t n) {
-    T* buffer;
-    allocate(buffer, n);
-    return buffer;
-  }
-
-  template <typename T>
-  void pyFree(ptr_wrapper<T> ptr) {
-    free(ptr);
   }
 
 } // namespace CommBench

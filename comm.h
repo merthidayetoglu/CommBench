@@ -89,7 +89,7 @@ namespace CommBench
   }
 
   void setprintid(int newprintid) {
-    printif = newprintid;
+    printid = newprintid;
   }
 
   static void print_data(size_t data) {

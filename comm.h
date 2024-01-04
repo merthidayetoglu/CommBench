@@ -59,13 +59,6 @@
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
 
-template <typename T>
-class ptr_wrapper {
-  public:
-    ptr_wrapper(T* ptr) : ptr(ptr) {}
-  private:
-    T* ptr;
-}
 
 namespace CommBench
 {
@@ -125,10 +118,17 @@ namespace CommBench
   void free(T *buffer);
   template <typename T>
   void freeHost(T *buffer);
+
   template <typename T>
-  ptr_wrapper<T> pyAllocate(size_t n);
-  template <typename T>
-  void pyFree(ptr_wrapper<T> ptr);
+  struct pymemalloc {
+    T* ptr;
+    void alloc(size_t n) {
+      allocate(ptr, n);
+    }
+    void pyfree() {
+      free(ptr);
+    }
+}
 
   template <typename T>
   class Comm {

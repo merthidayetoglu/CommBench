@@ -15,6 +15,9 @@ PYBIND11_MODULE(pyComm, m) {
         .value("IPC", CommBench::library::IPC)
         .value("STAGE", CommBench::library::STAGE)
         .value("numlib", CommBench::library::numlib);
+    py::class_<CommBench::pymemalloc<int>>(m, "memalloc")
+        .def("alloc", &CommBench::pymemalloc<int>::alloc)
+        .def("free", &CommBench::pymemalloc<int>::free);
     py::class_<CommBench::Comm<int>>(m, "Comm")
         .def(py::init<CommBench::library>())
         .def("finalize", &CommBench::Comm<int>::finalize)

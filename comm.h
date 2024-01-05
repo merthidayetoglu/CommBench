@@ -107,6 +107,7 @@ namespace CommBench
     }
   }
 
+
   // MEMORY MANAGEMENT
   template <typename T>
   void allocate(T *&buffer,size_t n);
@@ -201,16 +202,6 @@ namespace CommBench
     void report();
 
     void allocate(T *&buffer, size_t n, int i);
-    void finalize() {
-      if(init_mpi) {
-	init_mpi = 0;
-	int myid;
-	MPI_Comm_rank(comm_mpi, &myid);
-      	if(myid == printid)
-          printf("#################### MPI IS FINALIZED\n");
-	MPI_Finalize();
-      }
-    };
   };
 
   template <typename T>
@@ -280,12 +271,12 @@ namespace CommBench
 
   template <typename T>
   Comm<T>::~Comm() {
-    int myid;
-    MPI_Comm_rank(comm_mpi, &myid);
+    //int myid;
+    //MPI_Comm_rank(comm_mpi, &myid);
     for(void *ptr : buffer_list)
       CommBench::free(ptr);
-    if(myid == printid)
-      printf("memory freed.\n");
+    //if(myid == printid)
+    //  printf("memory freed.\n");
     /*if(!init_mpi) {
       MPI_Finalize();
       if(myid == printid)

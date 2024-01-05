@@ -6,6 +6,9 @@ namespace py = pybind11;
 
 #define PORT_CUDA
 
+void pyadd(CommBench::pyalloc sendbuf, size_t sendoffset, CommBench::pyalloc recvbuf, size_t recvoffset, size_t count, int sendid, int recvid){
+    CommBench::Comm<int>::add(sendbuf.ptr, sendoffset, recvbuf.ptr, recvoffset, count, sendid, recvid);
+}
 
 PYBIND11_MODULE(pyComm, m) {
     py::enum_<CommBench::library>(m, "library")
@@ -16,10 +19,11 @@ PYBIND11_MODULE(pyComm, m) {
         .value("STAGE", CommBench::library::STAGE)
         .value("numlib", CommBench::library::numlib);
     py::class_<CommBench::pyalloc<int>>(m, "pyalloc")
-	.def(py::init<size_t>())
+	    .def(py::init<size_t>())
         .def("free", &CommBench::pyalloc<int>::pyfree);
     py::class_<CommBench::Comm<int>>(m, "Comm")
         .def(py::init<CommBench::library>())
+        .def("add", &pyadd)
         .def("finalize", &CommBench::Comm<int>::finalize)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
         .def("setprintid", &CommBench::setprintid)

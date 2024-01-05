@@ -187,6 +187,7 @@ namespace CommBench
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
+    void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void start();
     void wait();
 

@@ -12,13 +12,7 @@ void CommBench::Comm<T>::pyadd(CommBench::pyalloc<T> sendbuf, size_t sendoffset,
     CommBench::Comm<T>::add(sendbuf.ptr, sendoffset, recvbuf.ptr, recvoffset, count, sendid, recvid);
 }
 
-template <typename T>
-void pymeasure(py:array_t<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
-    CommBench::measure(std::vector<CommBench::Comm<T>>(commlist.data(), commlist.data() + commlist.size()), warmup, numiter, count);
-}
-
 PYBIND11_MODULE(pyComm, m) {
-    m.def("measureInt", &pymeasure<int>);
     py::enum_<CommBench::library>(m, "library")
         .value("null", CommBench::library::null)
         .value("MPI", CommBench::library::MPI)
@@ -27,7 +21,7 @@ PYBIND11_MODULE(pyComm, m) {
         .value("STAGE", CommBench::library::STAGE)
         .value("numlib", CommBench::library::numlib);
     py::class_<CommBench::pyalloc<int>>(m, "pyalloc")
-	    .def(py::init<size_t>())
+	.def(py::init<size_t>())
         .def("free", &CommBench::pyalloc<int>::pyfree);
     py::class_<CommBench::Comm<int>>(m, "Comm")
         .def(py::init<CommBench::library>())
@@ -37,6 +31,6 @@ PYBIND11_MODULE(pyComm, m) {
         .def("setprintid", &CommBench::setprintid)
         .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency")
         // .def("add", &CommBench::Comm<int>::add)
-        // .def("start", &CommBench::Comm<int>::start)
-        // .def("wait", &CommBench::Comm<int>::wait);
+        .def("start", &CommBench::Comm<int>::start)
+        .def("wait", &CommBench::Comm<int>::wait);
 }

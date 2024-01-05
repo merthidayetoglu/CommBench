@@ -116,8 +116,6 @@ namespace CommBench
   void free(T *buffer);
   template <typename T>
   void freeHost(T *buffer);
-  static std::vector<void*> buffer_list;
-  static std::vector<size_t> buffer_size;
 
   template <typename T>
   struct pyalloc {
@@ -149,6 +147,10 @@ namespace CommBench
     std::vector<size_t> recvcount;
     std::vector<size_t> sendoffset;
     std::vector<size_t> recvoffset;
+
+    // MEMORY
+    std::vector<void*> buffer_list;
+    std::vector<size_t> buffer_size;
 
     // MPI
     std::vector<MPI_Request> sendrequest;
@@ -184,6 +186,7 @@ namespace CommBench
 #endif
 
     Comm(library lib);
+    ~Comm();
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
@@ -198,21 +201,22 @@ namespace CommBench
     void report();
 
     void allocate(T *&buffer, size_t n, int i);
-    void free() {
-      int myid;
-      MPI_Comm_rank(comm_mpi, &myid);
-      for(void *ptr : buffer_list)
-        CommBench::free(ptr);
-      if(myid == printid)
-        printf("memory freed.\n");
-      /*if(!init_mpi) {
-        MPI_Finalize();
-      	if(myid == printid)
-          printf("#################### MPI IS FINALIZED\n");
-      }*/
-    };
-    ~Comm(){free();};
   };
+
+  template <typename T>
+  Comm<T>::~Comm() {
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+    for(void *ptr : buffer_list)
+      CommBench::free(ptr);
+    if(myid == printid)
+      printf("memory freed.\n");
+    /*if(!init_mpi) {
+      MPI_Finalize();
+      if(myid == printid)
+        printf("#################### MPI IS FINALIZED\n");
+    }*/
+  }
 
   template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
@@ -283,8 +287,11 @@ namespace CommBench
   void Comm<T>::allocate(T *&buffer, size_t n, int i) {
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
-    if(myid == i)
+    if(myid == i) {
       CommBench::allocate(buffer, n);
+      buffer_list.push_back(buffer);
+      buffer_size.push_back(n * sizeof(T));
+    }
     else
       buffer = nullptr;
   }
@@ -916,8 +923,6 @@ namespace CommBench
 #else
     allocateHost(buffer, n);
 #endif
-    buffer_list.push_back(buffer);
-    buffer_size.push_back(n * sizeof(T));
   }
 
   template <typename T>

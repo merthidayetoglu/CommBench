@@ -59,7 +59,6 @@
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
 
-
 namespace CommBench
 {
   static int printid = -1;
@@ -78,7 +77,6 @@ namespace CommBench
 #endif
 #endif
 
-  static int init_mpi;
   static bool init_mpi_comm = false;
   static bool init_nccl_comm = false;
 
@@ -150,6 +148,10 @@ namespace CommBench
     std::vector<size_t> sendoffset;
     std::vector<size_t> recvoffset;
 
+    // MEMORY
+    std::vector<void*> buffer_list;
+    std::vector<size_t> buffer_size;
+
     // MPI
     std::vector<MPI_Request> sendrequest;
     std::vector<MPI_Request> recvrequest;
@@ -184,6 +186,7 @@ namespace CommBench
 #endif
 
     Comm(library lib);
+    ~Comm();
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
@@ -213,6 +216,7 @@ namespace CommBench
   template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
 
+    int init_mpi;
     MPI_Initialized(&init_mpi);
 
     if(!init_mpi)
@@ -227,7 +231,7 @@ namespace CommBench
 
     if(!init_mpi)
       if(myid == printid)
-        printf("#################### MPI IS INITIALIZED\n");
+        printf("#################### MPI IS INITIALIZED, it is user's responsibility to finalize.\n");
     if(!init_mpi_comm) {
       init_mpi_comm = true;
       if(myid == printid)
@@ -275,11 +279,29 @@ namespace CommBench
   }
 
   template <typename T>
+  Comm<T>::~Comm() {
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+    for(void *ptr : buffer_list)
+      CommBench::free(ptr);
+    if(myid == printid)
+      printf("memory freed.\n");
+    /*if(!init_mpi) {
+      MPI_Finalize();
+      if(myid == printid)
+        printf("#################### MPI IS FINALIZED\n");
+    }*/
+  }
+
+  template <typename T>
   void Comm<T>::allocate(T *&buffer, size_t n, int i) {
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
-    if(myid == i)
+    if(myid == i) {
       CommBench::allocate(buffer, n);
+      buffer_list.push_back(buffer);
+      buffer_size.push_back(n * sizeof(T));
+    }
     else
       buffer = nullptr;
   }
@@ -638,6 +660,22 @@ namespace CommBench
 
     MPI_Allreduce(MPI_IN_PLACE, &sendTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
     MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
+
+    int total_buff = buffer_list.size();
+    int total_buffs[numproc];
+    MPI_Allgather(&total_buff, 1, MPI_INT, total_buffs, 1, MPI_INT, MPI_COMM_WORLD);
+    long total_mem;
+    for(size_t size : buffer_size)
+      total_mem += size;
+    long total_mems[numproc];
+    MPI_Allgather(&total_mem, 1, MPI_LONG, total_mems, 1, MPI_LONG, MPI_COMM_WORLD);
+    if(myid == printid) {
+      for(int p = 0; p < numproc; p++) {
+        printf("proc %d: %d pieces ", p, total_buffs[p]);
+        print_data(total_mems[p]);
+        printf("\n");
+      }
+    }
 
     if(myid == printid) {
       printf("send footprint: ");

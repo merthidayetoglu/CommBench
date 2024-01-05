@@ -204,21 +204,6 @@ namespace CommBench
   };
 
   template <typename T>
-  Comm<T>::~Comm() {
-    int myid;
-    MPI_Comm_rank(comm_mpi, &myid);
-    for(void *ptr : buffer_list)
-      CommBench::free(ptr);
-    if(myid == printid)
-      printf("memory freed.\n");
-    /*if(!init_mpi) {
-      MPI_Finalize();
-      if(myid == printid)
-        printf("#################### MPI IS FINALIZED\n");
-    }*/
-  }
-
-  template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
 
     int init_mpi;
@@ -281,6 +266,21 @@ namespace CommBench
       hipStreamCreate(&stream_nccl);
 #endif
     }
+  }
+
+  template <typename T>
+  Comm<T>::~Comm() {
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+    for(void *ptr : buffer_list)
+      CommBench::free(ptr);
+    if(myid == printid)
+      printf("memory freed.\n");
+    /*if(!init_mpi) {
+      MPI_Finalize();
+      if(myid == printid)
+        printf("#################### MPI IS FINALIZED\n");
+    }*/
   }
 
   template <typename T>

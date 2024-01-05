@@ -9,7 +9,7 @@ LD_FLAGS = -L${NCCL_DIR}/lib -lnccl
 
 TARGETS = pyComm
 OBJECTS = pyComm.cpp 
-
+PYTHON = 3.11
 # ----- Make Rules -----
 
 all:	$(TARGETS)

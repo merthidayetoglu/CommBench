@@ -3,11 +3,11 @@
 #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
-#include "comm.h"
+#include "../../comm.h"
 
 // UTILITIES
 #define ROOT 0
-#include "util.h"
+#include "../../util.h"
 using namespace CommBench;
 using namespace std;
 
@@ -26,9 +26,9 @@ int main(int argc, char *argv[]) {
 
     // register communication pattern
     CommBench::printid = 0;
-    Comm<int> partition(library::MPI);
-    Comm<int> translate(library::MPI);
-    Comm<int> assemble(library::MPI);
+    Comm<int> partition(library::IPC);
+    Comm<int> translate(library::NCCL);
+    Comm<int> assemble(library::IPC);
 
     // allocate staging buffer
     int groupsize = 4;

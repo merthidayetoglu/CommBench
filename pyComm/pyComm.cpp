@@ -1,11 +1,13 @@
+
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#define PORT_CUDA
 #include "../comm.h"
+#define ROOT 0
+#include "../util.h"
 
 namespace py = pybind11;
-
-#define PORT_CUDA
 
 template <typename T>
 void CommBench::Comm<T>::pyadd(CommBench::pyalloc<T> sendbuf, size_t sendoffset, CommBench::pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid){
@@ -13,6 +15,7 @@ void CommBench::Comm<T>::pyadd(CommBench::pyalloc<T> sendbuf, size_t sendoffset,
 }
 
 PYBIND11_MODULE(pyComm, m) {
+    m.def("setup_gpu", &setup_gpu);
     py::enum_<CommBench::library>(m, "library")
         .value("null", CommBench::library::null)
         .value("MPI", CommBench::library::MPI)

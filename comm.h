@@ -199,13 +199,13 @@ namespace CommBench
 
     void allocate(T *&buffer, size_t n, int i);
     void finalize() {
-      int myid;
-      MPI_Comm_rank(comm_mpi, &myid);
-      MPI_Initialized(&init_mpi);
       if(init_mpi) {
-        MPI_Finalize();
+	init_mpi = 0;
+	int myid;
+	MPI_Comm_rank(comm_mpi, &myid);
       	if(myid == printid)
           printf("#################### MPI IS FINALIZED\n");
+	MPI_Finalize();
       }
     };
   };

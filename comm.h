@@ -150,7 +150,7 @@ namespace CommBench
     std::vector<size_t> recvoffset;
 
     // MEMORY
-    std::vector<void*> buffer_list;
+    std::vector<T*> buffer_list;
     std::vector<size_t> buffer_size;
 
     // MPI
@@ -273,7 +273,7 @@ namespace CommBench
   Comm<T>::~Comm() {
     //int myid;
     //MPI_Comm_rank(comm_mpi, &myid);
-    for(void *ptr : buffer_list)
+    for(T *ptr : buffer_list)
       CommBench::free(ptr);
     //if(myid == printid)
     //  printf("memory freed.\n");

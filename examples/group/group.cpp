@@ -41,9 +41,6 @@ enum Direction {outbound, inbound, bidirect, omnidirect, numdirect};
 
 int main(int argc, char *argv[])
 {
-  // INITIALIZE MPI
-  MPI_Init(&argc, &argv);
-
   // INPUT PARAMETERS
   int library;
   int pattern;
@@ -51,12 +48,12 @@ int main(int argc, char *argv[])
   size_t count;
   int warmup;
   int numiter;
-  int numgpu;
+  int numgroup;
   int groupsize;
   int subgroupsize;
-  print_args(argc, argv, library, pattern, direction, count, warmup, numiter, numgpu, groupsize, subgroupsize);
+  print_args(argc, argv, library, pattern, direction, count, warmup, numiter, numgroup, groupsize, subgroupsize);
 
-  int numgroup = numgpu / groupsize;
+  int numgpu = numgroup * groupsize;
 
   CommBench::printid = ROOT;
   CommBench::Comm<Type> bench((CommBench::library) library);
@@ -82,6 +79,7 @@ int main(int argc, char *argv[])
       }
       break;
     case Pattern::rail: // RAIL PATTERN
+      // count = count / (numgroup - 1);
       switch(direction) {
         case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
          for(int sender = 0; sender < subgroupsize; sender++)
@@ -122,7 +120,7 @@ int main(int argc, char *argv[])
       }
       break;
     case Pattern::fan: // FAN PATTERN
-      count = count / groupsize;
+      // count = count / groupsize;
       switch(direction) {
         case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
           for(int sender = 0; sender < subgroupsize; sender++)
@@ -155,7 +153,7 @@ int main(int argc, char *argv[])
       }
       break;
     case Pattern::dense: // DENSE PATTERN
-      count = count / subgroupsize;
+      // count = count / subgroupsize / (numgroup - 1);
       switch(direction) {
         case Direction::outbound: // UNI-DIRECTIONAL (OUTBOUND)
           for(int sender = 0; sender < subgroupsize; sender++)
@@ -204,9 +202,6 @@ int main(int argc, char *argv[])
   }
 
   bench.measure(warmup, numiter, data);
-    
-  // FINALIZE MPI
-  MPI_Finalize();
 
 } // main()
 
@@ -218,9 +213,10 @@ void print_args(int argc, char *argv[],
 		size_t &count, 
 		int &warmup, 
 		int &numiter, 
-		int &numgpu, 
+		int &numgroup, 
 		int &groupsize,
 		int &subgroupsize) {
+  MPI_Init(&argc, &argv);
   int myid;
   int numproc;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -238,7 +234,7 @@ void print_args(int argc, char *argv[],
     count = atol(argv[4]);
     warmup = atoi(argv[5]);
     numiter = atoi(argv[6]);
-    numgpu = atoi(argv[7]);
+    numgroup = atoi(argv[7]);
     groupsize = atoi(argv[8]);
     subgroupsize = atoi(argv[9]);
     // PRINT NUMBER OF PROCESSES AND THREADS
@@ -249,7 +245,7 @@ void print_args(int argc, char *argv[],
       printf("Number of threads per proc: %d\n", numthread);
       printf("Number of warmup %d\n", warmup);
       printf("Number of iterations %d\n", numiter);
-      printf("Number of GPUs %d\n", numgpu);
+      printf("Number of Groups %d\n", numgroup);
       printf("Group Size: %d\n", groupsize);
       printf("Subgroup Size: %d\n", subgroupsize);
 
@@ -293,11 +289,11 @@ void print_args(int argc, char *argv[],
       printf("4. count: number of elements per message\n");
       printf("5. warmup: number of warmup rounds\n");
       printf("6. numiter: number of measurement rounds\n");
-      printf("7. p: number of processors\n");
+      printf("7. n: number of groups\n");
       printf("8. g: group size\n");
       printf("9. k: subgroup size\n");
       printf("where on can run CommBench as\n");
-      printf("mpirun ./CommBench library pattern direction count warmup numiter p g k\n");
+      printf("mpirun ./CommBench library pattern direction count warmup numiter n g k\n");
       printf("\n");
     }
     abort();

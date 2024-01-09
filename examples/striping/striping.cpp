@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     for(int i = 1; i < groupsize; i++)
       translate.add(temp_d, 0, temp_d, 0, count / groupsize, i, groupsize + i);
     for(int i = 1; i < groupsize; i++)
-      assemble.add(temp_d, 0, recvbuf_d, i * count / groupsize, count / groupsize, groupsize + i, 0);
+      assemble.add(temp_d, 0, recvbuf_d, i * count / groupsize, count / groupsize, groupsize + i, groupsize);
 
     // create sequence
     vector<Comm<int>> striping = {partition, translate, assemble};

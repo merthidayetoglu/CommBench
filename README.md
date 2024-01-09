@@ -76,7 +76,7 @@ void CommBench::measure(std::vector<Comm<T>> sequence, int warmup, int numiter, 
 ```
 In this case, the sequence of communications are given in a vector, e.g., ``sequence = {comm_1, comm_2, comm_3}``. CommBench internally figures out the data dependencies across steps and executes them asynchronously while preserving the dependencies across point-to-point functions.
 
-![Striping](examples/striping/images/striping_figure.pdf)
+![Striping](examples/striping/images/striping_figure.png)
 
 As an example, the below shows striping of point-to-point communications across nodes. The asynchronous execution of this pattern finds opportunites to overlap communications within and across nodes using all GPUs, and utilizes the overall hierarchical network (intra-node, extra-node) efficiently towards measuring the peak bandwidth across nodes. See [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping) for an implementation with CommBench. The measurement will report the end-to-end latency ($t$) and throughput ($d/t$), where $d$ is the data movement across nodes and calculated based on ``count`` and the size of data type ``T``.
 

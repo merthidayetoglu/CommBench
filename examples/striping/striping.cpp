@@ -1,13 +1,13 @@
 
 // HEADERS
-#define PORT_CUDA
+ #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
-#include "../../comm.h"
+#include "comm.h"
 
 // UTILITIES
 #define ROOT 0
-#include "../../util.h"
+#include "util.h"
 using namespace CommBench;
 using namespace std;
 
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 
     // register communication pattern
     CommBench::printid = 0;
-    Comm<int> partition(library::IPC);
+    Comm<int> split(library::IPC);
     Comm<int> translate(library::NCCL);
     Comm<int> assemble(library::IPC);
 
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 
     // compose steps
     for(int i = 1; i < groupsize; i++)
-      partition.add(sendbuf_d, i * count / groupsize, temp_d, 0, count / groupsize, 0, i);
+      split.add(sendbuf_d, i * count / groupsize, temp_d, 0, count / groupsize, 0, i);
     translate.add(sendbuf_d, 0, recvbuf_d, 0, count / groupsize, 0, groupsize);
     for(int i = 1; i < groupsize; i++)
       translate.add(temp_d, 0, temp_d, 0, count / groupsize, i, groupsize + i);
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
       assemble.add(temp_d, 0, recvbuf_d, i * count / groupsize, count / groupsize, groupsize + i, groupsize);
 
     // create sequence
-    vector<Comm<int>> striping = {partition, translate, assemble};
+    vector<Comm<int>> striping = {split, translate, assemble};
 
     // steps in isolation
     for(auto comm : striping)

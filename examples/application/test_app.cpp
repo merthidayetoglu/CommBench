@@ -1,10 +1,10 @@
-#define PORT_SYCL
+#define PORT_CUDA
 
-#include "comm.h"
+#include "../../comm.h"
 
 #define ROOT 0
 #define Type int
-#include "util.h"
+#include "../../util.h"
 #include <vector>
 #include <fstream>
 #include <sstream>
@@ -84,9 +84,8 @@ int main(int argc, char* argv[]) {
 	intra.measure(5, 10, intra_count);
 	inter.measure(5, 10, inter_count);
         
-	vector<Comm<Type>> vec = {inter, intra};
+	vector<Comm<Type>*> vec = {&inter, &intra};
 	measure_concur(vec, 5, 10, inter_count+intra_count);
-  
 	measure_MPI_Alltoallv<int>(patterns, 5, 10);
 
 	MPI_Finalize();

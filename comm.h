@@ -273,8 +273,8 @@ namespace CommBench
   Comm<T>::~Comm() {
     //int myid;
     //MPI_Comm_rank(comm_mpi, &myid);
-    for(T *ptr : buffer_list)
-      CommBench::free(ptr);
+    //for(T *ptr : buffer_list)
+    //  CommBench::free(ptr);
     //if(myid == printid)
     //  printf("memory freed.\n");
     /*if(!init_mpi) {
@@ -285,20 +285,22 @@ namespace CommBench
   }
 
   template <typename T>
-  void Comm<T>::allocate(T *&buffer, size_t n, int i) {
+  void Comm<T>::allocate(T *&buffer, size_t count, int i) {
+    if(count == 0) return;
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
     if(myid == i) {
-      CommBench::allocate(buffer, n);
+      CommBench::allocate(buffer, count);
       buffer_list.push_back(buffer);
-      buffer_size.push_back(n * sizeof(T));
+      buffer_size.push_back(count * sizeof(T));
     }
     else
-      buffer = nullptr;
+      ; // buffer = nullptr;
   }
 
   template <typename T>
   void Comm<T>::add_lazy(size_t count, int sendid, int recvid) {
+    if(count == 0) return;
     T *sendbuf;
     T *recvbuf;
     allocate(sendbuf, count, sendid);
@@ -308,13 +310,11 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
+    if(count == 0) return;
     int myid;
     int numproc;
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
-
-    if(count == 0)
-      return;
 
     // REPORT
     if(printid > -1) {
@@ -617,16 +617,17 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    int sendmatrix[numproc][numproc];
-    int recvmatrix[numproc][numproc];
-    memset(sendmatrix, 0, numproc * numproc * sizeof(int));
-    memset(recvmatrix, 0, numproc * numproc * sizeof(int));
+    long sendmatrix[numproc][numproc];
+    long recvmatrix[numproc][numproc];
+    memset(sendmatrix, 0, numproc * numproc * sizeof(long));
+    memset(recvmatrix, 0, numproc * numproc * sizeof(long));
     for(int send = 0; send < numsend; send++)
-      sendmatrix[abs(sendproc[send])][myid]++;
+      // sendmatrix[abs(sendproc[send])][myid]++;
+      sendmatrix[abs(sendproc[send])][myid] += sendcount[send];
     for(int recv = 0; recv < numrecv; recv++)
       recvmatrix[myid][abs(recvproc[recv])]++;
-    MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
-    MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_INT, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_LONG, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_LONG, MPI_SUM, comm_mpi);
 
     if(myid == printid) {
       printf("\n");
@@ -635,7 +636,7 @@ namespace CommBench
       for(int recv = 0; recv < numproc; recv++) {
         for(int send = 0; send < numproc; send++)
           if(sendmatrix[recv][send])
-            printf("%d ", sendmatrix[recv][send]);
+            printf("%ld ", sendmatrix[recv][send]);
           else
             printf(". ");
         printf("\n");
@@ -655,7 +656,7 @@ namespace CommBench
     int total_buff = buffer_list.size();
     int total_buffs[numproc];
     MPI_Allgather(&total_buff, 1, MPI_INT, total_buffs, 1, MPI_INT, MPI_COMM_WORLD);
-    long total_mem;
+    long total_mem = 0;
     for(size_t size : buffer_size)
       total_mem += size;
     long total_mems[numproc];

@@ -150,7 +150,7 @@ namespace CommBench
 
     // MEMORY
     std::vector<T*> buffer_list;
-    std::vector<size_t> buffer_size;
+    std::vector<size_t> buffer_count;
 
     // MPI
     std::vector<MPI_Request> sendrequest;
@@ -164,16 +164,16 @@ namespace CommBench
 #endif
 
     // IPC
-    T **recvbuf_ipc;
-    size_t *recvoffset_ipc;
+    std::vector<T*> recvbuf_ipc;
+    std::vector<size_t> recvoffset_ipc;
     std::vector<int> ack_sender;
     std::vector<int> ack_recver;
 #ifdef PORT_CUDA
-    cudaStream_t *stream_ipc;
+    std::vector<cudaStream_t> stream_ipc;
 #elif defined PORT_HIP
-    hipStream_t *stream_ipc;
+    std::vector<hipStream_t> stream_ipc;
 #elif defined PORT_SYCL
-    sycl::queue *q_ipc;
+    std::vector<sycl::queue> q_ipc;
 #endif
 
     Comm(library lib);
@@ -292,7 +292,7 @@ namespace CommBench
     if(myid == i) {
       CommBench::allocate(buffer, count);
       buffer_list.push_back(buffer);
-      buffer_size.push_back(count * sizeof(T));
+      buffer_count.push_back(count);
     }
     else
       ; // buffer = nullptr;
@@ -355,64 +355,37 @@ namespace CommBench
         case IPC:
           sendrequest.push_back(MPI_Request());
           ack_sender.push_back(int());
-          // RECV REMOTE MEMORY HANDLE
-	  {
-            T **recvbuf_ipc = new T*[numsend + 1];
-            size_t *recvoffset_ipc = new size_t[numsend + 1];
-            if(numsend) {
-              memcpy(recvbuf_ipc, this->recvbuf_ipc, numsend * sizeof(T*));
-              memcpy(recvoffset_ipc, this->recvoffset_ipc, numsend * sizeof(size_t));
-              delete[] this->recvbuf_ipc;
-              delete[] this->recvoffset_ipc;
-            }
-            this->recvbuf_ipc = recvbuf_ipc;
-            this->recvoffset_ipc = recvoffset_ipc;
-          }
-          if(sendid == recvid) {
-            recvbuf_ipc[numsend] = recvbuf;
-            recvoffset_ipc[numsend] = recvoffset;
-          }
-          else {
+          recvbuf_ipc.push_back(recvbuf);
+          recvoffset_ipc.push_back(recvoffset);
+          if(sendid != recvid) {
             int error = -1;
 #ifdef PORT_CUDA
             cudaIpcMemHandle_t memhandle;
             MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            error = cudaIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, cudaIpcMemLazyEnablePeerAccess);
+            error = cudaIpcOpenMemHandle((void**)&recvbuf_ipc[numsend], memhandle, cudaIpcMemLazyEnablePeerAccess);
 #elif defined PORT_HIP
             hipIpcMemHandle_t memhandle;
             MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            error = hipIpcOpenMemHandle((void**) recvbuf_ipc + numsend, memhandle, hipIpcMemLazyEnablePeerAccess);
+            error = hipIpcOpenMemHandle((void**)&recvbuf_ipc[numsend], memhandle, hipIpcMemLazyEnablePeerAccess);
 #elif defined PORT_SYCL
 	    ze_ipc_mem_handle_t memhandle;
 	    void *test;
             MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-	    error = zeMemOpenIpcHandle(ctx, dev, memhandle, 0u, &test);
+	    error = zeMemOpenIpcHandle(ctx, dev, memhandle, 0, &test);
 #endif
-            if(error) {
+            if(error)
               printf("IpcOpenMemHandle error %d\n", error);
-              return;
-            }
-            MPI_Recv(recvoffset_ipc + numsend, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            MPI_Recv(&recvoffset_ipc[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
-          {
 #ifdef PORT_CUDA
-            cudaStream_t *stream_ipc = new cudaStream_t[numsend + 1];
-            cudaStreamCreate(stream_ipc + numsend);
-            if(numsend) {
-              memcpy(stream_ipc, this->stream_ipc, numsend * sizeof(cudaStream_t));
-              delete[] this->stream_ipc;
-            }
-            this->stream_ipc = stream_ipc;
+          stream_ipc.push_back(cudaStream_t());
+          cudaStreamCreate(&stream_ipc[numsend]);
 #elif defined PORT_HIP
-            hipStream_t *stream_ipc = new hipStream_t[numsend + 1];
-            hipStreamCreate(stream_ipc + numsend);
-            if(numsend) {
-              memcpy(stream_ipc, this->stream_ipc, numsend * sizeof(hipStream_t));
-              delete[] this->stream_ipc;
-            }
-            this->stream_ipc = stream_ipc;
+          stream_ipc.push_back(hipStream_t());
+          hipStreamCreate(&stream_ipc[numsend]);
+#elif defined PORT_SYCL
+          q_ipc.push_back(sycl::queue());
 #endif
-          }
           break;
         case numlib:
           break;
@@ -461,10 +434,8 @@ namespace CommBench
             error = zeMemGetIpcHandle(ctx, recvbuf, &myhandle);
             MPI_Send(&myhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #endif
-            if(error) {
+            if(error)
               printf("IpcGetMemHandle error %d\n", error);
-              return;
-            }
             MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
           }
           break;
@@ -630,17 +601,17 @@ namespace CommBench
     MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_LONG, MPI_SUM, comm_mpi);
 
     int total_buff = buffer_list.size();
-    int total_buffs[numproc];
-    MPI_Allgather(&total_buff, 1, MPI_INT, total_buffs, 1, MPI_INT, MPI_COMM_WORLD);
-    long total_mem = 0;
-    for(size_t size : buffer_size)
-      total_mem += size;
-    long total_mems[numproc];
-    MPI_Allgather(&total_mem, 1, MPI_LONG, total_mems, 1, MPI_LONG, MPI_COMM_WORLD);
+    std::vector<int> total_buffs(numproc);
+    MPI_Allgather(&total_buff, 1, MPI_INT, total_buffs.data(), 1, MPI_INT, MPI_COMM_WORLD);
+    size_t total_count = 0;
+    for(size_t count : buffer_count)
+      total_count += count;
+    std::vector<size_t> total_counts(numproc);
+    MPI_Allgather(&total_count, sizeof(size_t), MPI_BYTE, total_counts.data(), sizeof(size_t), MPI_BYTE, MPI_COMM_WORLD);
     if(myid == printid) {
       for(int p = 0; p < numproc; p++) {
-        printf("proc %d: %d pieces ", p, total_buffs[p]);
-        print_data(total_mems[p]);
+        printf("proc %d: %d pieces count %ld ", p, total_buffs[p], total_counts[p]);
+        print_data(total_counts[p] * sizeof(T));
         printf("\n");
       }
     }
@@ -684,7 +655,7 @@ namespace CommBench
 #elif defined PORT_SYCL
           // L0 IPC INITIATE
 	  // SELF COMMUNICATION
-          // q.memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+          q_ipc[send].memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
         }
         for(int recv = 0; recv < numrecv; recv++)
@@ -718,7 +689,7 @@ namespace CommBench
 #elif defined PORT_SYCL
           // L0 IPC SYNCHRONIZE
 	  // SELF COMMUNICATION
-	  q.wait();
+	  q_ipc[send].wait();
 #endif
           MPI_Isend(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, &sendrequest[send]);
         }
@@ -816,6 +787,9 @@ namespace CommBench
       if(iter >= 0)
         t.push_back(time);
     }
+
+    free(sendbuf);
+    free(recvbuf);
     int data;
     MPI_Allreduce(&senddispl[numproc], &data, 1, MPI_INT, MPI_SUM, comm_mpi);
     print_stats(t, data * sizeof(T));

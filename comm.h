@@ -63,7 +63,7 @@ namespace CommBench
 {
   static int printid = -1;
 
-  enum library {null, MPI, NCCL, IPC, STAGE, numlib};
+  enum library {null, MPI, NCCL, IPC, numlib};
 
   static MPI_Comm comm_mpi;
 #ifdef CAP_NCCL
@@ -102,7 +102,6 @@ namespace CommBench
       case IPC  : printf("IPC"); break;
       case MPI  : printf("MPI"); break;
       case NCCL : printf("NCCL"); break;
-      case STAGE  : printf("STAGE"); break;
       case numlib : printf("NUMLIB"); break;
     }
   }
@@ -177,18 +176,10 @@ namespace CommBench
     sycl::queue *q_ipc;
 #endif
 
-    // STAGE
-#ifdef PORT_CUDA
-    std::vector<cudaStream_t> stream_stage;
-#elif defined PORT_HIP
-    std::vector<hipStream_t> stream_stage;
-#elif defined PORT_SYCL
-    std::vector<sycl::queue> q_stage;
-#endif
-
     Comm(library lib);
     ~Comm();
 
+    void add(T *sendbuf, size_t sendoffset, size_t sendcount, T *recvbuf, size_t recvoffset, size_t recvcount, int sendid, int recvid);
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
     void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
@@ -285,6 +276,15 @@ namespace CommBench
   }
 
   template <typename T>
+  void Comm<T>::add_lazy(size_t count, int sendid, int recvid) {
+    T *sendbuf;
+    T *recvbuf;
+    allocate(sendbuf, count, sendid);
+    allocate(recvbuf, count, recvid);
+    add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
+  }
+
+  template <typename T>
   void Comm<T>::allocate(T *&buffer, size_t count, int i) {
     if(count == 0) return;
     int myid;
@@ -299,16 +299,6 @@ namespace CommBench
   }
 
   template <typename T>
-  void Comm<T>::add_lazy(size_t count, int sendid, int recvid) {
-    if(count == 0) return;
-    T *sendbuf;
-    T *recvbuf;
-    allocate(sendbuf, count, sendid);
-    allocate(recvbuf, count, recvid);
-    add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
-  }
-
-  template <typename T>
   void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
     if(count == 0) return;
     int myid;
@@ -318,13 +308,11 @@ namespace CommBench
 
     // REPORT
     if(printid > -1) {
-      int sendid_temp = (sendid == -1 ? recvid : sendid);
-      int recvid_temp = (recvid == -1 ? sendid : recvid);
-      if(myid == sendid_temp) {
+      if(myid == sendid) {
         MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
         MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       }
-      if(myid == recvid_temp) {
+      if(myid == recvid) {
         MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
         MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       }
@@ -333,10 +321,10 @@ namespace CommBench
         T* recvbuf_recvid;
         size_t sendoffset_sendid;
         size_t recvoffset_recvid;
-        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid_temp, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
         printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", 
             sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
         print_data(count * sizeof(T));
@@ -347,7 +335,7 @@ namespace CommBench
     }
 
     // SENDER DATA STRUCTURES
-    if(myid == sendid || (sendid == -1 && myid == recvid)) {
+    if(myid == sendid) {
 
       // EXTEND REGISTRY
       this->sendbuf.push_back(sendbuf);
@@ -426,17 +414,6 @@ namespace CommBench
 #endif
           }
           break;
-        case STAGE:
-#ifdef PORT_CUDA
-          stream_stage.push_back(cudaStream_t());
-          cudaStreamCreate(&stream_stage[numsend]);
-#elif defined PORT_HIP
-          stream_stage.push_back(hipStream_t());
-          hipStreamCreate(&stream_stage[numsend]);
-#elif defined PORT_SYCL
-          q_stage.push_back(sycl::queue(sycl::gpu_selector_v));
-#endif
-          break;
         case numlib:
           break;
       } // switch(lib)
@@ -444,7 +421,7 @@ namespace CommBench
     }
 
     // RECEIVER DATA STRUCTURES
-    if(myid == recvid || recvid == -1 && myid == sendid) {
+    if(myid == recvid) {
 
       // EXTEND REGISTRY
       this->recvbuf.push_back(recvbuf);
@@ -490,8 +467,6 @@ namespace CommBench
             }
             MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
           }
-          break;
-        case STAGE:
           break;
         case numlib:
           break;
@@ -617,41 +592,42 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    long sendmatrix[numproc][numproc];
-    long recvmatrix[numproc][numproc];
-    memset(sendmatrix, 0, numproc * numproc * sizeof(long));
-    memset(recvmatrix, 0, numproc * numproc * sizeof(long));
+    std::vector<size_t> sendcount_temp(numproc, 0);
+    std::vector<size_t> recvcount_temp(numproc, 0);
     for(int send = 0; send < numsend; send++)
-      // sendmatrix[abs(sendproc[send])][myid]++;
-      sendmatrix[abs(sendproc[send])][myid] += sendcount[send];
+      sendcount_temp[sendproc[send]] += sendcount[send];
     for(int recv = 0; recv < numrecv; recv++)
-      recvmatrix[myid][abs(recvproc[recv])]++;
-    MPI_Allreduce(MPI_IN_PLACE, sendmatrix, numproc * numproc, MPI_LONG, MPI_SUM, comm_mpi);
-    MPI_Allreduce(MPI_IN_PLACE, recvmatrix, numproc * numproc, MPI_LONG, MPI_SUM, comm_mpi);
+      recvcount_temp[recvproc[recv]] += recvcount[recv];
+    std::vector<size_t> sendmatrix(numproc * numproc);
+    std::vector<size_t> recvmatrix(numproc * numproc);
+    MPI_Allgather(sendcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, sendmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
+    MPI_Allgather(recvcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, recvmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
 
     if(myid == printid) {
       printf("\n");
       print_lib(lib);
-      printf(" communication matrix\n");
+      printf(" communication matrix (reciever x sender)\n");
       for(int recv = 0; recv < numproc; recv++) {
-        for(int send = 0; send < numproc; send++)
-          if(sendmatrix[recv][send])
-            printf("%ld ", sendmatrix[recv][send]);
+        for(int send = 0; send < numproc; send++) {
+          size_t count = recvmatrix[recv * numproc + send];
+          if(recvmatrix[recv * numproc + send])
+            printf("%ld ", count);
           else
             printf(". ");
+        }
         printf("\n");
       }
     }
 
-    double sendTotal = 0;
-    double recvTotal = 0;
+    long sendTotal = 0;
+    long recvTotal = 0;
     for(int send = 0; send < numsend; send++)
-       sendTotal += sendcount[send] * sizeof(T);
+       sendTotal += sendcount[send];
     for(int recv = 0; recv < numrecv; recv++)
-       recvTotal += recvcount[recv] * sizeof(T);
+       recvTotal += recvcount[recv];
 
-    MPI_Allreduce(MPI_IN_PLACE, &sendTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
-    MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_DOUBLE, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, &sendTotal, 1, MPI_LONG, MPI_SUM, comm_mpi);
+    MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_LONG, MPI_SUM, comm_mpi);
 
     int total_buff = buffer_list.size();
     int total_buffs[numproc];
@@ -670,11 +646,11 @@ namespace CommBench
     }
 
     if(myid == printid) {
-      printf("send footprint: ");
-      print_data(sendTotal);
+      printf("send footprint: %ld ", sendTotal);
+      print_data(sendTotal * sizeof(T));
       printf("\n");
-      printf("recv footprint: ");
-      print_data(recvTotal);
+      printf("recv footprint: %ld ", recvTotal);
+      print_data(recvTotal * sizeof(T));
       printf("\n");
       printf("\n");
     }
@@ -711,23 +687,8 @@ namespace CommBench
           // q.memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
         }
-        break;
-      case STAGE:
-        for(int send = 0; send < numsend; send++)
-          if(sendproc[send] == -1)
-#ifdef PORT_CUDA
-            cudaMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyHostToDevice, stream_stage[send]);
-          else
-            cudaMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToHost, stream_stage[send]);
-#elif defined PORT_HIP
-            hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyHostToDevice, stream_stage[send]);
-          else
-            hipMemcpyAsync(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToHost, stream_stage[send]);
-#elif defined PORT_SYCL
-            q_stage[send].memcpy(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
-	  else
-            q_stage[send].memcpy(recvbuf[send] + recvoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
-#endif
+        for(int recv = 0; recv < numrecv; recv++)
+          MPI_Irecv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, &recvrequest[recv]);
         break;
       default:
         break;
@@ -749,8 +710,6 @@ namespace CommBench
 #endif
         break;
       case IPC:
-        for(int recv = 0; recv < numrecv; recv++)
-          MPI_Irecv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, &recvrequest[recv]);
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[send]);
@@ -765,16 +724,6 @@ namespace CommBench
         }
         MPI_Waitall(numrecv, recvrequest.data(), MPI_STATUSES_IGNORE);
         MPI_Waitall(numsend, sendrequest.data(), MPI_STATUSES_IGNORE);
-        break;
-      case STAGE:
-        for(int recv = 0; recv < numrecv; recv++)
-#ifdef PORT_CUDA
-          cudaStreamSynchronize(stream_stage[recv]);
-#elif defined PORT_HIP
-          hipStreamSynchronize(stream_stage[recv]);
-#elif defined PORT_SYCL
-          q_stage[recv].wait();
-#endif
         break;
       default:
         break;

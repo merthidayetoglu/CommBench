@@ -722,16 +722,16 @@ namespace CommBench
   }
 
   template <typename T>
-  static void measure_concur(std::vector<CommBench::Comm<T>*> commlist, int warmup, int numiter, size_t count) {
+  static void measure_concur(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       MPI_Barrier(comm_mpi);
       double time = MPI_Wtime();
       for (auto &i : commlist) {
-        i->start();
+        i.start();
       }
       for (auto &i : commlist) {      
-        i->wait();
+        i.wait();
       }
       time = MPI_Wtime() - time;
       MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);

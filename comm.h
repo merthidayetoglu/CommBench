@@ -63,7 +63,7 @@ namespace CommBench
 {
   static int printid = -1;
 
-  enum library {null, MPI, NCCL, IPC, numlib};
+  enum library {dummy, MPI, NCCL, IPC, numlib};
 
   static MPI_Comm comm_mpi;
 #ifdef CAP_NCCL
@@ -98,11 +98,11 @@ namespace CommBench
   }
   static void print_lib(library lib) {
     switch(lib) {
-      case null : printf("NULL"); break;
+      case dummy : printf("dummy"); break;
       case IPC  : printf("IPC"); break;
       case MPI  : printf("MPI"); break;
       case NCCL : printf("NCCL"); break;
-      case numlib : printf("NUMLIB"); break;
+      case numlib : printf("numlib"); break;
     }
   }
 
@@ -345,7 +345,7 @@ namespace CommBench
 
       // SETUP CAPABILITY
       switch(lib) {
-        case null:
+        case dummy:
           break;
         case MPI:
           sendrequest.push_back(MPI_Request());
@@ -431,7 +431,7 @@ namespace CommBench
 
       // SETUP LIBRARY
       switch(lib) {
-        case null:
+        case dummy:
           break;
         case MPI:
           recvrequest.push_back(MPI_Request());

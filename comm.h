@@ -179,7 +179,6 @@ namespace CommBench
     Comm(library lib);
     ~Comm();
 
-    void add(T *sendbuf, size_t sendoffset, size_t sendcount, T *recvbuf, size_t recvoffset, size_t recvcount, int sendid, int recvid);
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
     void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
@@ -189,9 +188,9 @@ namespace CommBench
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void measure(int warmup, int numiter);
     void measure(int warmup, int numiter, size_t data);
-    void measure_count(int warmup, int numiter, size_t data);
     void report();
 
+    void allocate(T *&buffer, size_t n);
     void allocate(T *&buffer, size_t n, int i);
   };
 
@@ -276,6 +275,35 @@ namespace CommBench
   }
 
   template <typename T>
+  void Comm<T>::allocate(T *&buffer, size_t count) {
+    int numproc;
+    MPI_Comm_size(comm_mpi, &numproc);
+    for (int i = 0; i < numproc; i++)
+      allocate(buffer, count, i);
+  }
+  template <typename T>
+  void Comm<T>::allocate(T *&buffer, size_t count, int i) {
+    int myid;
+    MPI_Comm_rank(comm_mpi, &myid);
+    if(myid == i) {
+      MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
+      if(count) {
+        CommBench::allocate(buffer, count);
+        buffer_list.push_back(buffer);
+        buffer_count.push_back(count);
+      }
+    }
+    if(myid == printid) {
+      MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+      if(count) {
+        printf("proc %d allocate %ld ", i, count);
+        print_data(count * sizeof(T));
+        printf("\n");
+      }
+    }
+  }
+
+  template <typename T>
   void Comm<T>::add_lazy(size_t count, int sendid, int recvid) {
     T *sendbuf;
     T *recvbuf;
@@ -283,23 +311,9 @@ namespace CommBench
     allocate(recvbuf, count, recvid);
     add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
   }
-
-  template <typename T>
-  void Comm<T>::allocate(T *&buffer, size_t count, int i) {
-    if(count == 0) return;
-    int myid;
-    MPI_Comm_rank(comm_mpi, &myid);
-    if(myid == i) {
-      CommBench::allocate(buffer, count);
-      buffer_list.push_back(buffer);
-      buffer_count.push_back(count);
-    }
-    else
-      ; // buffer = nullptr;
-  }
-
   template <typename T>
   void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
+
     if(count == 0) return;
     int myid;
     int numproc;
@@ -448,36 +462,22 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::measure(int warmup, int numiter) {
-    measure(warmup, numiter, 0);
+    long count_total = 0;
+    for(int send = 0; send < numsend; send++)
+       count_total += sendcount[send];
+    MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_LONG, MPI_SUM, comm_mpi);
+    measure(warmup, numiter, count_total);
   }
-
   template <typename T>
   void Comm<T>::measure(int warmup, int numiter, size_t count) {
-    if(count == 0) {
-      long count_total = 0;
-      for(int send = 0; send < numsend; send++)
-         count_total += sendcount[send];
-      MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_LONG, MPI_SUM, comm_mpi);
-      measure_count(warmup, numiter, count_total);
-    }
-    else
-      measure_count(warmup, numiter, count);
-  }
-
-  template <typename T>
-  void Comm<T>::measure_count(int warmup, int numiter, size_t count) {
-
     int myid;
     MPI_Comm_rank(comm_mpi, &myid);
-
     this->report();
-
     double minTime;
     double medTime;
     double maxTime;
     double avgTime;
     this->measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
-
     if(myid == printid) {
       size_t data = count * sizeof(T);
       printf("data: "); print_data(data); printf("\n");

@@ -77,6 +77,7 @@ namespace CommBench
 #endif
 #endif
 
+  static int numbench = 0;
   static bool init_mpi_comm = false;
   static bool init_nccl_comm = false;
 
@@ -135,6 +136,7 @@ namespace CommBench
 
     // IMPLEMENTATION LIBRARY
     const library lib;
+    int benchid;
 
     // REGISTRY
     int numsend;
@@ -199,6 +201,9 @@ namespace CommBench
   template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
 
+    benchid = numbench;
+    numbench++;
+
     int init_mpi;
     MPI_Initialized(&init_mpi);
 
@@ -225,7 +230,7 @@ namespace CommBench
     numrecv = 0;
 
     if(myid == printid) {
-      printf("Create Comm with %d processors\n", numproc);
+      printf("Create Comm %d with %d processors\n", benchid, numproc);
       printf("  Port: ");
 #ifdef PORT_CUDA
       printf("CUDA ");
@@ -298,7 +303,7 @@ namespace CommBench
     if(myid == printid) {
       MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
       if(count) {
-        printf("proc %d allocate %ld ", i, count);
+        printf("Bench %d proc %d allocate %ld ", benchid, i, count);
         print_data(count * sizeof(T));
         printf("\n");
       }
@@ -356,10 +361,9 @@ namespace CommBench
         MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
         MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
         MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-        printf("add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu ( ", 
-            sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
+        printf("Bench %d add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu (", benchid, sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
         print_data(count * sizeof(T));
-        printf(" ) ");
+        printf(") ");
         print_lib(lib);
         printf("\n");
       }
@@ -584,7 +588,7 @@ namespace CommBench
     getMatrix(matrix);
 
     if(myid == printid) {
-      printf("\n");
+      printf("\nCommBench %d: ", benchid);
       print_lib(lib);
       printf(" communication matrix (reciever x sender)\n");
       for(int recver = 0; recver < numproc; recver++) {
@@ -656,6 +660,18 @@ namespace CommBench
     for (int sender = 0; sender < numproc; sender++)
       for (int recver = 0; recver < numproc; recver++)
         matrix.push_back(sendmatrix[sender * numproc + recver]);
+
+    if(myid == printid) {
+      char filename[2048];
+      sprintf(filename, "matrix_%d.txt", benchid);
+      FILE *matfile = fopen(filename, "w");
+      for(int recver = 0; recver < numproc; recver++) {
+        for(int sender = 0; sender < numproc; sender++)
+          fprintf(matfile, "%ld ", matrix[sender * numproc + recver]);
+        fprintf(matfile, "\n");
+      }
+      fclose(matfile);
+    }
   }
 
   template <typename T>

@@ -179,6 +179,7 @@ namespace CommBench
     Comm(library lib);
     ~Comm();
 
+    void add(T *sendbuf, size_t sendoffset, size_t sendupper, T *recvbuf, size_t recvoffset, size_t recvupper, int sendid, int recvid);
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
     void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
@@ -188,6 +189,7 @@ namespace CommBench
     void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void measure(int warmup, int numiter);
     void measure(int warmup, int numiter, size_t data);
+    void getMatrix(std::vector<size_t> &matrix);
     void report();
 
     void allocate(T *&buffer, size_t n);
@@ -312,8 +314,23 @@ namespace CommBench
     add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
   }
   template <typename T>
+  void Comm<T>::add(T *sendbuf, size_t sendoffset, size_t sendupper, T *recvbuf, size_t recvoffset, size_t recvupper, int sendid, int recvid) {
+    size_t sendcount = sendupper - sendoffset;
+    size_t recvcount = recvupper - recvoffset;
+    MPI_Bcast(&sendcount, sizeof(size_t), MPI_BYTE, sendid, comm_mpi);
+    MPI_Bcast(&recvcount, sizeof(size_t), MPI_BYTE, recvid, comm_mpi);
+    if(sendcount != recvcount) {
+      int myid;
+      MPI_Comm_rank(comm_mpi, &myid);
+      if(myid == printid)
+        printf("sendid %d sendcount %ld recvid %d recvcount %ld could added!\n", sendid, sendcount, recvid, recvcount);
+      return;
+    }
+    else
+      add(sendbuf, sendoffset, recvbuf, recvoffset, sendcount, sendid, recvid);
+  }
+  template <typename T>
   void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
-
     if(count == 0) return;
     int myid;
     int numproc;
@@ -563,33 +580,25 @@ namespace CommBench
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
-    std::vector<size_t> sendcount_temp(numproc, 0);
-    std::vector<size_t> recvcount_temp(numproc, 0);
-    for(int send = 0; send < numsend; send++)
-      sendcount_temp[sendproc[send]] += sendcount[send];
-    for(int recv = 0; recv < numrecv; recv++)
-      recvcount_temp[recvproc[recv]] += recvcount[recv];
-    std::vector<size_t> sendmatrix(numproc * numproc);
-    std::vector<size_t> recvmatrix(numproc * numproc);
-    MPI_Allgather(sendcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, sendmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
-    MPI_Allgather(recvcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, recvmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
+    std::vector<size_t> matrix;
+    getMatrix(matrix);
 
     if(myid == printid) {
       printf("\n");
       print_lib(lib);
       printf(" communication matrix (reciever x sender)\n");
-      for(int recv = 0; recv < numproc; recv++) {
-        for(int send = 0; send < numproc; send++) {
-          size_t count = recvmatrix[recv * numproc + send];
-          if(recvmatrix[recv * numproc + send])
+      for(int recver = 0; recver < numproc; recver++) {
+        for(int sender = 0; sender < numproc; sender++) {
+          size_t count = matrix[sender * numproc + recver];
+          if(count)
             printf("%ld ", count);
+            // printf("1 ");
           else
             printf(". ");
         }
         printf("\n");
       }
     }
-
     long sendTotal = 0;
     long recvTotal = 0;
     for(int send = 0; send < numsend; send++)
@@ -625,6 +634,28 @@ namespace CommBench
       printf("\n");
       printf("\n");
     }
+  }
+  template <typename T>
+  void Comm<T>::getMatrix(std::vector<size_t> &matrix) {
+    int myid;
+    int numproc;
+    MPI_Comm_rank(comm_mpi, &myid);
+    MPI_Comm_size(comm_mpi, &numproc);
+
+    std::vector<size_t> sendcount_temp(numproc, 0);
+    std::vector<size_t> recvcount_temp(numproc, 0);
+    for (int send = 0; send < numsend; send++)
+      sendcount_temp[sendproc[send]] += sendcount[send];
+    for (int recv = 0; recv < numrecv; recv++)
+      recvcount_temp[recvproc[recv]] += recvcount[recv];
+    std::vector<size_t> sendmatrix(numproc * numproc);
+    std::vector<size_t> recvmatrix(numproc * numproc);
+    MPI_Allgather(sendcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, sendmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
+    MPI_Allgather(recvcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, recvmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
+
+    for (int sender = 0; sender < numproc; sender++)
+      for (int recver = 0; recver < numproc; recver++)
+        matrix.push_back(sendmatrix[sender * numproc + recver]);
   }
 
   template <typename T>

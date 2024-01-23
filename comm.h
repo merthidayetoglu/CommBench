@@ -799,8 +799,8 @@ namespace CommBench
     std::vector<int> sendcount;
     std::vector<int> recvcount;
     for(int i = 0; i < numproc; i++) {
-      sendcount.push_back(pattern[i][myid]);
-      recvcount.push_back(pattern[myid][i]);
+      sendcount.push_back(pattern[myid][i]);
+      recvcount.push_back(pattern[i][myid]);
     }
     std::vector<int> senddispl(numproc + 1, 0);
     std::vector<int> recvdispl(numproc + 1, 0);

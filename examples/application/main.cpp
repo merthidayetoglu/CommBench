@@ -1,4 +1,4 @@
-#define PORT_CUDA
+#define PORT_SYCL
 #include "comm.h"
 
 #define ROOT 0
@@ -11,12 +11,15 @@
 
 using namespace std;
 
+#if defined PORT_CUDA || defined PORT_HIP
 template <typename T, typename I>
 __device__ void memory_kernel(T *output, T *input, size_t count, I *index) {
   size_t tid = blockIdx.x * (size_t)blockDim.x + threadIdx.x;
   if(tid < count)
     output[tid] = input[index[tid]];
 }
+#elif defined PORT_SYCL
+#endif
 
 void parsefile(int gpus, string fn, vector<vector<int>> &pat) {
   ifstream fp;
@@ -173,10 +176,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  CommBench::Comm<Type> direct(CommBench::IPC);
-  CommBench::Comm<Type> split(CommBench::IPC);
+  CommBench::Comm<Type> direct(CommBench::MPI);
+  CommBench::Comm<Type> split(CommBench::MPI);
   CommBench::Comm<Type> translate(CommBench::MPI);
-  CommBench::Comm<Type> assemble(CommBench::IPC);
+  CommBench::Comm<Type> assemble(CommBench::MPI);
   // REGISTER DIRECT (INTRA)
   {
     direct.allocate(sendbuf, sendoffset[numgpus]);
@@ -336,5 +339,5 @@ int main(int argc, char* argv[]) {
 #endif
   // measure_MPI_Alltoallv<int>(patterns, 5, 10);
 
-  MPI_Finalize();
+  // MPI_Finalize();
 }

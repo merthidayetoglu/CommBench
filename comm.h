@@ -23,13 +23,11 @@
 // For AMD: #define PORT_HIP
 // For SYCL: #define PORT_SYCL
 
-// TURN OFF FOR CUDA / HIP ONLY
-#if defined(PORT_CUDA) || defined(PORT_HIP)
+#if defined PORT_CUDA || defined PORT_HIP
 #define CAP_NCCL
 #endif
-
-// TURN OFF FOR SYCL ONLY
-#if defined(PORT_SYCL)
+#ifdef PORT_SYCL
+#define CAP_ONECCL
 #define CAP_ZE
 #endif
 
@@ -47,7 +45,11 @@
 #include <hip_runtime.h>
 #endif
 #elif defined PORT_SYCL
+#ifdef CAP_ONECCL
+#include <oneapi/ccl.hpp>
+#else
 #include <sycl.hpp>
+#endif
 #ifdef CAP_ZE
 #include <ze_api.h>
 #endif
@@ -63,11 +65,14 @@ namespace CommBench
 {
   static int printid = -1;
 
-  enum library {dummy, MPI, NCCL, IPC, numlib};
+  enum library {dummy, MPI, CCL, IPC, numlib};
 
   static MPI_Comm comm_mpi;
 #ifdef CAP_NCCL
   static ncclComm_t comm_nccl;
+#endif
+#ifdef CAP_ONECCL
+  static ccl::communicator *comm_ccl;
 #endif
 #ifdef PORT_SYCL
   static sycl::queue q(sycl::gpu_selector_v);
@@ -80,6 +85,7 @@ namespace CommBench
   static int numbench = 0;
   static bool init_mpi_comm = false;
   static bool init_nccl_comm = false;
+  static bool init_ccl_comm = false;
 
   void setprintid(int newprintid) {
     printid = newprintid;
@@ -102,7 +108,7 @@ namespace CommBench
       case dummy : printf("dummy"); break;
       case IPC  : printf("IPC"); break;
       case MPI  : printf("MPI"); break;
-      case NCCL : printf("NCCL"); break;
+      case CCL : printf("CCL"); break;
       case numlib : printf("numlib"); break;
     }
   }
@@ -158,11 +164,13 @@ namespace CommBench
     std::vector<MPI_Request> sendrequest;
     std::vector<MPI_Request> recvrequest;
 
-    // NCCL
-#ifdef PORT_CUDA
+    // CCL
+#if defined CAP_NCCL && defined PORT_CUDA
     cudaStream_t stream_nccl;
-#elif defined PORT_HIP
+#elif defined CAP_NCCL && defined PORT_HIP
     hipStream_t stream_nccl;
+#elif defined CAP_ONECCL
+    ccl::stream *stream_ccl;
 #endif
 
     // IPC
@@ -245,9 +253,9 @@ namespace CommBench
       print_lib(lib);
       printf("\n");
     }
-    if(lib == NCCL) {
-      if(!init_nccl_comm) {
+    if(lib == CCL) {
 #ifdef CAP_NCCL
+      if(!init_nccl_comm) {
         ncclUniqueId id;
         if(myid == 0)
           ncclGetUniqueId(&id);
@@ -256,12 +264,37 @@ namespace CommBench
         init_nccl_comm = true;
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
-#endif
       }
 #ifdef PORT_CUDA
       cudaStreamCreate(&stream_nccl);
 #elif defined PORT_HIP
       hipStreamCreate(&stream_nccl);
+#endif
+#elif defined CAP_ONECCL
+      if(!init_ccl_comm) {
+        /* initialize ccl */
+        ccl::init();
+        /* create kvs */
+        ccl::shared_ptr_class<ccl::kvs> kvs;
+        ccl::kvs::address_type main_addr;
+        if (myid == 0) {
+          kvs = ccl::create_main_kvs();
+          main_addr = kvs->get_address();
+          MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+        }
+        else {
+          MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+          kvs = ccl::create_kvs(main_addr);
+        }
+        /* create communicator */
+        auto dev = ccl::create_device(CommBench::q.get_device());
+        auto ctx = ccl::create_context(CommBench::q.get_context());
+        comm_ccl = new ccl::communicator(ccl::create_communicator(numproc, myid, dev, ctx, kvs));
+        init_ccl_comm = true;
+        if(myid == printid)
+          printf("******************** ONECCL COMMUNICATOR IS CREATED\n");
+      }
+      stream_ccl = new ccl::stream(ccl::create_stream(CommBench::q));
 #endif
     }
   }
@@ -385,7 +418,7 @@ namespace CommBench
         case MPI:
           sendrequest.push_back(MPI_Request());
           break;
-        case NCCL:
+        case CCL:
           break;
         case IPC:
           sendrequest.push_back(MPI_Request());
@@ -444,7 +477,7 @@ namespace CommBench
         case MPI:
           recvrequest.push_back(MPI_Request());
           break;
-        case NCCL:
+        case CCL:
           break;
         case IPC:
           recvrequest.push_back(MPI_Request());
@@ -683,7 +716,7 @@ namespace CommBench
         for (int recv = 0; recv < numrecv; recv++)
           MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, &recvrequest[recv]);
         break;
-      case NCCL:
+      case CCL:
 #ifdef CAP_NCCL
         ncclGroupStart();
         for(int send = 0; send < numsend; send++)
@@ -691,6 +724,11 @@ namespace CommBench
         for(int recv = 0; recv < numrecv; recv++)
           ncclRecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), ncclInt8, recvproc[recv], comm_nccl, stream_nccl);
         ncclGroupEnd();
+#elif defined CAP_ONECCL
+        for (int send = 0; send < numsend; send++)
+          ccl::send<T>(sendbuf[send] + sendoffset[send], sendcount[send], sendproc[send], *comm_ccl, *stream_ccl).wait();
+        for (int recv = 0; recv < numrecv; recv++)
+          ccl::recv<T>(recvbuf[recv] + recvoffset[recv], recvcount[recv], recvproc[recv], *comm_ccl, *stream_ccl).wait();
 #endif
         break;
       case IPC:
@@ -720,11 +758,13 @@ namespace CommBench
         MPI_Waitall(numsend, sendrequest.data(), MPI_STATUSES_IGNORE);
         MPI_Waitall(numrecv, recvrequest.data(), MPI_STATUSES_IGNORE);
         break;
-      case NCCL:
-#ifdef PORT_CUDA
+      case CCL:
+#if defined CAP_NCCL && defined PORT_CUDA
         cudaStreamSynchronize(stream_nccl);
-#elif defined PORT_HIP
+#elif defined CAP_NCCL && defined PORT_HIP
         hipStreamSynchronize(stream_nccl);
+#elif defined CAP_ONECCL
+        CommBench::q.wait();
 #endif
         break;
       case IPC:

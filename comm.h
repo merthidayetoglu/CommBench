@@ -68,6 +68,8 @@ namespace CommBench
   enum library {dummy, MPI, CCL, IPC, numlib};
 
   static MPI_Comm comm_mpi;
+  static int myid;
+  static int numproc;
 #ifdef CAP_NCCL
   static ncclComm_t comm_nccl;
 #endif
@@ -220,8 +222,6 @@ namespace CommBench
     if(!init_mpi_comm)
       MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
 
-    int myid;
-    int numproc;
     MPI_Comm_rank(comm_mpi, &myid);
     MPI_Comm_size(comm_mpi, &numproc);
 
@@ -316,15 +316,11 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::allocate(T *&buffer, size_t count) {
-    int numproc;
-    MPI_Comm_size(comm_mpi, &numproc);
     for (int i = 0; i < numproc; i++)
       allocate(buffer, count, i);
   }
   template <typename T>
   void Comm<T>::allocate(T *&buffer, size_t count, int i) {
-    int myid;
-    MPI_Comm_rank(comm_mpi, &myid);
     if(myid == i) {
       MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       if(count) {
@@ -358,8 +354,6 @@ namespace CommBench
     MPI_Bcast(&sendcount, sizeof(size_t), MPI_BYTE, sendid, comm_mpi);
     MPI_Bcast(&recvcount, sizeof(size_t), MPI_BYTE, recvid, comm_mpi);
     if(sendcount != recvcount) {
-      int myid;
-      MPI_Comm_rank(comm_mpi, &myid);
       if(myid == printid)
         printf("sendid %d sendcount %ld recvid %d recvcount %ld could added!\n", sendid, sendcount, recvid, recvcount);
       return;
@@ -370,10 +364,6 @@ namespace CommBench
   template <typename T>
   void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
     if(count == 0) return;
-    int myid;
-    int numproc;
-    MPI_Comm_rank(comm_mpi, &myid);
-    MPI_Comm_size(comm_mpi, &numproc);
 
     // REPORT
     if(printid > -1) {
@@ -524,8 +514,6 @@ namespace CommBench
   }
   template <typename T>
   void Comm<T>::measure(int warmup, int numiter, size_t count) {
-    int myid;
-    MPI_Comm_rank(comm_mpi, &myid);
     this->report();
     double minTime;
     double medTime;
@@ -548,8 +536,6 @@ namespace CommBench
 
     double times[numiter];
     double starts[numiter];
-    int myid;
-    MPI_Comm_rank(comm_mpi, &myid);
 
     if(myid == printid)
       printf("%d warmup iterations (in order):\n", warmup);
@@ -612,10 +598,6 @@ namespace CommBench
 
   template <typename T>
   void Comm<T>::report() {
-    int myid;
-    int numproc;
-    MPI_Comm_rank(comm_mpi, &myid);
-    MPI_Comm_size(comm_mpi, &numproc);
 
     std::vector<size_t> matrix;
     getMatrix(matrix);
@@ -674,10 +656,6 @@ namespace CommBench
   }
   template <typename T>
   void Comm<T>::getMatrix(std::vector<size_t> &matrix) {
-    int myid;
-    int numproc;
-    MPI_Comm_rank(comm_mpi, &myid);
-    MPI_Comm_size(comm_mpi, &numproc);
 
     std::vector<size_t> sendcount_temp(numproc, 0);
     std::vector<size_t> recvcount_temp(numproc, 0);
@@ -831,11 +809,6 @@ namespace CommBench
   template <typename T>
   static void measure_MPI_Alltoallv(std::vector<std::vector<int>> pattern, int warmup, int numiter) {
 
-    int myid;
-    int numproc;
-    MPI_Comm_rank(comm_mpi, &myid);
-    MPI_Comm_size(comm_mpi, &numproc);
-
     std::vector<int> sendcount;
     std::vector<int> recvcount;
     for(int i = 0; i < numproc; i++) {
@@ -883,9 +856,6 @@ namespace CommBench
   }
 
   static void print_stats(std::vector<double> times, size_t data) {
-
-    int myid;
-    MPI_Comm_rank(comm_mpi, &myid);
 
     std::sort(times.begin(), times.end(),  [](const double & a, const double & b) -> bool {return a < b;});
 

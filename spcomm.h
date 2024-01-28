@@ -126,16 +126,16 @@ namespace CommBench {
 
     void add_gather(T *sendbuf, T *recvbuf, size_t count, I *index, int i) {
       if(myid == i) {
-        MPI_Send(&sendbuf, sizeof(sendbuf), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&recvbuf, sizeof(recvbuf), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&count, sizeof(count), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&index, sizeof(index), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&index, sizeof(I*), MPI_BYTE, printid, 0, comm_mpi);
       }
       if(myid == printid) {
-        MPI_Recv(&sendbuf, sizeof(sendbuf), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvbuf, sizeof(recvbuf), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&count, sizeof(count), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&index, sizeof(index), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&sendbuf, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&index, sizeof(I*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
         if(count)
           printf("Bench %d proc %d add gather sendbuf %p recvbuf %p count %ld index %p\n", Comm<T>::benchid, myid, sendbuf, recvbuf, count, index);
       }
@@ -147,17 +147,17 @@ namespace CommBench {
 	CommBench::allocate(sparse_d, 1);
         sparse_t<T, I> sparse(sendbuf, recvbuf, count, nullptr, index_d);
 #ifdef PORT_CUDA
-        cudaMemcpy(index_d, index, count * sizeof(*index_d), cudaMemcpyHostToDevice);
-        cudaMemcpy(sparse_d, &sparse, sizeof(*sparse_d), cudaMemcpyHostToDevice);
+        cudaMemcpy(index_d, index, count * sizeof(I*), cudaMemcpyHostToDevice);
+        cudaMemcpy(sparse_d, &sparse, sizeof(sparse_t<T, I>*), cudaMemcpyHostToDevice);
 #elif defined PORT_HIP
-        hipMemcpy(index_d, index, count * sizeof(*index_d), cudaMemcpyHostToDevice);
-        hipMemcpy(sparse_d, &sparse, sizeof(*sparse_d), cudaMemcpyHostToDevice);
+        hipMemcpy(index_d, index, count * sizeof(I*), cudaMemcpyHostToDevice);
+        hipMemcpy(sparse_d, &sparse, sizeof(sparse_t<T, I>*), cudaMemcpyHostToDevice);
 #elif defined PORT_SYCL
-        q.memcpy(index_d, index, count * sizeof(*index_d));
-        q.memcpy(sparse_d, &sparse, sizeof(*sparse_d));
+        q.memcpy(index_d, index, count * sizeof(I*));
+        q.memcpy(sparse_d, &sparse, sizeof(sparse_t<T, I>*));
 #else
-        memcpy(index_d, index, count * sizeof(*index_d));
-        memcpy(sparse_d, &sparse, sizeof(*sparse_d));
+        memcpy(index_d, index, count * sizeof(I*));
+        memcpy(sparse_d, &sparse, sizeof(sparse_t<T, I>*));
 #endif
         add_precomp(sparse_kernel<T, I>, sparse_d, count);
       }

@@ -122,6 +122,10 @@ namespace CommBench
   template <typename T>
   void allocateHost(T *&buffer, size_t n);
   template <typename T>
+  void memcpyD2H(T *device, T *host, size_t n);
+  template <typename T>
+  void memcpyH2D(T *host, T *device, size_t n);
+  template <typename T>
   void free(T *buffer);
   template <typename T>
   void freeHost(T *buffer);
@@ -328,14 +332,17 @@ namespace CommBench
         CommBench::allocate(buffer, count);
         buffer_list.push_back(buffer);
         buffer_count.push_back(count);
+        MPI_Send(&buffer, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
       }
     }
     if(myid == printid) {
       MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
       if(count) {
-        printf("Bench %d proc %d allocate %ld ", benchid, i, count);
+        T *ptr = nullptr;
+        MPI_Recv(&ptr, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        printf("Bench %d proc %d allocate %p count %ld (", benchid, i, ptr, count);
         print_data(count * sizeof(T));
-        printf("\n");
+        printf(")\n");
       }
     }
   }
@@ -922,6 +929,32 @@ namespace CommBench
     buffer = sycl::malloc_host<T>(n, CommBench::q);
 #else
     buffer = new T[n];
+#endif
+  }
+
+  template <typename T>
+  void memcpyH2D(T *device, T *host, size_t n) {
+#ifdef PORT_CUDA
+    cudaMemcpy(device, host, n * sizeof(T), cudaMemcpyHostToDevice);
+#elif defined PORT_HIP  
+    hipMemcpy(device, host, n * sizeof(T), cudaMemcpyHostToDevice);
+#elif defined PORT_SYCL
+    CommBench::q.memcpy(device, host, n * sizeof(T));
+#else
+    memcpy(device, host, n * sizeof(T));
+#endif
+  }
+
+  template <typename T>
+  void memcpyD2H(T *host, T *device, size_t n) {
+#ifdef PORT_CUDA
+    cudaMemcpy(host, device, n * sizeof(T), cudaMemcpyDeviceToHost);
+#elif defined PORT_HIP
+    hipMemcpy(host, device, n * sizeof(T), cudaMemcpyDeviceToHost);
+#elif defined PORT_SYCL
+    CommBench::q.memcpy(host, device, n * sizeof(T));
+#else
+    memcpy(host, device, n * sizeof(T));
 #endif
   }
 

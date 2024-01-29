@@ -12,8 +12,32 @@ namespace CommBench {
     size_t count;
     size_t *offset;
     I *index;
+    sparse_t() {};
     sparse_t(T *sendbuf, T *recvbuf, size_t count, size_t *offset, I *index) : sendbuf(sendbuf), recvbuf(recvbuf), count(count), offset(offset), index(index) {};
   };
+
+  template <typename T, typename I>
+  sparse_t<T, I>* create_sparse(T *sendbuf, T *recvbuf, size_t count, size_t *offset, I *index) {
+    I *index_d;
+    size_t *offset_d;
+    if(offset == nullptr) {
+      offset_d = nullptr;
+      CommBench::allocate(index_d, count);
+      CommBench::memcpyH2D(index_d, index, count);
+    }
+    else {
+      CommBench::allocate(offset_d, count + 1);
+      CommBench::allocate(index_d, offset[count]);
+      CommBench::memcpyH2D(offset_d, offset, count + 1);
+      CommBench::memcpyH2D(index_d, index, offset[count]);
+    }
+    // printf("myid %d sendbuf %p recvbuf %p count %ld offset_d %p index_d %p\n", myid, sendbuf, recvbuf, count, offset_d, index_d);
+    sparse_t<T, I> sparse(sendbuf, recvbuf, count, offset_d, index_d);
+    sparse_t<T, I> *sparse_d;
+    CommBench::allocate(sparse_d, 1);
+    CommBench::memcpyH2D(sparse_d, &sparse, 1);
+    return sparse_d;
+  }
 
 #if defined PORT_CUDA || PORT_HIP
   template <typename T, typename I>
@@ -47,15 +71,15 @@ namespace CommBench {
     size_t *offset = sparse.offset;
     I *index = sparse.index;
     if(offset == nullptr) {
-      #pragma parallel for
+      #pragma omp parallel for
       for(size_t i = 0; i < count; i++)
         recvbuf[i] = sendbuf[index[i]];
     }
     else {
-      #pragma parallel for
+      #pragma omp parallel for
       for (size_t i = 0; i < count; i++) {
         T acc = 0;
-        for (I j = offset[i]; j < offset[i + 1]; j++)
+        for (size_t j = offset[i]; j < offset[i + 1]; j++)
           acc += sendbuf[index[j]];
         recvbuf[i] = acc;
       }
@@ -115,52 +139,31 @@ namespace CommBench {
       queue.push_back(sycl::queue(sycl::gpu_selector_v));
 #endif
     }
-    void add_precomp(void func(void *), void *arg, size_t count) {
-      precompid.push_back(this->count.size());
-      add_comp(func, arg, count);
-    };
-    void add_postcomp(void func(void *), void *arg, size_t count) {
-      postcompid.push_back(this->count.size());
-      add_comp(func, arg, count);
-    };
-
-    void add_gather(T *sendbuf, T *recvbuf, size_t count, I *index, int i) {
+    void add_precomp(void func(void *), void *arg, size_t count, int i) {
       if(myid == i) {
-        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&func, sizeof(void(*)(void*)), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&arg, sizeof(void*), MPI_BYTE, printid, 0, comm_mpi);
         MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&index, sizeof(I*), MPI_BYTE, printid, 0, comm_mpi);
       }
       if(myid == printid) {
-        MPI_Recv(&sendbuf, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvbuf, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&func, sizeof(void(*)(void*)), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&arg, sizeof(void*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
         MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&index, sizeof(I*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
         if(count)
-          printf("Bench %d proc %d add gather sendbuf %p recvbuf %p count %ld index %p\n", Comm<T>::benchid, myid, sendbuf, recvbuf, count, index);
+          printf("Bench %d proc %d add pre-compute function %p arg %p count %ld\n", Comm<T>::benchid, myid, func, arg, count);
       }
       if(count == 0) return;
       if(myid == i) {
-        I *index_d;
-        sparse_t<T, I> *sparse_d;
-	CommBench::allocate(index_d, count);
-	CommBench::allocate(sparse_d, 1);
-        sparse_t<T, I> sparse(sendbuf, recvbuf, count, nullptr, index_d);
-#ifdef PORT_CUDA
-        cudaMemcpy(index_d, index, count * sizeof(I*), cudaMemcpyHostToDevice);
-        cudaMemcpy(sparse_d, &sparse, sizeof(sparse_t<T, I>*), cudaMemcpyHostToDevice);
-#elif defined PORT_HIP
-        hipMemcpy(index_d, index, count * sizeof(I*), cudaMemcpyHostToDevice);
-        hipMemcpy(sparse_d, &sparse, sizeof(sparse_t<T, I>*), cudaMemcpyHostToDevice);
-#elif defined PORT_SYCL
-        q.memcpy(index_d, index, count * sizeof(I*));
-        q.memcpy(sparse_d, &sparse, sizeof(sparse_t<T, I>*));
-#else
-        memcpy(index_d, index, count * sizeof(I*));
-        memcpy(sparse_d, &sparse, sizeof(sparse_t<T, I>*));
-#endif
-        add_precomp(sparse_kernel<T, I>, sparse_d, count);
+        precompid.push_back(this->count.size());
+        add_comp(func, arg, count);
       }
+    };
+
+    void add_gather(T *sendbuf, T *recvbuf, size_t count, I *index, int i) {
+       sparse_t<T, I> *temp;
+       if(myid == i)
+         temp = create_sparse(sendbuf, recvbuf, count, nullptr, index);
+       add_precomp(sparse_kernel<T, I>, temp, count, i);
     }
 
     void start() {
@@ -171,7 +174,7 @@ namespace CommBench {
 #elif defined PORT_SYCL
         queue.function(arg[i]);
 #else
-        sparse_kernel(arg[i]);
+        func[i](arg[i]);
 #endif
       }
       for (int i : precompid) {
@@ -181,6 +184,8 @@ namespace CommBench {
         hipStreamSynchronize(stream[i]);
 #elif defined PORT_SYCL
         queue[i].wait();
+#else
+        ;
 #endif
       }
       Comm<T>::start();
@@ -195,7 +200,7 @@ namespace CommBench {
 #elif defined PORT_SYCL
         queue.function(arg[i]);
 #else
-        sparse_kernel(arg[i]);
+        func[i](arg[i]);
 #endif
       }
       for (int i : postcompid) {
@@ -205,9 +210,10 @@ namespace CommBench {
         hipStreamSynchronize(stream[i]);
 #elif defined PORT_SYCL
         queue[i].wait();
+#else
+        ;
 #endif
       }
     }
-
   };
 }

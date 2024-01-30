@@ -6,48 +6,51 @@ namespace CommBench {
 
   template <typename T, typename I>
   struct sparse_t {
-    // public:
     T *sendbuf;
     T *recvbuf;
     size_t count;
     size_t *offset;
     I *index;
-    sparse_t() {};
-    sparse_t(T *sendbuf, T *recvbuf, size_t count, size_t *offset, I *index) : sendbuf(sendbuf), recvbuf(recvbuf), count(count), offset(offset), index(index) {};
+    void init_sparse(T *sendbuf, T *recvbuf, size_t count, size_t *offset, I *index, int i) {
+      if (myid == i) {
+        this->sendbuf = sendbuf;
+        this->recvbuf = recvbuf;
+        if(offset == nullptr) {
+          this->offset = nullptr;
+          CommBench::allocate(this->index, count);
+          CommBench::memcpyH2D(this->index, index, count);
+        }
+        else {
+          CommBench::allocate(this->offset, count + 1);
+          CommBench::memcpyH2D(this->offset, offset, count + 1);
+          CommBench::allocate(this->index, offset[count]);
+          CommBench::memcpyH2D(this->index, index, offset[count]);
+        }
+        // REPORT
+        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
+      }
+      if(myid == printid) {
+        MPI_Recv(&sendbuf, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&recvbuf, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        printf("proc %d creates sparse operator: sendbuf %p recvbuf %p count %ld\n", i, sendbuf, recvbuf, count);
+      }
+    }
+    public:
+    sparse_t(T *sendbuf, T *recvbuf, size_t count, size_t *offset, I *index, int i) {
+      init_sparse(sendbuf, recvbuf, count, offset, index, i);
+    }
+    sparse_t(T *sendbuf, T *recvbuf, size_t count, size_t *offset, I *index) {
+      for (int i = 0; i < numproc; i++)
+        init_sparse(sendbuf, recvbuf, count, offset, index, i);
+    }
+    sparse_t(T *sendbuf, T *recvbuf, size_t count, size_t *offset, I *index, std::vector<int> vec) {
+      for (int i : vec)
+        init_sparse(sendbuf, recvbuf, count, offset, index, i);
+    }
   };
-
-  template <typename T, typename I>
-  sparse_t<T, I>* create_sparse(T *sendbuf, T *recvbuf, size_t count, size_t *offset, I *index, int i) {
-    sparse_t<T, I> *sparse_d = nullptr;
-    if(myid == i) {
-      I *index_d;
-      size_t *offset_d;
-      if(offset == nullptr) {
-        offset_d = nullptr;
-        CommBench::allocate(index_d, count);
-        CommBench::memcpyH2D(index_d, index, count);
-      }
-      else {
-        CommBench::allocate(offset_d, count + 1);
-        CommBench::allocate(index_d, offset[count]);
-        CommBench::memcpyH2D(offset_d, offset, count + 1);
-        CommBench::memcpyH2D(index_d, index, offset[count]);
-      }
-      sparse_t<T, I> sparse(sendbuf, recvbuf, count, offset_d, index_d);
-      CommBench::allocate(sparse_d, 1);
-      CommBench::memcpyH2D(sparse_d, &sparse, 1);
-      MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
-      MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
-      MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
-    }
-    if(myid == printid) {
-      MPI_Recv(&sendbuf, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-      MPI_Recv(&recvbuf, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-      MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-      printf("proc %d creates sparse operator: sendbuf %p recvbuf %p count %ld\n", i, sendbuf, recvbuf, count);
-    }
-    return sparse_d;
-  }
 
 #if defined PORT_CUDA || PORT_HIP
   template <typename T, typename I>
@@ -149,57 +152,76 @@ namespace CommBench {
       queue.push_back(sycl::queue(sycl::gpu_selector_v));
 #endif
     }
-    // ADD COMPUTATION BEFORE COMMUNICATION
-    void add_precomp(void func(void *), void *arg, size_t count, int i) {
+    // REGISTER COMPUTATION BEFORE COMMUNICATION
+    template <typename S>
+    void add_precomp(void func(void*), S arg, size_t count, int i) {
       // REPORT
+      S *arg_d;
       if(myid == i) {
+        if(count) {
+          // COPY ARGUMENT TO GPU
+          CommBench::allocate(arg_d, 1);
+          CommBench::memcpyH2D(arg_d, &arg, 1);
+        }
+        // REPORT
         MPI_Send(&func, sizeof(void(*)(void*)), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&arg, sizeof(void*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&arg_d, sizeof(S*), MPI_BYTE, printid, 0, comm_mpi);
         MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       }
       if(myid == printid) {
         MPI_Recv(&func, sizeof(void(*)(void*)), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&arg, sizeof(void*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&arg_d, sizeof(S*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
         MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
         if(count)
-          printf("Bench %d proc %d add pre-compute function %p arg %p count %ld\n", Comm<T>::benchid, myid, func, arg, count);
+          printf("Bench %d proc %d add pre-compute function %p argsize %ld bytes GPU addr %p numthreads %ld\n", Comm<T>::benchid, myid, func, sizeof(S), arg_d, count);
       }
-      if(count == 0) return;
+      if(!count)
+        return;
+      // ADD COMPUTATION
       if(myid == i) {
         precompid.push_back(this->count.size());
-        add_comp(func, arg, count);
+        add_comp(func, arg_d, count);
       }
     };
-    // ADD COMPUTATION AFTER COMMUNICATION
-    void add_postcomp(void func(void *), void *arg, size_t count, int i) {
-      // REPORT
+    template <typename S>
+    void add_precomp(void func(void*), S arg, size_t count) {
+      for (int i = 0; i < numproc; i++)
+        add_precomp(func, arg, count, i);
+    }
+    // REGISTER COMPUTATION AFTER COMMUNICATION
+    template <typename S>
+    void add_postcomp(void func(void *), S arg, size_t count, int i) {
+      S *arg_d;
       if(myid == i) {
+        if(count) {
+          // SEND ARGUMENT TO GPU
+          CommBench::allocate(arg_d, 1);
+          CommBench::memcpyH2D(arg_d, &arg, 1);
+        }
+        // REPORT
         MPI_Send(&func, sizeof(void(*)(void*)), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&arg, sizeof(void*), MPI_BYTE, printid, 0, comm_mpi);
+        MPI_Send(&arg_d, sizeof(S*), MPI_BYTE, printid, 0, comm_mpi);
         MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
       }
       if(myid == printid) {
         MPI_Recv(&func, sizeof(void(*)(void*)), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&arg, sizeof(void*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        MPI_Recv(&arg_d, sizeof(S*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
         MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
         if(count)
-          printf("Bench %d proc %d add post-compute function %p arg %p count %ld\n", Comm<T>::benchid, myid, func, arg, count);
+          printf("Bench %d proc %d add post-compute function %p argsize %ld bytes GPU addr %p numthreads %ld\n", Comm<T>::benchid, myid, func, sizeof(S), arg_d, count);
       }
-      if(count == 0) return;
+      if(!count)
+        return;
+      // ADD COMPUTATION
       if(myid == i) {
         postcompid.push_back(this->count.size());
-        add_comp(func, arg, count);
+        add_comp(func, arg_d, count);
       }
     };
-    // SPARSE GATHER
-    void add_gather(T *sendbuf, T *recvbuf, size_t count, I *index, int i) {
-       sparse_t<T, I> *temp = create_sparse(sendbuf, recvbuf, count, nullptr, index, i);
-       add_precomp(sparse_kernel<T, I>, temp, count, i);
-    }
-    // SPARSE SCATTER
-    void add_scatter(T *sendbuf, T *recvbuf, size_t count, I *index, int i) {
-       sparse_t<T, I> *temp = create_sparse(sendbuf, recvbuf, count, nullptr, index, i);
-       add_postcomp(sparse_kernel<T, I>, temp, count, i);
+    template <typename S>
+    void add_postcomp(void func(void*), S arg, size_t count) {
+      for (int i = 0; i < numproc; i++)
+        add_postcomp(func, arg, count, i);
     }
 
     void start() {

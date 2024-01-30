@@ -130,6 +130,10 @@ namespace CommBench
   template <typename T>
   void freeHost(T *buffer);
 
+  // MEASUREMENT
+  template <typename C>
+  static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C comm);
+
   template <typename T>
   struct pyalloc {
     T* ptr;
@@ -203,7 +207,6 @@ namespace CommBench
     void start();
     void wait();
 
-    void measure(int warmup, int numiter, double &minTime, double &medTime, double &avgTime, double &maxTime);
     void measure(int warmup, int numiter);
     void measure(int warmup, int numiter, size_t data);
     void getMatrix(std::vector<size_t> &matrix);
@@ -531,7 +534,7 @@ namespace CommBench
     double medTime;
     double maxTime;
     double avgTime;
-    this->measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
+    CommBench::measure(warmup, numiter, minTime, medTime, maxTime, avgTime, *this);
     if(myid == printid) {
       size_t data = count * sizeof(T);
       printf("data: "); print_data(data); printf("\n");
@@ -542,71 +545,6 @@ namespace CommBench
       printf("\n");
     }
   };
-
-  template <typename T>
-  void Comm<T>::measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime) {
-
-    double times[numiter];
-    double starts[numiter];
-
-    if(myid == printid)
-      printf("%d warmup iterations (in order):\n", warmup);
-    for (int iter = -warmup; iter < numiter; iter++) {
-      for(int send = 0; send < numsend; send++) {
-#if defined PORT_CUDA
-        // cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
-#elif defined PORT_HIP
-        // hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
-#elif defined PORT_SYCL
-	// q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
-#else
-        memset(sendbuf[send], -1, sendcount[send] * sizeof(T)); // NECESSARY FOR CPU TO PREVENT CACHING
-#endif
-      }
-      MPI_Barrier(comm_mpi);
-      double time = MPI_Wtime();
-      this->start();
-      double start = MPI_Wtime() - time;
-      this->wait();
-      time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &start, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
-      if(iter < 0) {
-        if(myid == printid)
-          printf("startup %.2e warmup: %.2e\n", start * 1e6, time * 1e6);
-      }
-      else {
-        starts[iter] = start;
-        times[iter] = time;
-      }
-    }
-    std::sort(times, times + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
-    std::sort(starts, starts + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
-
-    if(myid == printid) {
-      printf("%d measurement iterations (sorted):\n", numiter);
-      for(int iter = 0; iter < numiter; iter++) {
-        printf("start: %.4e time: %.4e", starts[iter] * 1e6, times[iter] * 1e6);
-        if(iter == 0)
-          printf(" -> min\n");
-        else if(iter == numiter / 2)
-          printf(" -> median\n");
-        else if(iter == numiter - 1)
-          printf(" -> max\n");
-        else
-          printf("\n");
-      }
-      printf("\n");
-    }
-
-    minTime = times[0];
-    medTime = times[numiter / 2];
-    maxTime = times[numiter - 1];
-    avgTime = 0;
-    for(int iter = 0; iter < numiter; iter++)
-      avgTime += times[iter];
-    avgTime /= numiter;
-  }
 
   template <typename T>
   void Comm<T>::report() {
@@ -778,10 +716,46 @@ namespace CommBench
     }
   }
 
-  static void print_stats(std::vector<double>, size_t);
+  static void print_stats(std::vector<double> times, size_t data) {
 
-  template <typename T>
-  static void measure(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
+    std::sort(times.begin(), times.end(),  [](const double & a, const double & b) -> bool {return a < b;});
+
+    int numiter = times.size();
+
+    if(myid == printid) {
+      printf("%d measurement iterations (sorted):\n", numiter);
+      for(int iter = 0; iter < numiter; iter++) {
+        printf("time: %.4e", times[iter] * 1e6);
+        if(iter == 0)
+          printf(" -> min\n");
+        else if(iter == numiter / 2)
+          printf(" -> median\n");
+        else if(iter == numiter - 1)
+          printf(" -> max\n");
+        else
+          printf("\n");
+      }
+      printf("\n");
+    }
+    double minTime = times[0];
+    double medTime = times[numiter / 2];
+    double maxTime = times[numiter - 1];
+    double avgTime = 0;
+    for(int iter = 0; iter < numiter; iter++)
+      avgTime += times[iter];
+    avgTime /= numiter;
+    if(myid == printid) {
+      printf("data: "); print_data(data); printf("\n");
+      printf("minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
+      printf("medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
+      printf("maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
+      printf("avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
+      printf("\n");
+    }
+  }
+
+  template <typename C, typename T>
+  static void measure_async(std::vector<C> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       MPI_Barrier(comm_mpi);
@@ -798,8 +772,8 @@ namespace CommBench
     print_stats(t, count * sizeof(T));
   }
 
-  template <typename T>
-  static void measure_concur(std::vector<CommBench::Comm<T>> commlist, int warmup, int numiter, size_t count) {
+  template <typename C, typename T>
+  static void measure_concur(std::vector<C> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       MPI_Barrier(comm_mpi);
@@ -867,16 +841,50 @@ namespace CommBench
     print_stats(t, data * sizeof(T));
   }
 
-  static void print_stats(std::vector<double> times, size_t data) {
+  template <typename C>
+  static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C comm) {
 
-    std::sort(times.begin(), times.end(),  [](const double & a, const double & b) -> bool {return a < b;});
+    double times[numiter];
+    double starts[numiter];
 
-    int numiter = times.size();
+    if(myid == printid)
+      printf("%d warmup iterations (in order):\n", warmup);
+    for (int iter = -warmup; iter < numiter; iter++) {
+      for(int send = 0; send < comm.numsend; send++) {
+#if defined PORT_CUDA
+        // cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
+#elif defined PORT_HIP
+        // hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
+#elif defined PORT_SYCL
+        // q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
+#else
+        memset(comm.sendbuf[send], -1, comm.sendcount[send] * sizeof(T)); // NECESSARY FOR CPU TO PREVENT CACHING
+#endif
+      }
+      MPI_Barrier(comm_mpi);
+      double time = MPI_Wtime();
+      comm.start();
+      double start = MPI_Wtime() - time;
+      comm.wait();
+      time = MPI_Wtime() - time;
+      MPI_Allreduce(MPI_IN_PLACE, &start, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
+      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
+      if(iter < 0) {
+        if(myid == printid)
+          printf("startup %.2e warmup: %.2e\n", start * 1e6, time * 1e6);
+      }
+      else {
+        starts[iter] = start;
+        times[iter] = time;
+      }
+    }
+    std::sort(times, times + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
+    std::sort(starts, starts + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
 
     if(myid == printid) {
       printf("%d measurement iterations (sorted):\n", numiter);
       for(int iter = 0; iter < numiter; iter++) {
-        printf("time: %.4e", times[iter] * 1e6);
+        printf("start: %.4e time: %.4e", starts[iter] * 1e6, times[iter] * 1e6);
         if(iter == 0)
           printf(" -> min\n");
         else if(iter == numiter / 2)
@@ -888,21 +896,13 @@ namespace CommBench
       }
       printf("\n");
     }
-    double minTime = times[0];
-    double medTime = times[numiter / 2];
-    double maxTime = times[numiter - 1];
-    double avgTime = 0;
+    minTime = times[0];
+    medTime = times[numiter / 2];
+    maxTime = times[numiter - 1];
+    avgTime = 0;
     for(int iter = 0; iter < numiter; iter++)
       avgTime += times[iter];
     avgTime /= numiter;
-    if(myid == printid) {
-      printf("data: "); print_data(data); printf("\n");
-      printf("minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
-      printf("medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
-      printf("maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
-      printf("avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
-      printf("\n");
-    }
   }
 
   // MEMORY MANAGEMENT
@@ -917,7 +917,7 @@ namespace CommBench
 #else
     allocateHost(buffer, n);
 #endif
-  }
+  };
 
   template <typename T>
   void allocateHost(T *&buffer, size_t n) {

@@ -273,78 +273,13 @@ namespace CommBench {
 #endif
       }
     }
-
-    void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime) {
-
-      double times[numiter];
-      double starts[numiter];
-
-      if(myid == printid)
-        printf("%d warmup iterations (in order):\n", warmup);
-      for (int iter = -warmup; iter < numiter; iter++) {
-        for(int send = 0; send < Comm<T>::numsend; send++) {
-#if defined PORT_CUDA
-          // cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
-#elif defined PORT_HIP
-          // hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
-#elif defined PORT_SYCL
-          // q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
-#else
-          memset(Comm<T>::sendbuf[send], -1, Comm<T>::sendcount[send] * sizeof(T)); // NECESSARY FOR CPU TO PREVENT CACHING
-#endif
-        }
-        MPI_Barrier(comm_mpi);
-        double time = MPI_Wtime();
-        this->start();
-        double start = MPI_Wtime() - time;
-        this->wait();
-        time = MPI_Wtime() - time;
-        MPI_Allreduce(MPI_IN_PLACE, &start, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
-        MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
-        if(iter < 0) {
-          if(myid == printid)
-            printf("startup: %.2e warmup: %.2e\n", start * 1e6, time * 1e6);
-        }
-        else {
-          starts[iter] = start;
-          times[iter] = time;
-        }
-      }
-      std::sort(times, times + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
-      std::sort(starts, starts + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
-
-      if(myid == printid) {
-        printf("%d measurement iterations (sorted):\n", numiter);
-        for(int iter = 0; iter < numiter; iter++) {
-          printf("start: %.4e time: %.4e", starts[iter] * 1e6, times[iter] * 1e6);
-          if(iter == 0)
-            printf(" -> min\n");
-          else if(iter == numiter / 2)
-            printf(" -> median\n");
-          else if(iter == numiter - 1)
-            printf(" -> max\n");
-          else
-            printf("\n");
-        }
-        printf("\n");
-      }
-
-      minTime = times[0];
-      medTime = times[numiter / 2];
-      maxTime = times[numiter - 1];
-      avgTime = 0;
-      for(int iter = 0; iter < numiter; iter++)
-        avgTime += times[iter];
-      avgTime /= numiter;
-    };
-
     void measure(int warmup, int numiter, size_t count) {
       Comm<T>::report();
       double minTime;
       double medTime;
       double maxTime;
       double avgTime;
-      measure(warmup, numiter, minTime, medTime, maxTime, avgTime);
+      CommBench::measure(warmup, numiter, minTime, medTime, maxTime, avgTime, *this);
       if(myid == printid) {
         size_t data = count * sizeof(T);
         printf("data: "); print_data(data); printf("\n");
@@ -355,7 +290,6 @@ namespace CommBench {
         printf("\n");
       }
     };
-
     void measure(int warmup, int numiter) {
       long count_total = 0;
       for(int send = 0; send < Comm<T>::numsend; send++)
@@ -363,6 +297,5 @@ namespace CommBench {
       MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_LONG, MPI_SUM, comm_mpi);
       measure(warmup, numiter, count_total);
     };
-
   };
 }

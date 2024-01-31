@@ -11,6 +11,7 @@
       if (CommBench::myid == i) {
         this->sendbuf = sendbuf;
         this->recvbuf = recvbuf;
+	this->count = count;
         if(offset == nullptr) {
           this->offset = nullptr;
           CommBench::allocate(this->index, count);

@@ -89,9 +89,9 @@ namespace CommBench
   static bool init_nccl_comm = false;
   static bool init_ccl_comm = false;
 
-  void setprintid(int newprintid) {
+  /*void setprintid(int newprintid) {
     printid = newprintid;
-  }
+  }*/
 
   static void print_data(size_t data) {
     if (data < 1e3)
@@ -152,7 +152,11 @@ namespace CommBench
 
     // IMPLEMENTATION LIBRARY
     const library lib;
+
+    // STATS
     int benchid;
+    int printid;
+    int numcomm = 0;
 
     // REGISTRY
     int numsend;
@@ -196,8 +200,8 @@ namespace CommBench
     std::vector<sycl::queue> q_ipc;
 #endif
 
-    Comm(library lib);
-    ~Comm();
+    Comm(library lib, int printid = CommBench::printid);
+    void free();
 
     void add(T *sendbuf, size_t sendoffset, size_t sendupper, T *recvbuf, size_t recvoffset, size_t recvupper, int sendid, int recvid);
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
@@ -217,9 +221,10 @@ namespace CommBench
   };
 
   template <typename T>
-  Comm<T>::Comm(library lib) : lib(lib) {
+  Comm<T>::Comm(library lib, int printid) : lib(lib), printid(printid) {
 
     benchid = numbench;
+    CommBench::printid = printid;
     numbench++;
 
     int init_mpi;
@@ -246,7 +251,7 @@ namespace CommBench
     numrecv = 0;
 
     if(myid == printid) {
-      printf("Create Comm %d with %d processors\n", benchid, numproc);
+      printf("printid: %d Create Comm %d with %d processors\n", printid, benchid, numproc);
       printf("  Port: ");
 #ifdef PORT_CUDA
       printf("CUDA ");
@@ -308,18 +313,13 @@ namespace CommBench
   }
 
   template <typename T>
-  Comm<T>::~Comm() {
-    //int myid;
-    //MPI_Comm_rank(comm_mpi, &myid);
-    //for(T *ptr : buffer_list)
-    //  CommBench::free(ptr);
-    //if(myid == printid)
-    //  printf("memory freed.\n");
-    /*if(!init_mpi) {
-      MPI_Finalize();
-      if(myid == printid)
-        printf("#################### MPI IS FINALIZED\n");
-    }*/
+  void Comm<T>::free() {
+    for(T *ptr : buffer_list)
+      CommBench::free(ptr);
+    buffer_list.clear();
+    buffer_count.clear();
+    if(myid == printid)
+      printf("memory freed.\n");
   }
 
   template <typename T>
@@ -399,13 +399,14 @@ namespace CommBench
         MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
         MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
         MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-        printf("Bench %d add (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu (", benchid, sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
+        printf("Bench %d comm %d (%d -> %d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu (", benchid, numcomm, sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
         print_data(count * sizeof(T));
         printf(") ");
         print_lib(lib);
         printf("\n");
       }
     }
+    numcomm++;
 
     // SENDER DATA STRUCTURES
     if(myid == sendid) {
@@ -555,7 +556,7 @@ namespace CommBench
     if(myid == printid) {
       printf("\nCommBench %d: ", benchid);
       print_lib(lib);
-      printf(" communication matrix (reciever x sender)\n");
+      printf(" communication matrix (reciever x sender): %d\n", numcomm);
       for(int recver = 0; recver < numproc; recver++) {
         for(int sender = 0; sender < numproc; sender++) {
           size_t count = matrix[sender * numproc + recver];
@@ -754,8 +755,8 @@ namespace CommBench
     }
   }
 
-  template <typename C, typename T>
-  static void measure_async(std::vector<C> commlist, int warmup, int numiter, size_t count) {
+  template <typename T>
+  static void measure_async(std::vector<Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       MPI_Barrier(comm_mpi);
@@ -772,8 +773,8 @@ namespace CommBench
     print_stats(t, count * sizeof(T));
   }
 
-  template <typename C, typename T>
-  static void measure_concur(std::vector<C> commlist, int warmup, int numiter, size_t count) {
+  template <typename T>
+  static void measure_concur(std::vector<Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       MPI_Barrier(comm_mpi);

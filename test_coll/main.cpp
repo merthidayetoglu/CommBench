@@ -163,23 +163,24 @@ int main(int argc, char *argv[])
         switch(pattern) {
           case gather        : MPI_Gather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);  break;
           case scatter       : MPI_Scatter(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD); break;
-          case broadcast     : MPI_Bcast(sendbuf_d, count * numproc, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                      break;
-          case reduce        : MPI_Reduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD); break;
+          case broadcast     : MPI_Bcast(sendbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD);                      break;
+          case reduce        : MPI_Reduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD); break;
           case alltoall      : MPI_Alltoall(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);      break;
           case allgather     : MPI_Allgather(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD);     break;
           case reducescatter : MPI_Reduce_scatter(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
-          case allreduce     : MPI_Allreduce(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
+          case allreduce     : MPI_Allreduce(sendbuf_d, recvbuf_d, count, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);    break;
           default            : return 0;
         }
         break;
 #ifdef CAP_NCCL
+      // note reducescatter takes scalar for count, while MPI takes array of counts
       case test::NCCL :
         switch(pattern) {
-          case broadcast     : ncclBcast(sendbuf_d, count * numproc, ncclFloat32, ROOT, comm_nccl, 0);                      break;
-          case reduce        : ncclReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, ROOT, comm_nccl, 0); break;
+          case broadcast     : ncclBcast(sendbuf_d, count, ncclFloat32, ROOT, comm_nccl, 0);                      break;
+          case reduce        : ncclReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, ROOT, comm_nccl, 0); break;
           case allgather     : ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);                       break;
           case reducescatter : ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);          break;
-          case allreduce     : ncclAllReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, comm_nccl, 0);    break;
+          case allreduce     : ncclAllReduce(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);    break;
           default            : return 0;
         }
 #ifdef PORT_CUDA
@@ -227,27 +228,27 @@ int main(int argc, char *argv[])
     for(int iter = 0; iter < numiter; iter++)
       avgTime += times[iter];
     avgTime /= numiter;
-    size_t data = count * sizeof(float) * numproc;
+    size_t data = count * sizeof(float);
     switch(library) {
       case test::MPI :
         switch(pattern) {
-          case gather        : printf("MPI_Gather\n"); break;
-          case scatter       : printf("MPI_Scatter\n"); break;
-          case broadcast     : printf("MPI_Bcast\n"); break;
-          case reduce        : printf("MPI_Reduce\n"); break;
-          case alltoall      : printf("MPI_Alltoall\n"); break;
-          case allgather     : printf("MPI_Allgather\n"); break;
-          case reducescatter : printf("MPI_Reduce_scatter\n"); break;
-          case allreduce     : printf("MPI_Allreduce\n"); break;
+          case gather        : printf("MPI_Gather\n"); data *= (numproc-1); break;
+          case scatter       : printf("MPI_Scatter\n"); data *= (numproc-1); break;
+          case broadcast     : printf("MPI_Bcast\n"); data *= (numproc-1); break;
+          case reduce        : printf("MPI_Reduce\n"); data *= (numproc-1); break;
+          case alltoall      : printf("MPI_Alltoall\n"); data *= numproc*(numproc-1); break;
+          case allgather     : printf("MPI_Allgather\n"); data *= numproc*(numproc-1); break;
+          case reducescatter : printf("MPI_Reduce_scatter\n"); data *= (numproc+1)*(numproc-1); break;
+          case allreduce     : printf("MPI_Allreduce\n"); data *= 2*(numproc-1); break;
         } break;
 #ifdef CAP_NCCL
       case test::NCCL :
         switch(pattern) {
-          case broadcast     : printf("ncclBcast\n"); break;
-          case reduce        : printf("ncclReduce\n"); break;
-          case allgather     : printf("ncclAllGather\n"); break;
-          case reducescatter : printf("ncclReduceScatter\n"); break;
-          case allreduce     : printf("ncclAllReduce\n"); break;
+          case broadcast     : printf("ncclBcast\n"); data *= (numproc-1); break;
+          case reduce        : printf("ncclReduce\n"); data *= (numproc-1); break;
+          case allgather     : printf("ncclAllGather\n"); data *= numproc*(numproc-1); break;
+          case reducescatter : printf("ncclReduceScatter\n"); data *= (numproc+1)*(numproc-1); break;
+          case allreduce     : printf("ncclAllReduce\n"); data *= 2*(numproc-1); break;
         } break;
 #endif
     }

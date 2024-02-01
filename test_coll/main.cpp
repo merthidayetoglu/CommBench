@@ -23,18 +23,23 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
-// #include <rccl.h>
-// #include <sycl.hpp>
 
-// PORTS
- #define PORT_CUDA
+// PORTS - define here or in Makefile
+// #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 
 // CONTROL NCCL CAPABILITY
-#if defined(PORT_CUDA) || defined(PORT_HIP)
+#if defined(PORT_CUDA)
 #define CAP_NCCL
+#include <nccl.h>
+#endif
+#if defined(PORT_HIP)
+#define CAP_NCCL
+#include <rccl.h>
+#endif
+#if defined(PORT_SYCL)
+#include <sycl.hpp>
 #endif
 
 // UTILITIES

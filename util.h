@@ -21,6 +21,8 @@ void setup_gpu() {
   // SET DEVICE
   int deviceCount;
   cudaGetDeviceCount(&deviceCount);
+  if(myid == printid)
+    printf("deviceCount: %d\n", deviceCount);
   int device = myid % deviceCount;
   cudaSetDevice(device);
   // REPORT

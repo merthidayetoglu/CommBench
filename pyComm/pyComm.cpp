@@ -4,8 +4,6 @@
 #include <pybind11/stl.h>
 #define PORT_CUDA
 #include "../comm.h"
-#define ROOT 0
-#include "../util.h"
 
 namespace py = pybind11;
 
@@ -14,24 +12,23 @@ void CommBench::Comm<T>::pyadd(CommBench::pyalloc<T> sendbuf, size_t sendoffset,
     CommBench::Comm<T>::add(sendbuf.ptr, sendoffset, recvbuf.ptr, recvoffset, count, sendid, recvid);
 }
 
-void init() {
+/*void init() {
 	MPI_Init(NULL, NULL);
 }
 
 void fin() {
 	MPI_Finalize();
-}
+}*/
 
 PYBIND11_MODULE(pyComm, m) {
-    m.def("init", &init);
-    m.def("fin", &fin);
-    m.def("setup_gpu", &setup_gpu);
+    //m.def("init", &init);
+    //m.def("fin", &fin);
+    //m.def("setup_gpu", &setup_gpu);
     py::enum_<CommBench::library>(m, "library")
-        .value("null", CommBench::library::null)
+        .value("dummy", CommBench::library::dummy)
         .value("MPI", CommBench::library::MPI)
-        .value("NCCL", CommBench::library::NCCL)
+        .value("XCCL", CommBench::library::XCCL)
         .value("IPC", CommBench::library::IPC)
-        .value("STAGE", CommBench::library::STAGE)
         .value("numlib", CommBench::library::numlib);
     py::class_<CommBench::pyalloc<int>>(m, "pyalloc")
 	.def(py::init<size_t>())

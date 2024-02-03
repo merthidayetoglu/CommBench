@@ -1,14 +1,14 @@
 import pyComm
 import numpy as np
 
-pyComm.init()
-pyComm.setup_gpu()
-pyComm.Comm.setprintid(0)
+#pyComm.init()
+#pyComm.setup_gpu()
+#pyComm.Comm.setprintid(0)
 sendbuf = pyComm.pyalloc(1024)
 tempbuf = pyComm.pyalloc(1024)
 recvbuf = pyComm.pyalloc(1024)
 c = pyComm.Comm(pyComm.library.IPC)
-c1 = pyComm.Comm(pyComm.library.NCCL)
+c1 = pyComm.Comm(pyComm.library.MPI)
 c2 = pyComm.Comm(pyComm.library.IPC)
 #c.add_lazy(1024, 0, 1)
 #c1.add_lazy(256, 0, 4)
@@ -37,4 +37,5 @@ c2.measure(5,10)
 pyComm.pyalloc.free(sendbuf)
 pyComm.pyalloc.free(tempbuf)
 pyComm.pyalloc.free(recvbuf)
-pyComm.fin()
+#
+#Comm.fin()

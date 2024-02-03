@@ -17,7 +17,6 @@
 #define COMMBENCH_H
 
 #include <mpi.h>
-#include "util.h"
 
 // GPU PORTS
 // For NVIDIA: #define PORT_CUDA
@@ -213,6 +212,7 @@ namespace CommBench
 
     void allocate(T *&buffer, size_t n);
     void allocate(T *&buffer, size_t n, int i);
+#include "util.h"
   };
 
   template <typename T>

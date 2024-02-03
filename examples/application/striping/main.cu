@@ -4,7 +4,6 @@
 #define ROOT 0
 #define Type long
 #define Index int
-#include "util.h"
 #include <vector>
 #include <fstream>
 #include <sstream>
@@ -34,8 +33,8 @@ void parsefile(int gpus, string fn, vector<vector<int>> &pat) {
 int main(int argc, char* argv[]) {
 
   //arg list:# of GPUs per node, # of nodes, filename(data)
-  int myid;
-  int numproc;
+  // int myid;
+  // int numproc;
   vector<vector<int>> patterns;
   int nodesize = atoi(argv[1]);
   int numnodes = atoi(argv[2]);
@@ -45,10 +44,9 @@ int main(int argc, char* argv[]) {
 
   int numgpus = numnodes * nodesize;
 
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numproc);
-  setup_gpu();
+  // MPI_Init(&argc, &argv);
+  // MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  // MPI_Comm_size(MPI_COMM_WORLD, &numproc);
 
   parsefile(numgpus, filename, patterns); //in kb
   //check parsefile
@@ -60,10 +58,10 @@ int main(int argc, char* argv[]) {
   //              printf("\n");
   //      }
   //}
-  for(int i = 0; i < numgpus; i++)
+  /*for(int i = 0; i < numgpus; i++)
     for(int j = 0; j < numgpus; j++)
       if(i / nodesize == j / nodesize)
-        patterns[i][j] = 0;
+        patterns[i][j] = 0;*/
 
   // DIRECT PATTERN
   CommBench::SpComm<Type, Index> comm(CommBench::MPI, ROOT);
@@ -126,11 +124,10 @@ int main(int argc, char* argv[]) {
     std::vector<size_t> sendcount(nodesize * numgpus, 0);
     std::vector<size_t> recvcount(nodesize * numgpus, 0);
     for(int p = 0; p < numgpus; p++)
-      if(p / nodesize != CommBench::myid / nodesize)
-        for(int stripe = 0; stripe < numstripe; stripe++) {
-          size_t splitcount = (sendoffset[p + 1] - sendoffset[p]) * numrhs;
-          sendcount[stripe * numgpus + p] = splitcount / numstripe + (stripe < splitcount % numstripe ? 1 : 0);
-	}
+      for(int stripe = 0; stripe < numstripe; stripe++) {
+        size_t splitcount = (sendoffset[p + 1] - sendoffset[p]) * numrhs;
+        sendcount[stripe * numgpus + p] = splitcount / numstripe + (stripe < splitcount % numstripe ? 1 : 0);
+      }
     MPI_Comm comm_intra;
     MPI_Comm_split(MPI_COMM_WORLD, CommBench::myid / nodesize, CommBench::myid % nodesize, &comm_intra);
     MPI_Alltoall(sendcount.data(), numgpus * sizeof(size_t), MPI_BYTE, recvcount.data(), numgpus * sizeof(size_t), MPI_BYTE, comm_intra);
@@ -155,7 +152,11 @@ int main(int argc, char* argv[]) {
     for(int node = 0; node < numnodes; node++)
       for(int i = 0; i < nodesize; i++)
         for(int j = 0; j < nodesize; j++)
-          split.add(sendbuf_split, sendoffset_split[j * numgpus], sendoffset_split[(j + 1) * numgpus], recvbuf_split, recvoffset_split[i * numgpus], recvoffset_split[(i + 1) * numgpus], node * nodesize + i, node * nodesize + j);
+          split.add(sendbuf_split, sendoffset_split[j * numgpus],
+                                   sendoffset_split[(j + 1) * numgpus],
+                    recvbuf_split, recvoffset_split[i * numgpus],
+                                   recvoffset_split[(i + 1) * numgpus],
+                    node * nodesize + i, node * nodesize + j);
   }
   split.measure(5, 10);
 
@@ -193,7 +194,11 @@ int main(int argc, char* argv[]) {
     for(int n = 0; n < numnodes; n++)
       for(int i = 0; i < nodesize; i++)
         for(int m = 0; m < numnodes; m++)
-          translate.add(sendbuf_translate, sendoffset_translate[m * nodesize * nodesize], sendoffset_translate[(m + 1) * nodesize * nodesize], recvbuf_translate, recvoffset_translate[n * nodesize * nodesize], recvoffset_translate[(n + 1) * nodesize * nodesize], n * nodesize + i, m * nodesize + i);
+          translate.add(sendbuf_translate, sendoffset_translate[m * nodesize * nodesize],
+                                           sendoffset_translate[(m + 1) * nodesize * nodesize],
+                        recvbuf_translate, recvoffset_translate[n * nodesize * nodesize],
+                                           recvoffset_translate[(n + 1) * nodesize * nodesize],
+                        n * nodesize + i, m * nodesize + i);
   }
   translate.measure(5, 10);
 
@@ -231,17 +236,18 @@ int main(int argc, char* argv[]) {
     for(int n = 0; n < numnodes; n++)
       for(int i = 0; i < nodesize; i++)
         for(int j = 0; j < nodesize; j++)
-          assemble.add(sendbuf_assemble, sendoffset_assemble[j * numgpus], sendoffset_assemble[(j + 1) * numgpus], recvbuf_assemble, recvoffset_assemble[i * numgpus], recvoffset_assemble[(i + 1) * numgpus], n * nodesize + i, n * nodesize + j);
+          assemble.add(sendbuf_assemble, sendoffset_assemble[j * numgpus],
+                                         sendoffset_assemble[(j + 1) * numgpus],
+                       recvbuf_assemble, recvoffset_assemble[i * numgpus],
+                                         recvoffset_assemble[(i + 1) * numgpus],
+                       n * nodesize + i, n * nodesize + j);
 
-    std::vector<Index> invert(recvoffset[numgpus] * numrhs);
-    for(size_t i = 0; i < recvoffset[numgpus] * numrhs; i++)
-      invert[recvindex[i]] = i;
     std::vector<Index> recvindex_assemble(recvoffset_assemble[nodesize * numgpus]);
     for(int j = 0; j < numgpus; j++) {
       size_t count = 0;
       for(int i = 0; i < nodesize; i++)
         for(size_t k = 0; k < recvcount[i * numgpus + j]; k++) {
-          recvindex_assemble[recvoffset_assemble[i * numgpus + j] + k] =  invert[recvoffset[j] * numrhs + count];
+          recvindex_assemble[recvoffset_assemble[i * numgpus + j] + k] =  recvindex[recvoffset[j] * numrhs + count];
           count++;
         }
     }
@@ -249,7 +255,7 @@ int main(int argc, char* argv[]) {
   }
   assemble.measure(5, 10);
   
-  if(myid == 0)
+  if(CommBench::myid == 0)
     printf("sendoffset %ld \nrecvoffset %ld \nsendoffset_split %ld \nrecvoffset_split %ld \nsendoffset_translate %ld \nrecvoffset_translate %ld\n sendoffset_assemble %ld \nrecvoffset_assemble %ld \n", sendoffset[numgpus], recvoffset[numgpus], sendoffset_split[nodesize * numgpus], recvoffset_split[nodesize * numgpus], sendoffset_translate[numnodes * nodesize * nodesize], recvoffset_translate[numnodes * nodesize * nodesize], sendoffset_assemble[numnodes * numgpus], recvoffset_assemble[numnodes * numgpus]);
 
   // VERIFY

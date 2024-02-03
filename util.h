@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+#include <stdio.h> // for printf
+
 void setup_gpu() {
 
   int myid;
@@ -21,7 +23,7 @@ void setup_gpu() {
   MPI_Comm_size(MPI_COMM_WORLD, &numproc);
 
 #ifdef PORT_CUDA
-  if(myid == ROOT)
+  if(myid == 0)
     printf("CUDA PORT\n");
   // SET DEVICE
   int deviceCount;
@@ -29,7 +31,7 @@ void setup_gpu() {
   int device = myid % deviceCount;
   cudaSetDevice(device);
   // REPORT
-  if(myid == ROOT){
+  if(myid == 0){
     int error = system("nvidia-smi");
     int deviceCount;
     int device;
@@ -52,7 +54,7 @@ void setup_gpu() {
     printf("\n");
   }
 #elif defined PORT_HIP
-  if(myid == ROOT)
+  if(myid == 0)
     printf("HIP PORT\n");
   //DEVICE MANAGEMENT
   int deviceCount;
@@ -92,7 +94,7 @@ void setup_gpu() {
     printf("\n");
   }
 #elif defined PORT_SYCL
-  if(myid == ROOT)
+  if(myid == 0)
     printf("SYCL PORT\n");
   // Initialize the driver
   zeInit(0);

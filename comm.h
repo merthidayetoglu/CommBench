@@ -63,7 +63,7 @@
 
 namespace CommBench
 {
-  static int printid = -1;
+  static int printid = 0;
 
   enum library {dummy, MPI, XCCL, IPC, numlib};
 
@@ -150,7 +150,6 @@ namespace CommBench
 
     // STATS
     int benchid;
-    int printid;
     int numcomm = 0;
 
     // REGISTRY
@@ -195,7 +194,7 @@ namespace CommBench
     std::vector<sycl::queue> q_ipc;
 #endif
 
-    Comm(library lib, int printid = CommBench::printid);
+    Comm(library lib);
     void free();
 
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
@@ -216,10 +215,9 @@ namespace CommBench
   };
 
   template <typename T>
-  Comm<T>::Comm(library lib, int printid) : lib(lib), printid(printid) {
+  Comm<T>::Comm(library lib) : lib(lib) {
 
     benchid = numbench;
-    CommBench::printid = printid;
     numbench++;
 
     int init_mpi;

@@ -37,7 +37,7 @@ PYBIND11_MODULE(pyComm, m) {
         .def(py::init<CommBench::library>())
         .def("add", &CommBench::Comm<int>::pyadd)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
-        .def("setprintid", &CommBench::setprintid)
+        // .def("setprintid", &CommBench::setprintid)
         .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency")
         .def("start", &CommBench::Comm<int>::start)
         .def("wait", &CommBench::Comm<int>::wait);

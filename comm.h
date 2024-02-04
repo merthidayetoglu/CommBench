@@ -114,6 +114,9 @@ namespace CommBench
       case numlib : printf("numlib"); break;
     }
   }
+  static void barrier() {
+  	MPI_Barrier(MPI_COMM_WORLD);
+  }
 
 
   // MEMORY MANAGEMENT

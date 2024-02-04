@@ -26,21 +26,20 @@ PYBIND11_MODULE(pyComm, m) {
     m.def("init", &init);
     m.def("fin", &fin);
     m.def("setup_gpu", &setup_gpu);
+    m.def("barrier", &CommBench::barrier);
     py::enum_<CommBench::library>(m, "library")
-        .value("null", CommBench::library::null)
+        .value("dummy", CommBench::library::dummy)
         .value("MPI", CommBench::library::MPI)
-        .value("NCCL", CommBench::library::NCCL)
+        .value("CCL", CommBench::library::CCL)
         .value("IPC", CommBench::library::IPC)
-        .value("STAGE", CommBench::library::STAGE)
         .value("numlib", CommBench::library::numlib);
     py::class_<CommBench::pyalloc<int>>(m, "pyalloc")
 	.def(py::init<size_t>())
         .def("free", &CommBench::pyalloc<int>::pyfree);
     py::class_<CommBench::Comm<int>>(m, "Comm")
-        .def(py::init<CommBench::library>())
+        .def(py::init<CommBench::library, int>())
         .def("add", &CommBench::Comm<int>::pyadd)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
-        .def("setprintid", &CommBench::setprintid)
         .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency")
         .def("start", &CommBench::Comm<int>::start)
         .def("wait", &CommBench::Comm<int>::wait);

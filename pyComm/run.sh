@@ -22,4 +22,6 @@ numnode=4
 
   srun -N 2 --ntasks-per-node=4 -C gpu -c 32 --gpus-per-task=1  --gpu-bind=none python3 test.py
 
+
+
 date

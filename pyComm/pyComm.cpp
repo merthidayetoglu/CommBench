@@ -4,8 +4,6 @@
 #include <pybind11/stl.h>
 #define PORT_CUDA
 #include "../comm.h"
-#define ROOT 0
-#include "../util.h"
 
 namespace py = pybind11;
 
@@ -14,23 +12,22 @@ void CommBench::Comm<T>::pyadd(CommBench::pyalloc<T> sendbuf, size_t sendoffset,
     CommBench::Comm<T>::add(sendbuf.ptr, sendoffset, recvbuf.ptr, recvoffset, count, sendid, recvid);
 }
 
-void init() {
+/*void init() {
 	MPI_Init(NULL, NULL);
 }
 
 void fin() {
 	MPI_Finalize();
-}
+}*/
 
 PYBIND11_MODULE(pyComm, m) {
-    m.def("init", &init);
-    m.def("fin", &fin);
-    m.def("setup_gpu", &setup_gpu);
-    m.def("barrier", &CommBench::barrier);
+    //m.def("init", &init);
+    //m.def("fin", &fin);
+    //m.def("setup_gpu", &setup_gpu);
     py::enum_<CommBench::library>(m, "library")
         .value("dummy", CommBench::library::dummy)
         .value("MPI", CommBench::library::MPI)
-        .value("CCL", CommBench::library::CCL)
+        .value("XCCL", CommBench::library::XCCL)
         .value("IPC", CommBench::library::IPC)
         .value("numlib", CommBench::library::numlib);
     py::class_<CommBench::pyalloc<int>>(m, "pyalloc")
@@ -40,6 +37,7 @@ PYBIND11_MODULE(pyComm, m) {
         .def(py::init<CommBench::library, int>())
         .def("add", &CommBench::Comm<int>::pyadd)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
+        // .def("setprintid", &CommBench::setprintid)
         .def("measure", static_cast<void (CommBench::Comm<int>::*)(int, int)>(&CommBench::Comm<int>::measure), "measure the latency")
         .def("start", &CommBench::Comm<int>::start)
         .def("wait", &CommBench::Comm<int>::wait);

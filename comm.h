@@ -63,9 +63,9 @@
 
 namespace CommBench
 {
-  static int printid = -1;
+  static int printid = 0;
 
-  enum library {dummy, MPI, CCL, IPC, numlib};
+  enum library {dummy, MPI, XCCL, IPC, numlib};
 
   static MPI_Comm comm_mpi;
   static int myid;
@@ -89,10 +89,6 @@ namespace CommBench
   static bool init_nccl_comm = false;
   static bool init_ccl_comm = false;
 
-  /*void setprintid(int newprintid) {
-    printid = newprintid;
-  }*/
-
   static void print_data(size_t data) {
     if (data < 1e3)
       printf("%d bytes", (int)data);
@@ -110,11 +106,10 @@ namespace CommBench
       case dummy : printf("dummy"); break;
       case IPC  : printf("IPC"); break;
       case MPI  : printf("MPI"); break;
-      case CCL : printf("CCL"); break;
+      case XCCL : printf("XCCL"); break;
       case numlib : printf("numlib"); break;
     }
   }
-
 
   // MEMORY MANAGEMENT
   template <typename T>
@@ -155,7 +150,6 @@ namespace CommBench
 
     // STATS
     int benchid;
-    int printid;
     int numcomm = 0;
 
     // REGISTRY
@@ -178,7 +172,7 @@ namespace CommBench
     std::vector<MPI_Request> sendrequest;
     std::vector<MPI_Request> recvrequest;
 
-    // CCL
+    // XCCL
 #if defined CAP_NCCL && defined PORT_CUDA
     cudaStream_t stream_nccl;
 #elif defined CAP_NCCL && defined PORT_HIP
@@ -200,10 +194,9 @@ namespace CommBench
     std::vector<sycl::queue> q_ipc;
 #endif
 
-    Comm(library lib, int printid = CommBench::printid);
+    Comm(library lib);
     void free();
 
-    void add(T *sendbuf, size_t sendoffset, size_t sendupper, T *recvbuf, size_t recvoffset, size_t recvupper, int sendid, int recvid);
     void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void add(T *sendbuf, T *recvbuf, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
@@ -218,33 +211,32 @@ namespace CommBench
 
     void allocate(T *&buffer, size_t n);
     void allocate(T *&buffer, size_t n, int i);
+#include "util.h"
   };
 
   template <typename T>
-  Comm<T>::Comm(library lib, int printid) : lib(lib), printid(printid) {
+  Comm<T>::Comm(library lib) : lib(lib) {
 
     benchid = numbench;
-    CommBench::printid = printid;
     numbench++;
 
     int init_mpi;
     MPI_Initialized(&init_mpi);
 
-    if(!init_mpi)
-      MPI_Init(NULL, NULL);
-    if(!init_mpi_comm)
-      MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
-
-    MPI_Comm_rank(comm_mpi, &myid);
-    MPI_Comm_size(comm_mpi, &numproc);
-
-    if(!init_mpi)
-      if(myid == printid)
-        printf("#################### MPI IS INITIALIZED, it is user's responsibility to finalize.\n");
     if(!init_mpi_comm) {
+      if(!init_mpi) {
+        MPI_Init(NULL, NULL);
+      }
+      MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
+      MPI_Comm_rank(comm_mpi, &myid);
+      MPI_Comm_size(comm_mpi, &numproc);
+      setup_gpu();
       init_mpi_comm = true;
-      if(myid == printid)
+      if(myid == printid) {
+        if(!init_mpi)
+          printf("#################### MPI IS INITIALIZED, it is user's responsibility to finalize.\n");
         printf("******************** MPI COMMUNICATOR IS CREATED\n");
+      }
     }
 
     numsend = 0;
@@ -266,7 +258,7 @@ namespace CommBench
       print_lib(lib);
       printf("\n");
     }
-    if(lib == CCL) {
+    if(lib == XCCL) {
 #ifdef CAP_NCCL
       if(!init_nccl_comm) {
         ncclUniqueId id;
@@ -363,22 +355,12 @@ namespace CommBench
     add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
   }
   template <typename T>
-  void Comm<T>::add(T *sendbuf, size_t sendoffset, size_t sendupper, T *recvbuf, size_t recvoffset, size_t recvupper, int sendid, int recvid) {
-    size_t sendcount = sendupper - sendoffset;
-    size_t recvcount = recvupper - recvoffset;
-    MPI_Bcast(&sendcount, sizeof(size_t), MPI_BYTE, sendid, comm_mpi);
-    MPI_Bcast(&recvcount, sizeof(size_t), MPI_BYTE, recvid, comm_mpi);
-    if(sendcount != recvcount) {
+  void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
+    if(count == 0) {
       if(myid == printid)
-        printf("sendid %d sendcount %ld recvid %d recvcount %ld could added!\n", sendid, sendcount, recvid, recvcount);
+        printf("Bench %d communication (%d->%d) count = 0 (skipped)\n", benchid, sendid, recvid);
       return;
     }
-    else
-      add(sendbuf, sendoffset, recvbuf, recvoffset, sendcount, sendid, recvid);
-  }
-  template <typename T>
-  void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
-    if(count == 0) return;
 
     // REPORT
     if(printid > -1) {
@@ -424,7 +406,7 @@ namespace CommBench
         case MPI:
           sendrequest.push_back(MPI_Request());
           break;
-        case CCL:
+        case XCCL:
           break;
         case IPC:
           sendrequest.push_back(MPI_Request());
@@ -483,7 +465,7 @@ namespace CommBench
         case MPI:
           recvrequest.push_back(MPI_Request());
           break;
-        case CCL:
+        case XCCL:
           break;
         case IPC:
           recvrequest.push_back(MPI_Request());
@@ -645,7 +627,8 @@ namespace CommBench
         for (int recv = 0; recv < numrecv; recv++)
           MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, &recvrequest[recv]);
         break;
-      case CCL:
+      case XCCL:
+        {
 #ifdef CAP_NCCL
         ncclGroupStart();
         for(int send = 0; send < numsend; send++)
@@ -660,6 +643,7 @@ namespace CommBench
           ccl::recv<T>(recvbuf[recv] + recvoffset[recv], recvcount[recv], recvproc[recv], *comm_ccl, *stream_ccl).wait();
 #endif
         break;
+	}
       case IPC:
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
@@ -687,7 +671,7 @@ namespace CommBench
         MPI_Waitall(numsend, sendrequest.data(), MPI_STATUSES_IGNORE);
         MPI_Waitall(numrecv, recvrequest.data(), MPI_STATUSES_IGNORE);
         break;
-      case CCL:
+      case XCCL:
 #if defined CAP_NCCL && defined PORT_CUDA
         cudaStreamSynchronize(stream_nccl);
 #elif defined CAP_NCCL && defined PORT_HIP

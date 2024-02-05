@@ -15,21 +15,18 @@
 
 void setup_gpu() {
 
-  int myid;
-  int numproc;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numproc);
-
 #ifdef PORT_CUDA
-  if(myid == ROOT)
+  if(myid == printid)
     printf("CUDA PORT\n");
   // SET DEVICE
   int deviceCount;
   cudaGetDeviceCount(&deviceCount);
+  if(myid == printid)
+    printf("deviceCount: %d\n", deviceCount);
   int device = myid % deviceCount;
   cudaSetDevice(device);
   // REPORT
-  if(myid == ROOT){
+  if(myid == printid){
     int error = system("nvidia-smi");
     int deviceCount;
     int device;
@@ -52,17 +49,17 @@ void setup_gpu() {
     printf("\n");
   }
 #elif defined PORT_HIP
-  if(myid == ROOT)
+  if(myid == printid)
     printf("HIP PORT\n");
   //DEVICE MANAGEMENT
   int deviceCount;
   hipGetDeviceCount(&deviceCount);
   int device = myid % deviceCount;
-  if(myid == ROOT)
+  if(myid == printid)
     printf("deviceCount: %d\n", deviceCount);
   hipSetDevice(device);
   // REPORT
-  if(myid == ROOT) {
+  if(myid == printid) {
     system("rocm-smi");
     int deviceCount;
     int device;
@@ -92,7 +89,7 @@ void setup_gpu() {
     printf("\n");
   }
 #elif defined PORT_SYCL
-  if(myid == ROOT)
+  if(myid == printid)
     printf("SYCL PORT\n");
   // Initialize the driver
   zeInit(0);
@@ -112,7 +109,7 @@ void setup_gpu() {
     for(int d = 0; d < deviceCount; ++d) {
       ze_device_properties_t device_properties;
       zeDeviceGetProperties(allDevices[d], &device_properties);
-      if(myid == ROOT)
+      if(myid == printid)
       {
         if(ZE_DEVICE_TYPE_GPU == device_properties.type)
           printf("driverCount %d deviceCount %d GPU\n", driverCount, deviceCount);
@@ -144,7 +141,7 @@ void setup_gpu() {
   }
   delete[] allDrivers;
 #else
-  if(myid == ROOT)
+  if(myid == printid)
     printf("CPU VERSION\n");
 #endif
 

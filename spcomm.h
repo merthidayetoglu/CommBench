@@ -4,7 +4,7 @@
 
 namespace CommBench {
 
-  template <typename T, typename I>
+  template <typename T>
   class SpComm : public Comm<T> {
     public:
     std::vector<void*> arg;
@@ -81,6 +81,7 @@ namespace CommBench {
       for (int i = 0; i < numproc; i++)
         add_precomp(func, arg, count, i);
     }
+    template <typename I>
     void add_precomp_gather(T *sendbuf, T *recvbuf, size_t count, I *index) {
       sparse_t<T, I> sparse(sendbuf, recvbuf, count, nullptr, index);
       add_precomp(sparse_gather<T, I>, sparse, count);
@@ -120,6 +121,7 @@ namespace CommBench {
       for (int i = 0; i < numproc; i++)
         add_postcomp(func, arg, count, i);
     }
+    template <typename I>
     void add_postcomp_scatter(T *sendbuf, T *recvbuf, size_t count, I *index) {
       sparse_t<T, I> sparse(sendbuf, recvbuf, count, nullptr, index);
       add_postcomp(sparse_scatter<T, I>, sparse, count);
@@ -152,11 +154,19 @@ namespace CommBench {
           stream_self.push_back(hipStream_t());
           hipStreamCreate(&stream_self[stream_self.size() - 1]);
 #elif defined PORT_SYCL
+          queue_self.push_back(sycl::queue(sycl::gpu_selector_v));
 #endif
         }
       }
       else
         Comm<T>::add(sendbuf, sendoffset, recvbuf, recvoffset, sendcount, sendid, recvid);
+    }
+
+    void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
+      add(sendbuf, sendoffset, sendoffset + count, recvbuf, recvoffset, recvoffset + count, sendid, recvid);
+    }
+    void add(T *sendbuf, T *recvbuf, size_t count, int sendid, int recvid) {
+      add(sendbuf, 0, recvbuf, 0, count, sendid, recvid);
     }
 
     void start() {
@@ -165,6 +175,7 @@ namespace CommBench {
         const int blocksize = 256;
         func[i]<<<(count[i] + blocksize - 1) / blocksize, blocksize, 0, stream_comp[i]>>>(arg[i]);
 #elif defined PORT_SYCL
+        ; // start compute
 #else
         func[i](arg[i]);
 #endif
@@ -208,7 +219,7 @@ namespace CommBench {
         const int blocksize = 256;
         func[i]<<<(count[i] + blocksize - 1) / blocksize, blocksize, 0, stream_comp[i]>>>(arg[i]);
 #elif defined PORT_SYCL
-        queue_comp[i].function(arg[i]);
+        ;//queue_comp[i].function(arg[i]);
 #else
         func[i](arg[i]);
 #endif
@@ -219,7 +230,7 @@ namespace CommBench {
 #elif defined PORT_HIP
         hipStreamSynchronize(stream_comp[i]);
 #elif defined PORT_SYCL
-        queue[i].wait();
+        queue_comp[i].wait();
 #endif
       }
     }

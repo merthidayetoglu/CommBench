@@ -27,7 +27,7 @@
 #define CAP_NCCL
 #endif
 #ifdef PORT_SYCL
-#define CAP_ONECCL
+// #define CAP_ONECCL
 #define CAP_ZE
 #endif
 
@@ -425,9 +425,10 @@ namespace CommBench
             error = hipIpcOpenMemHandle((void**)&recvbuf_ipc[numsend], memhandle, hipIpcMemLazyEnablePeerAccess);
 #elif defined PORT_SYCL
 	    ze_ipc_mem_handle_t memhandle;
-	    void *test;
             MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-	    error = zeMemOpenIpcHandle(ctx, dev, memhandle, 0, &test);
+	    auto ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+	    auto dev = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+	    error = zeMemOpenIpcHandle(ctx, dev, memhandle, 0, (void**)&recvbuf_ipc[numsend]);
 #endif
             if(error)
               printf("IpcOpenMemHandle error %d\n", error);
@@ -483,10 +484,8 @@ namespace CommBench
             error = hipIpcGetMemHandle(&myhandle, recvbuf);
             MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #elif defined PORT_SYCL
-	    void *zeBuffer = nullptr;
-            ze_device_mem_alloc_desc_t deviceDesc = {};
-            zeMemAllocDevice(ctx, &deviceDesc, 128, 128, dev, &zeBuffer);
             ze_ipc_mem_handle_t myhandle;
+	    auto ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
             error = zeMemGetIpcHandle(ctx, recvbuf, &myhandle);
             MPI_Send(&myhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #endif
@@ -651,9 +650,7 @@ namespace CommBench
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_SYCL
-          // L0 IPC INITIATE
-	  // SELF COMMUNICATION
-          q_ipc[send].memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+          // q_ipc[send].memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
         }
         for(int recv = 0; recv < numrecv; recv++)
@@ -689,7 +686,7 @@ namespace CommBench
 #elif defined PORT_SYCL
           // L0 IPC SYNCHRONIZE
 	  // SELF COMMUNICATION
-	  q_ipc[send].wait();
+	  // q_ipc[send].wait();
 #endif
           MPI_Isend(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, &sendrequest[send]);
         }

@@ -437,7 +437,7 @@ namespace CommBench
           stream_ipc.push_back(hipStream_t());
           hipStreamCreate(&stream_ipc[numsend]);
 #elif defined PORT_SYCL
-          q_ipc.push_back(sycl::queue());
+          q_ipc.push_back(sycl::queue(sycl::gpu_selector_v));
 #endif
           break;
         case numlib:

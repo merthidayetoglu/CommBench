@@ -106,7 +106,8 @@ void setup_gpu() {
     zeDeviceGet(allDrivers[i], &deviceCount, nullptr);
     ze_device_handle_t* allDevices = new ze_device_handle_t[deviceCount];
     zeDeviceGet(allDrivers[i], &deviceCount, allDevices);
-    for(int d = 0; d < deviceCount; ++d) {
+    // for(int d = 0; d < deviceCount; ++d) {
+    for(int d = 0; d < 1; ++d) {
       ze_device_properties_t device_properties;
       zeDeviceGetProperties(allDevices[d], &device_properties);
       if(myid == printid)
@@ -137,6 +138,9 @@ void setup_gpu() {
         printf("\n");
       }
     }
+    /*ze_bool_t test = false;
+    zeDeviceCanAccessPeer(allDevices[0], allDevices[1], &test);
+    printf("can access peer %d\n", test);*/
     delete[] allDevices;
   }
   delete[] allDrivers;

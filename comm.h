@@ -836,7 +836,7 @@ namespace CommBench
 #elif defined PORT_SYCL
         // q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
 #else
-        memset(comm.sendbuf[send], -1, comm.sendcount[send] * sizeof(T)); // NECESSARY FOR CPU TO PREVENT CACHING
+        // memset(comm.sendbuf[send], -1, comm.sendcount[send] * sizeof(T)); // NECESSARY FOR CPU TO PREVENT CACHING
 #endif
       }
       MPI_Barrier(comm_mpi);

@@ -6,7 +6,7 @@ For questions and support, please send an email to merth@stanford.edu
 
 ## API
 
-CommBench has a higher level interface for implementing custom microbenchmarks. It offers a C++ API for programming a desired pattern using a composition of point-to-point communications. When programming a microbenchmark, CommBench's API functions must be hit by all processes as if the program is sequential.
+CommBench has a higher level interface for implementing custom microbenchmarks. It offers a C++ API for programming a desired pattern using a composition of point-to-point communications. When programming a microbenchmark, CommBench's API functions must be hit by all processes.
 
 #### Communicator
 

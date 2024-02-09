@@ -19,18 +19,23 @@ CommBench is programmed into a single header file ``comm.h`` that is included in
 
 using namespace CommBench;
 
-char *sendbuf;
-char *recvbuf;
-size_t numbytes = 1e9;
-allocate(sendbuf, numbytes);
-allocate(recvbuf, numbytes);
+int main() {
 
-Comm test<char>(IPC);
-test.add(sendbuf, recvbuf, numbytes, 0, 1);
-test.measure(5, 10);
+  char *sendbuf;
+  char *recvbuf;
+  size_t numbytes = 1e9;
+  allocate(sendbuf, numbytes);
+  allocate(recvbuf, numbytes);
 
-free(sendbuf);
-free(recvbuf);
+  Comm test<char>(IPC);
+  test.add(sendbuf, recvbuf, numbytes, 0, 1);
+  test.measure(5, 10);
+
+  free(sendbuf);
+  free(recvbuf);
+
+  return 0;
+}
 ```
 
 The above code measures IPC bandwidth across two GPUs the same node is mesaured with message size of 1 GB. Explanation of the CommBench functions are provided below.

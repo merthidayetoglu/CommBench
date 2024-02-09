@@ -59,6 +59,30 @@ time = MPI_Wtime() - time;
 MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 ```
 
+#### Inclusion
+
+CommBench is a single header file that is included into applications as the following example. IPC bandwidth across two GPUs the same node is mesaured by sending a GB of data.
+
+```cpp
+#define PORT_CUDA
+#import "comm.h"
+
+using namespace CommBench;
+
+char *sendbuf;
+char *recvbuf;
+size_t numbytes = 1e9;
+allocate(sendbuf, numbytes);
+allocate(recvbuf, numbytes);
+
+Comm test<char>(IPC);
+test.add(sendbuf, recvbuf, numbytes, 0, 1);
+test.measure(5, 10);
+
+free(sendbuf);
+free(recvbuf);
+```
+
 #### Measurement
 
 It is tedious to take accurate measurements, mainly because it has to be repeated several times to find the peak performance. We provide a measurement functions that executes the communications multiple times and reports the statistics.

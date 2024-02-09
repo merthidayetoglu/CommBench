@@ -16,7 +16,7 @@
 // GPU PORTS
 // #define PORT_CUDA
 // #define PORT_HIP
-#define PORT_SYCL
+// #define PORT_SYCL
 
 // COMMBENCH
 #include "comm.h"
@@ -24,7 +24,6 @@
 #define ROOT 0
 
 // UTILITIES
-#include "util.h"
 void print_args(int, char**, int&, int&, int&, size_t&, int&, int&, int&, int&, int&);
 
 // USER DEFINED TYPE
@@ -55,7 +54,6 @@ int main(int argc, char *argv[])
 
   int numgpu = numgroup * groupsize;
 
-  CommBench::printid = ROOT;
   CommBench::Comm<Type> bench((CommBench::library) library);
 
   size_t data;
@@ -265,9 +263,9 @@ void print_args(int argc, char *argv[],
       printf("1. library:\n");
       for(int lib = 0; lib < CommBench::numlib; lib++)
         switch(lib) {
-          case CommBench::null : printf("      %d for null\n", CommBench::null); break;
+          case CommBench::dummy : printf("      %d for dummy\n", CommBench::dummy); break;
           case CommBench::MPI  : printf("      %d for MPI\n", CommBench::MPI); break;
-          case CommBench::NCCL : printf("      %d for NCCL or RCCL\n", CommBench::NCCL); break;
+          case CommBench::XCCL : printf("      %d for NCCL/RCCL/OneCCL\n", CommBench::XCCL); break;
           case CommBench::IPC  : printf("      %d for IPC\n", CommBench::IPC);
         }
       printf("2. pattern:\n");
@@ -298,6 +296,5 @@ void print_args(int argc, char *argv[],
     }
     abort();
   }
-  setup_gpu();
 }
 

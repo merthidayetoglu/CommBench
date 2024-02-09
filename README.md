@@ -61,7 +61,7 @@ MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 
 #### Inclusion
 
-CommBench is a single header file that is included into applications as the following example. IPC bandwidth across two GPUs the same node is mesaured by sending a GB of data.
+CommBench is a single header file that is included into applications as the following example. IPC bandwidth across two GPUs the same node is mesaured by sending a GB of data. The GPU port is specified by one of ``PORT_CUDA``, ``PORT_HIP``, or ``PORT_SYCL`` for Nvidia, AMD, and Intel systems, respectively. When the GPU port is not specified, CommBench runs on CPUs.
 
 ```cpp
 #define PORT_CUDA

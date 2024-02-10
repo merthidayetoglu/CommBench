@@ -600,7 +600,7 @@ namespace CommBench
       for (int recver = 0; recver < numproc; recver++)
         matrix.push_back(sendmatrix[sender * numproc + recver]);
 
-    if(myid == printid) {
+    /* if(myid == printid) {
       char filename[2048];
       sprintf(filename, "matrix_%d.txt", benchid);
       FILE *matfile = fopen(filename, "w");
@@ -610,7 +610,7 @@ namespace CommBench
         fprintf(matfile, "\n");
       }
       fclose(matfile);
-    }
+    }*/
   }
 
   template <typename T>

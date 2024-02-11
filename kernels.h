@@ -68,7 +68,7 @@
       }
     }
   }
-#elif defined SYCL
+#elif defined PORT_SYCL
 #else
   template <typename T, typename I>
   void sparse_gather(void *sparse_temp) {
@@ -114,7 +114,7 @@
           recvbuf[index[i]] = sendbuf[tid];
     }
   }
-#elif defined SYCL
+#elif defined PORT_SYCL
 #else
   template <typename T, typename I>
   void sparse_scatter(void *sparse_temp) {
@@ -127,7 +127,7 @@
     if(offset == nullptr) {
       #pragma omp parallel for
       for(size_t i = 0; i < count; i++)
-        recvbuf[index[i]] = sendbuf[i]
+        recvbuf[index[i]] = sendbuf[i];
     }
     else {
       #pragma omp parallel for

@@ -538,8 +538,8 @@ namespace CommBench
         for(int sender = 0; sender < numproc; sender++) {
           size_t count = matrix[sender * numproc + recver];
           if(count)
-            printf("%ld ", count);
-            // printf("1 ");
+            // printf("%ld ", count);
+            printf("1 ");
           else
             printf(". ");
         }

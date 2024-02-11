@@ -268,12 +268,12 @@ namespace CommBench
         init_nccl_comm = true;
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
-      }
 #ifdef PORT_CUDA
-      cudaStreamCreate(&stream_nccl);
+        cudaStreamCreate(&stream_nccl);
 #elif defined PORT_HIP
-      hipStreamCreate(&stream_nccl);
+        hipStreamCreate(&stream_nccl);
 #endif
+      }
 #elif defined CAP_ONECCL
       if(!init_ccl_comm) {
         /* initialize ccl */
@@ -284,10 +284,10 @@ namespace CommBench
         if (myid == 0) {
           kvs = ccl::create_main_kvs();
           main_addr = kvs->get_address();
-          MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+          MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, comm_mpi);
         }
         else {
-          MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+          MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, comm_mpi);
           kvs = ccl::create_kvs(main_addr);
         }
         /* create communicator */
@@ -297,8 +297,8 @@ namespace CommBench
         init_ccl_comm = true;
         if(myid == printid)
           printf("******************** ONECCL COMMUNICATOR IS CREATED\n");
+        stream_ccl = new ccl::stream(ccl::create_stream(CommBench::q));
       }
-      stream_ccl = new ccl::stream(ccl::create_stream(CommBench::q));
 #endif
     }
   }
@@ -725,10 +725,10 @@ namespace CommBench
           ncclRecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), ncclInt8, recvproc[recv], comm_nccl, stream_nccl);
         ncclGroupEnd();
 #elif defined CAP_ONECCL
-        for (int send = 0; send < numsend; send++)
-          ccl::send<T>(sendbuf[send] + sendoffset[send], sendcount[send], sendproc[send], *comm_ccl, *stream_ccl).wait();
-        for (int recv = 0; recv < numrecv; recv++)
-          ccl::recv<T>(recvbuf[recv] + recvoffset[recv], recvcount[recv], recvproc[recv], *comm_ccl, *stream_ccl).wait();
+        for (int i = 0; i < numsend; i++)
+          ccl::send<T>(sendbuf[i] + sendoffset[i], sendcount[i], sendproc[i], *comm_ccl, *stream_ccl);
+        for (int i = 0; i < numrecv; i++)
+          ccl::recv<T>(recvbuf[i] + recvoffset[i], recvcount[i], recvproc[i], *comm_ccl, *stream_ccl);
 #endif
         break;
       case IPC:
@@ -774,7 +774,7 @@ namespace CommBench
 #elif defined CAP_NCCL && defined PORT_HIP
         hipStreamSynchronize(stream_nccl);
 #elif defined CAP_ONECCL
-        CommBench::comm_ccl.wait();
+        q.wait();
 #endif
         break;
       case IPC:

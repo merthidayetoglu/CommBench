@@ -60,6 +60,8 @@
 #include <string.h> // for memcpy
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
+#include <unistd.h> // for fd
+#include <sys/syscall.h> // for syscall
 
 namespace CommBench
 {
@@ -420,11 +422,25 @@ namespace CommBench
             MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
             error = hipIpcOpenMemHandle((void**)&recvbuf_ipc[numsend], memhandle, hipIpcMemLazyEnablePeerAccess);
 #elif defined PORT_SYCL
-	    ze_ipc_mem_handle_t memhandle;
-            MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-	    auto ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
-	    auto dev = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
-	    error = zeMemOpenIpcHandle(ctx, dev, memhandle, 0, (void**)&recvbuf_ipc[numsend]);
+            ze_ipc_mem_handle_t handle;
+            {
+              typedef struct { int fd; pid_t pid ; } clone_mem_t;
+              clone_mem_t what_intel_should_have_done;
+              MPI_Recv(&what_intel_should_have_done, sizeof(clone_mem_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+              int pidfd = syscall(SYS_pidfd_open,what_intel_should_have_done.pid,0);
+              //      int myfd  = syscall(SYS_pidfd_getfd,pidfd,what_intel_should_have_done.fd,0);
+              int myfd  = syscall(438,pidfd,what_intel_should_have_done.fd,0);
+	      memcpy((void *)&handle,(void *)&myfd,sizeof(int));
+            }
+	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+	    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+	    error = zeMemOpenIpcHandle(zeContext, zeDevice, handle, 0, (void**)&recvbuf_ipc[numsend]);
+
+	    // ze_ipc_mem_handle_t memhandle;
+            // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+	    // auto ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+	    // auto dev = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+	    // error = zeMemOpenIpcHandle(ctx, dev, memhandle, 0, (void**)&recvbuf_ipc[numsend]);
 #endif
             if(error)
               printf("IpcOpenMemHandle error %d\n", error);
@@ -480,10 +496,21 @@ namespace CommBench
             error = hipIpcGetMemHandle(&myhandle, recvbuf);
             MPI_Send(&myhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #elif defined PORT_SYCL
-            ze_ipc_mem_handle_t myhandle;
-	    auto ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
-            error = zeMemGetIpcHandle(ctx, recvbuf, &myhandle);
-            MPI_Send(&myhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi);
+            ze_ipc_mem_handle_t handle;
+	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+	    error = zeMemGetIpcHandle(zeContext, recvbuf, &handle);
+            {
+              typedef struct { int fd; pid_t pid ; } clone_mem_t;
+              clone_mem_t what_intel_should_have_done;
+	      memcpy((void *)&what_intel_should_have_done.fd,(void *)&handle,sizeof(int));
+	      what_intel_should_have_done.pid = getpid();
+              MPI_Send(&what_intel_should_have_done, sizeof(clone_mem_t), MPI_BYTE, sendid, 0, comm_mpi);
+            }
+
+            // ze_ipc_mem_handle_t myhandle;
+	    // auto ctx = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+            // error = zeMemGetIpcHandle(ctx, recvbuf, &myhandle);
+            // MPI_Send(&myhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi);
 #endif
             if(error)
               printf("IpcGetMemHandle error %d\n", error);
@@ -646,7 +673,7 @@ namespace CommBench
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_SYCL
-          // q_ipc[send].memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+          q_ipc[send].memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
         }
         for(int recv = 0; recv < numrecv; recv++)
@@ -670,7 +697,7 @@ namespace CommBench
 #elif defined CAP_NCCL && defined PORT_HIP
         hipStreamSynchronize(stream_nccl);
 #elif defined CAP_ONECCL
-        CommBench::q.wait();
+        CommBench::comm_ccl.wait();
 #endif
         break;
       case IPC:
@@ -680,9 +707,7 @@ namespace CommBench
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_SYCL
-          // L0 IPC SYNCHRONIZE
-	  // SELF COMMUNICATION
-	  // q_ipc[send].wait();
+	  q_ipc[send].wait();
 #endif
           MPI_Isend(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, &sendrequest[send]);
         }

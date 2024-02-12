@@ -54,7 +54,7 @@ CommBench::Comm<T> Comm(CommBench::Library);
 
 CommBench relies on point-to-point communications. The API offers a single function ``add`` for registering point-to-point communications that can be used as the building block for the desired pattern.
 
-The simple registration function is defined as below, where ``count`` is the number elements of ``T`` to be transfered from ``sendid`` to ``recvid``.
+The simple registration function is defined below, where ``count`` is the number of elements (of type ``T``) to be transfered from ``sendid`` to ``recvid``.
 ```cpp
 void CommBench::Comm<T>::add(T *sendbuf, T *recvbuf, size_t count, int sendid, int recvid);
 ```

@@ -89,7 +89,7 @@ void setup_gpu() {
     printf("\n");
   }
 #elif defined PORT_SYCL
-  if(myid == printid)
+  if(CommBench::myid == CommBench::printid)
     printf("SYCL PORT\n");
   // Initialize the driver
   zeInit(0);
@@ -110,7 +110,7 @@ void setup_gpu() {
     for(int d = 0; d < 1; ++d) {
       ze_device_properties_t device_properties;
       zeDeviceGetProperties(allDevices[d], &device_properties);
-      if(myid == printid)
+      if(CommBench::myid == CommBench::printid)
       {
         if(ZE_DEVICE_TYPE_GPU == device_properties.type)
           printf("driverCount %d deviceCount %d GPU\n", driverCount, deviceCount);
@@ -145,7 +145,7 @@ void setup_gpu() {
   }
   delete[] allDrivers;
 #else
-  if(myid == printid)
+  if(CommBench::myid == CommBench::printid)
     printf("CPU VERSION\n");
 #endif
 

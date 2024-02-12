@@ -1,17 +1,17 @@
 ## CommBench
 
-CommBench is a portable micro-benchmarking tool for high-performance computing (HPC) networks. The tool integrates MPI, NCCL, RCCL, OneCCL, and IPC put & get capabilities, provides an API for users to compose desired communication patterns, takes measurements, and offers ports for benchmarking on Nvidia, AMD, and Intel GPUs.
+CommBench is a portable micro-benchmarking software for high-performance computing (HPC) networks. The tool integrates MPI, NCCL, RCCL, OneCCL, and IPC put & get capabilities, provides an API for users to compose desired communication patterns, takes measurements, and offers ports for benchmarking on Nvidia, AMD, and Intel GPUs.
 
 For questions and support, please send an email to merth@stanford.edu
 
 ## API
 
-CommBench has a higher level interface for implementing custom microbenchmarks. C++ API is used for programming of a desired pattern by composition of point-to-point communications. A simpler Python scripting interface is available in [pyComm](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping). With either API, when programming a microbenchmark, CommBench's API functions must be hit by all processes, where each process is binded to a GPU.
+CommBench has a higher-level interface for implementing custom micro-benchmarks. C++ API is used to program of a desired pattern by composition of point-to-point communications. A more straightforward Python scripting interface is available in [pyComm](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping). With either API, when programming a microbenchmark, CommBench's API functions must be hit by all processes, where each process is bound to a GPU.
 
 
 #### Inclusion
 
-CommBench is programmed into a single header file ``comm.h`` that is included into applications as the following example. The GPU port is specified by one of ``PORT_CUDA``, ``PORT_HIP``, or ``PORT_SYCL`` for Nvidia, AMD, and Intel systems, respectively. When the GPU port is not specified, CommBench runs on CPUs.
+CommBench is programmed into a single header file ``comm.h`` that is included in applications as the following example. The GPU port is specified by one of ``PORT_CUDA``, ``PORT_HIP``, or ``PORT_SYCL`` for Nvidia, AMD, and Intel systems, respectively. When the GPU port is not specified, CommBench runs on CPUs.
 
 ```cpp
 #define PORT_CUDA
@@ -38,12 +38,12 @@ int main() {
 }
 ```
 
-The above code measures IPC bandwidth across two GPUs the same node is mesaured with message size of 1 GB. Explanation of the CommBench functions are provided below.
+The above code measures IPC bandwidth across two GPUs within the same node with a message of 1 GB. An explanation of the CommBench functions is provided below.
 
 
 #### Communicator
 
-The benchmarking pattern is registered into a persistent communicator. The data type must be provided at compile time with the template parameter ``T``. Communication library for the implementation must be specified at this stage because the communiator builds specific data structures accordingly. Current options are: ``MPI``, ``NCCL``, and ``IPC``. 
+The benchmarking pattern is registered into a persistent communicator. The data type must be provided at compile time with the template parameter ``T``. Communication library for the implementation must be specified at this stage because the communicator builds specific data structures accordingly. Current options are ``MPI``, ``NCCL``, and ``IPC``. 
 
 ```cpp
 template <typename T>

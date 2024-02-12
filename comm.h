@@ -411,6 +411,17 @@ namespace CommBench
           ack_sender.push_back(int());
           remotebuf.push_back(recvbuf);
           remoteoffset.push_back(recvoffset);
+          // CREATE STREAMS
+#ifdef PORT_CUDA
+          stream_ipc.push_back(cudaStream_t());
+          cudaStreamCreate(&stream_ipc[numsend]);
+#elif defined PORT_HIP
+          stream_ipc.push_back(hipStream_t());
+          hipStreamCreate(&stream_ipc[numsend]);
+#elif defined PORT_SYCL
+          q_ipc.push_back(sycl::queue(sycl::gpu_selector_v));
+#endif
+          // RECIEVE REMOTE MEMORY HANDLE
           if(sendid != recvid) {
             int error = -1;
 #ifdef PORT_CUDA
@@ -433,23 +444,14 @@ namespace CommBench
 	      memcpy((void *)&memhandle,(void *)&myfd,sizeof(int));
             }
             // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
-	    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[q_ipc.size()-1].get_context());
+	    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[q_ipc.size()-1].get_device());
 	    error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numsend]);
 #endif
             if(error)
               printf("IpcOpenMemHandle error %d\n", error);
             MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
-#ifdef PORT_CUDA
-          stream_ipc.push_back(cudaStream_t());
-          cudaStreamCreate(&stream_ipc[numsend]);
-#elif defined PORT_HIP
-          stream_ipc.push_back(hipStream_t());
-          hipStreamCreate(&stream_ipc[numsend]);
-#elif defined PORT_SYCL
-          q_ipc.push_back(sycl::queue(sycl::gpu_selector_v));
-#endif
           break;
         case IPC_ri:
           ack_sender.push_back(int());
@@ -543,6 +545,16 @@ namespace CommBench
           ack_recver.push_back(int());
           remotebuf.push_back(sendbuf);
           remoteoffset.push_back(sendoffset);
+          // CREATE STREAMS
+#ifdef PORT_CUDA
+          stream_ipc.push_back(cudaStream_t());
+          cudaStreamCreate(&stream_ipc[numrecv]);
+#elif defined PORT_HIP
+          stream_ipc.push_back(hipStream_t());
+          hipStreamCreate(&stream_ipc[numrecv]);
+#elif defined PORT_SYCL
+          q_ipc.push_back(sycl::queue(sycl::gpu_selector_v));
+#endif
           // RECV REMOTE MEMORY HANDLE
           if(sendid != recvid) {
             int error = -1;
@@ -566,23 +578,14 @@ namespace CommBench
               memcpy((void *)&memhandle,(void *)&myfd,sizeof(int));
             }
             // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
-            auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+            auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[q_ipc.size() - 1].get_context());
+            auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[q_ipc.size() - 1].get_device());
             error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numrecv]);
 #endif
             if(error)
               printf("IpcOpenMemHandle error %d\n", error);
             MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
-#ifdef PORT_CUDA
-          stream_ipc.push_back(cudaStream_t());
-          cudaStreamCreate(&stream_ipc[numrecv]);
-#elif defined PORT_HIP
-          stream_ipc.push_back(hipStream_t());
-          hipStreamCreate(&stream_ipc[numrecv]);
-#elif defined PORT_SYCL
-          q_ipc.push_back(sycl::queue(sycl::gpu_selector_v));
-#endif
           break;
         case numlib:
           break;

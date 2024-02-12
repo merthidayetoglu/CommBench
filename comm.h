@@ -444,8 +444,8 @@ namespace CommBench
 	      memcpy((void *)&memhandle,(void *)&myfd,sizeof(int));
             }
             // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[q_ipc.size()-1].get_context());
-	    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[q_ipc.size()-1].get_device());
+	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[numsend].get_context());
+	    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[numsend].get_device());
 	    error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numsend]);
 #endif
             if(error)
@@ -578,8 +578,8 @@ namespace CommBench
               memcpy((void *)&memhandle,(void *)&myfd,sizeof(int));
             }
             // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[q_ipc.size() - 1].get_context());
-            auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[q_ipc.size() - 1].get_device());
+            auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[numrecv].get_context());
+            auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[numrecv].get_device());
             error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numrecv]);
 #endif
             if(error)

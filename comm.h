@@ -360,6 +360,7 @@ namespace CommBench
         printf("Bench %d communication (%d->%d) count = 0 (skipped)\n", benchid, sendid, recvid);
       return;
     }
+    MPI_Barrier(comm_mpi); // THIS IS NECESSARY IN SOME MPI VERSIONS
 
     // REPORT
     if(printid > -1) {

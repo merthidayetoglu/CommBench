@@ -100,6 +100,19 @@ void CommBench::Comm<T>::measure(int warmup, int numiter);
 ```
 For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latency in each round is recorded for calculating the statistics.
 
+## Parallelization
+CommBench is implemented with a single-process-per-GPU paradigm. For example, on a partition with two-nodes with four GPUs per node, there are eight MPI processes assigned as:
+MPI rank 0, node 0, GPU 0
+MPI rank 1, node 0, GPU 1
+MPI rank 2, node 0, GPU 2
+MPI rank 3, node 0, GPU 3
+MPI rank 4, node 1, GPU 0
+MPI rank 5, node 1, GPU 1
+MPI rank 6, node 1, GPU 2
+MPI rank 7, node 1, GPU 3
+
+MPI rank 0 and rank 4 can chosen for measuring bandwidth across nodes. When there are multiple NICs, measuring with one process per node results in utilization of a single NIC. The following micro-benchmark utilizes all NICs by striping point-to-point data across nodes.
+
 ## Multi-Step Patterns
 
 For benchmarking multiple steps of communication patterns where each step depends on the previous, CommBench provides the following function:

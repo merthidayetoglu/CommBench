@@ -1,5 +1,5 @@
-#define PORT_SYCL
-#import "comm.h"
+#define PORT_CUDA
+#include "comm.h"
 
 using namespace CommBench;
 
@@ -12,8 +12,7 @@ int main() {
   allocate(recvbuf, numbytes);
 
   Comm<char> test(IPC);
-  for(int i = 1; i < numproc; i++)
-    test.add(sendbuf, recvbuf, numbytes, 0, i);
+  test.add(sendbuf, recvbuf, numbytes, 0, 1);
 
   test.measure(5, 10);
 

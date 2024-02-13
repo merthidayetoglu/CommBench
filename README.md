@@ -15,7 +15,7 @@ CommBench is programmed into a single header file ``comm.h`` that is included in
 
 ```cpp
 #define PORT_CUDA
-#import "comm.h"
+#include "comm.h"
 
 using namespace CommBench;
 

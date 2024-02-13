@@ -265,7 +265,6 @@ namespace CommBench
           ncclGetUniqueId(&id);
         MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
         ncclCommInitRank(&comm_nccl, numproc, id, myid);
-        init_nccl_comm = true;
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
 #ifdef PORT_CUDA
@@ -273,6 +272,7 @@ namespace CommBench
 #elif defined PORT_HIP
         hipStreamCreate(&stream_nccl);
 #endif
+        init_nccl_comm = true;
       }
 #elif defined CAP_ONECCL
       if(!init_ccl_comm) {

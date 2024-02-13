@@ -1,10 +1,10 @@
 # ----- Make Macros -----
 
 CXX = CC
-CXXFLAGS = -std=c++14 -fopenmp -I${ROCM_PATH}/include -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90A__=1 -x hip
+CXXFLAGS = -DPORT_HIP -std=c++14 -fopenmp -I${ROCM_PATH}/include/rccl -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90A__=1 -x hip
 OPTFLAGS = -O3 
 
-LD_FLAGS = -fopenmp -L${ROCM_PATH}/lib -lamdhip64 -lrccl
+LD_FLAGS = -fopenmp -L${ROCM_PATH}/lib -lamdhip64 -lrccl ${PE_MPICH_GTL_DIR_amd_gfx90a} ${PE_MPICH_GTL_LIBS_amd_gfx90a}
 
 TARGETS = CommBench
 OBJECTS = main.o 

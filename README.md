@@ -113,7 +113,9 @@ CommBench is implemented with a single-process-per-GPU paradigm. For example, on
 | MPI rank 6  | node 1  | GPU 2 |
 | MPI rank 7  | node 1  | GPU 3 |
 
-This logical assignment is made in ``util.h`` for a specific port. For CUDA and HIP ports, all devices in the node must be seen by an MPI process. The device for each process is selected as ``myid % numdevice``, where ``myid`` is the MPI rank and ``numdevice`` is the number of GPUs seen by a process. On the other hand, the SYCL port uses Level Zero backend and the device selection is made by setting ``ZE_SET_DEVICE`` to a single single device. This requires IPC implementation to make systems calls that work only on Aurora, which is an Intel system. Therefore IPC with the SYCL port does not work on Sunspot, which is a testbed of Aurora with an older OS.
+This logical assignment is made in ``util.h`` for a specific port. For CUDA and HIP ports, all devices in the node must be seen by an MPI process. The device for each process is selected as ``myid % numdevice``, where ``myid`` is the MPI rank and ``numdevice`` is the number of GPUs seen by a process.
+
+On the other hand, the SYCL port uses Level Zero backend and the device selection is made by setting ``ZE_SET_DEVICE`` to a single single device. This requires IPC implementation to make systems calls that work only on Aurora, which is an Intel system. Therefore IPC with the SYCL port does not work on Sunspot, which is a testbed of Aurora with an older OS. Run scripts for Aurora, and other systems are provided in the [/scripts](https://github.com/merthidayetoglu/CommBench/tree/master/scripts) folder.
 
 MPI rank 0 and rank 4 can chosen for measuring bandwidth across nodes. When there are multiple NICs, measuring with one process per node results in utilization of a single NIC. The following micro-benchmark utilizes all NICs by striping point-to-point data across nodes.
 

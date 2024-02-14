@@ -1001,6 +1001,25 @@ namespace CommBench
   }
 
   // MEMORY MANAGEMENT
+  size_t memory_gpu = 0;
+  size_t memory_cpu = 0;
+  void report_memory() {
+    std::vector<size_t> gpu_all(numproc);
+    std::vector<size_t> cpu_all(numproc);
+    MPI_Allgather(&memory_gpu, sizeof(size_t), MPI_BYTE, gpu_all.data(), sizeof(size_t), MPI_BYTE, comm_mpi);
+    MPI_Allgather(&memory_cpu, sizeof(size_t), MPI_BYTE, cpu_all.data(), sizeof(size_t), MPI_BYTE, comm_mpi);
+    if(myid == printid) {
+      printf("CommBench memory report:\n");
+      for(int i = 0; i < numproc; i++) {
+        printf("myid: %d GPU memory ", i);
+        print_data(memory_gpu);
+        printf(" CPU memory ");
+        print_data(memory_cpu);
+        printf("\n");
+      }
+    }
+  }
+
   template <typename T>
   void allocate(T *&buffer, size_t n) {
 #ifdef PORT_CUDA
@@ -1012,6 +1031,7 @@ namespace CommBench
 #else
     allocateHost(buffer, n);
 #endif
+    memory_gpu += n * sizeof(T);
   };
 
   template <typename T>
@@ -1024,6 +1044,20 @@ namespace CommBench
     buffer = sycl::malloc_host<T>(n, CommBench::q);
 #else
     buffer = new T[n];
+#endif
+    memory_cpu += n * sizeof(T);
+  }
+
+  template <typename T>
+  void memcpyD2D(T *recvbuf, T *sendbuf, size_t n) {
+#ifdef PORT_CUDA
+    cudaMemcpy(recvbuf, sendbuf, n * sizeof(T), cudaMemcpyDeviceToDevice);
+#elif defined PORT_HIP
+    hipMemcpy(recvbuf, sendbuf, n * sizeof(T), cudaMemcpyDeviceToDevice);
+#elif defined PORT_SYCL
+    CommBench::q.memcpy(recvbuf, sendbuf, n * sizeof(T));
+#else
+    memcpy(recvbuf, sendbuf, n * sizeof(T));
 #endif
   }
 

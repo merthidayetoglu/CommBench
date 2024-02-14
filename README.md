@@ -43,7 +43,7 @@ The above code allocates data on GPUs, and then measures IPC bandwidth across tw
 
 #### Communicator
 
-The benchmarking pattern is registered into a persistent communicator. The data type must be provided at compile time with the template parameter ``T``. Communication library for the implementation must be specified at this stage because the communicator builds specific data structures accordingly. Current options are ``MPI``, ``XCCL``, and ``IPC``. The choice ``XCCL`` is to enable vendor-provided collective communication library, such as NCCL for the CUDA port, RCCL for the HIP port, or OneCCL for the SYCL port. The choice ``IPC`` is enables one-sided put protocol by default. For enabling get protocol, we included the ``IPC_get``` option.
+The benchmarking pattern is registered into a persistent communicator. The data type must be provided at compile time with the template parameter ``T``. Communication library for the implementation must be specified at this stage because the communicator builds specific data structures accordingly. Current options are ``MPI``, ``XCCL``, and ``IPC``. The choice ``XCCL`` is to enable vendor-provided collective communication library, such as NCCL for the CUDA port, RCCL for the HIP port, or OneCCL for the SYCL port. The choice ``IPC`` is enables one-sided put protocol by default. For enabling get protocol, we included the ``IPC_get`` option.
 
 ```cpp
 template <typename T>

@@ -67,7 +67,7 @@ namespace CommBench
 {
   static int printid = 0;
 
-  enum library {dummy, MPI, XCCL, IPC, IPC_ri, numlib};
+  enum library {dummy, MPI, XCCL, IPC, IPC_get, numlib};
 
   static MPI_Comm comm_mpi;
   static int myid;
@@ -102,11 +102,11 @@ namespace CommBench
   static void print_lib(library lib) {
     switch(lib) {
       case dummy : printf("dummy"); break;
-      case IPC    : printf("IPC"); break;
-      case IPC_ri : printf("IPC---RECVER INITIATES"); break;
-      case MPI    : printf("MPI"); break;
-      case XCCL   : printf("XCCL"); break;
-      case numlib : printf("numlib"); break;
+      case IPC     : printf("IPC--PUT"); break;
+      case IPC_get : printf("IPC--GET"); break;
+      case MPI     : printf("MPI"); break;
+      case XCCL    : printf("XCCL"); break;
+      case numlib  : printf("numlib"); break;
     }
   }
 
@@ -454,7 +454,7 @@ namespace CommBench
             MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
           break;
-        case IPC_ri:
+        case IPC_get:
           ack_sender.push_back(int());
           // SEND REMOTE MEMORY HANDLE
           if(sendid != recvid)
@@ -542,7 +542,7 @@ namespace CommBench
             MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
           }
           break;
-        case IPC_ri:
+        case IPC_get:
           ack_recver.push_back(int());
           remotebuf.push_back(sendbuf);
           remoteoffset.push_back(sendoffset);
@@ -746,7 +746,7 @@ namespace CommBench
 #endif
         }
         break;
-      case IPC_ri:
+      case IPC_get:
         for(int send = 0; send < numsend; send++)
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
         for(int recv = 0; recv < numrecv; recv++) {
@@ -795,7 +795,7 @@ namespace CommBench
         for(int recv = 0; recv < numrecv; recv++)
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
-      case IPC_ri:
+      case IPC_get:
         for(int recv = 0; recv < numrecv; recv++) {
 #ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[recv]);

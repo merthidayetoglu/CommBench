@@ -38,7 +38,7 @@ int main() {
 }
 ```
 
-The above code measures IPC bandwidth across two GPUs within the same node with a message of 1 GB. An explanation of the CommBench functions is provided below.
+The above code allocates data on GPUs, and then measures IPC bandwidth across two GPUs within the same node with a message of 1 GB. The direction of data movement is from GPU 0 to GPU 1. An explanation of the CommBench functions is provided below.
 
 
 #### Communicator

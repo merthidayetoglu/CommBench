@@ -102,7 +102,8 @@ For "warming up", communications are executed ``warmup`` times. Then the measure
 
 ## Parallelization
 CommBench is implemented with a single-process-per-GPU paradigm. For example, on a partition with two-nodes with four GPUs per node, there are eight MPI processes assigned as:
-
+|             |         |       |
+| ----------- | ------- | ----- |
 | MPI rank 0  | node 0  | GPU 0 |
 | MPI rank 1  | node 0  | GPU 1 |
 | MPI rank 2  | node 0  | GPU 2 |

@@ -100,7 +100,7 @@ void CommBench::Comm<T>::measure(int warmup, int numiter);
 ```
 For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latency in each round is recorded for calculating the statistics.
 
-## Parallelization
+## Rank Assignment
 CommBench is implemented with a single-process-per-GPU paradigm. For example, on a partition with two-nodes with four GPUs per node, there are eight MPI processes assigned as:
 | MPI Rank    | Node    | Device |
 | ----------- | ------- | ----- |

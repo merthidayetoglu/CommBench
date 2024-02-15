@@ -2,12 +2,9 @@
 // HEADERS
 // #define PORT_CUDA
 // #define PORT_HIP
- #define PORT_SYCL
+#define PORT_SYCL
 #include "comm.h"
 
-// UTILITIES
-#define ROOT 0
-#include "util.h"
 using namespace CommBench;
 using namespace std;
 

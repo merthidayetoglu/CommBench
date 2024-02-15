@@ -1056,7 +1056,7 @@ namespace CommBench
 #ifdef PORT_CUDA
     cudaMemcpy(recvbuf, sendbuf, n * sizeof(T), cudaMemcpyDeviceToDevice);
 #elif defined PORT_HIP
-    hipMemcpy(recvbuf, sendbuf, n * sizeof(T), cudaMemcpyDeviceToDevice);
+    hipMemcpy(recvbuf, sendbuf, n * sizeof(T), hipMemcpyDeviceToDevice);
 #elif defined PORT_SYCL
     CommBench::q.memcpy(recvbuf, sendbuf, n * sizeof(T));
 #else
@@ -1069,7 +1069,7 @@ namespace CommBench
 #ifdef PORT_CUDA
     cudaMemcpy(device, host, n * sizeof(T), cudaMemcpyHostToDevice);
 #elif defined PORT_HIP  
-    hipMemcpy(device, host, n * sizeof(T), cudaMemcpyHostToDevice);
+    hipMemcpy(device, host, n * sizeof(T), hipMemcpyHostToDevice);
 #elif defined PORT_SYCL
     CommBench::q.memcpy(device, host, n * sizeof(T));
 #else
@@ -1082,7 +1082,7 @@ namespace CommBench
 #ifdef PORT_CUDA
     cudaMemcpy(host, device, n * sizeof(T), cudaMemcpyDeviceToHost);
 #elif defined PORT_HIP
-    hipMemcpy(host, device, n * sizeof(T), cudaMemcpyDeviceToHost);
+    hipMemcpy(host, device, n * sizeof(T), hipMemcpyDeviceToHost);
 #elif defined PORT_SYCL
     CommBench::q.memcpy(host, device, n * sizeof(T));
 #else

@@ -7,7 +7,7 @@ int main() {
 
   char *sendbuf;
   char *recvbuf;
-  size_t numbytes = 128e6;
+  size_t numbytes = 1e9;
   allocate(sendbuf, numbytes);
   allocate(recvbuf, numbytes);
 

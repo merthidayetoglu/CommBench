@@ -213,6 +213,9 @@ namespace CommBench
 #include "util.h"
   };
 
+  // THIS IS TO INITIALIZE COMMBENCH
+  static Comm<char> init(dummy);
+
   template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
 

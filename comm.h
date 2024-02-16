@@ -1058,7 +1058,7 @@ namespace CommBench
 #elif defined PORT_HIP
     hipMemcpy(recvbuf, sendbuf, n * sizeof(T), hipMemcpyDeviceToDevice);
 #elif defined PORT_SYCL
-    CommBench::q.memcpy(recvbuf, sendbuf, n * sizeof(T));
+    CommBench::q.memcpy(recvbuf, sendbuf, n * sizeof(T)).wait();
 #else
     memcpy(recvbuf, sendbuf, n * sizeof(T));
 #endif
@@ -1071,7 +1071,7 @@ namespace CommBench
 #elif defined PORT_HIP  
     hipMemcpy(device, host, n * sizeof(T), hipMemcpyHostToDevice);
 #elif defined PORT_SYCL
-    CommBench::q.memcpy(device, host, n * sizeof(T));
+    CommBench::q.memcpy(device, host, n * sizeof(T)).wait();
 #else
     memcpy(device, host, n * sizeof(T));
 #endif
@@ -1084,7 +1084,7 @@ namespace CommBench
 #elif defined PORT_HIP
     hipMemcpy(host, device, n * sizeof(T), hipMemcpyDeviceToHost);
 #elif defined PORT_SYCL
-    CommBench::q.memcpy(host, device, n * sizeof(T));
+    CommBench::q.memcpy(host, device, n * sizeof(T)).wait();
 #else
     memcpy(host, device, n * sizeof(T));
 #endif

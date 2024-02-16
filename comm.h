@@ -245,7 +245,7 @@ namespace CommBench
     numrecv = 0;
 
     if(myid == printid) {
-      printf("printid: %d Create Comm %d with %d processors\n", printid, benchid, numproc);
+      printf("printid: %d Create Bench %d with %d processors\n", printid, benchid, numproc);
       printf("  Port: ");
 #ifdef PORT_CUDA
       printf("CUDA ");

@@ -270,13 +270,13 @@ namespace CommBench
         ncclCommInitRank(&comm_nccl, numproc, id, myid);
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
-#ifdef PORT_CUDA
-        cudaStreamCreate(&stream_nccl);
-#elif defined PORT_HIP
-        hipStreamCreate(&stream_nccl);
-#endif
         init_nccl_comm = true;
       }
+#ifdef PORT_CUDA
+      cudaStreamCreate(&stream_nccl);
+#elif defined PORT_HIP
+      hipStreamCreate(&stream_nccl);
+#endif
 #elif defined CAP_ONECCL
       if(!init_ccl_comm) {
         /* initialize ccl */

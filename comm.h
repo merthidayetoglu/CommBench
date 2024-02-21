@@ -102,8 +102,8 @@ namespace CommBench
   static void print_lib(library lib) {
     switch(lib) {
       case dummy : printf("dummy"); break;
-      case IPC     : printf("IPC--PUT"); break;
-      case IPC_get : printf("IPC--GET"); break;
+      case IPC     : printf("PUT"); break;
+      case IPC_get : printf("GET"); break;
       case MPI     : printf("MPI"); break;
       case XCCL    : printf("XCCL"); break;
       case numlib  : printf("numlib"); break;
@@ -1010,6 +1010,7 @@ namespace CommBench
     MPI_Allgather(&memory, sizeof(size_t), MPI_BYTE, memory_all.data(), sizeof(size_t), MPI_BYTE, comm_mpi);
     if(myid == printid) {
       size_t memory_total = 0;
+      printf("\n");
       printf("CommBench memory report:\n");
       for(int i = 0; i < numproc; i++) {
         printf("proc: %d memory ", i);
@@ -1019,7 +1020,8 @@ namespace CommBench
       }
       printf("total memory: ");
       print_data(memory_total);
-      printf("\n\n");
+      printf("\n");
+      printf("\n");
     }
   }
 

@@ -1004,22 +1004,22 @@ namespace CommBench
   }
 
   // MEMORY MANAGEMENT
-  size_t memory_gpu = 0;
-  size_t memory_cpu = 0;
+  size_t memory = 0;
   void report_memory() {
-    std::vector<size_t> gpu_all(numproc);
-    std::vector<size_t> cpu_all(numproc);
-    MPI_Allgather(&memory_gpu, sizeof(size_t), MPI_BYTE, gpu_all.data(), sizeof(size_t), MPI_BYTE, comm_mpi);
-    MPI_Allgather(&memory_cpu, sizeof(size_t), MPI_BYTE, cpu_all.data(), sizeof(size_t), MPI_BYTE, comm_mpi);
+    std::vector<size_t> memory_all(numproc);
+    MPI_Allgather(&memory, sizeof(size_t), MPI_BYTE, memory_all.data(), sizeof(size_t), MPI_BYTE, comm_mpi);
     if(myid == printid) {
+      size_t memory_total = 0;
       printf("CommBench memory report:\n");
       for(int i = 0; i < numproc; i++) {
-        printf("myid: %d GPU memory ", i);
-        print_data(memory_gpu);
-        printf(" CPU memory ");
-        print_data(memory_cpu);
+        printf("proc: %d memory ", i);
+        print_data(memory_all[i]);
         printf("\n");
+        memory_total += memory_all[i];
       }
+      printf("total memory: ");
+      print_data(memory_total);
+      printf("\n\n");
     }
   }
 
@@ -1034,7 +1034,7 @@ namespace CommBench
 #else
     allocateHost(buffer, n);
 #endif
-    memory_gpu += n * sizeof(T);
+    memory += n * sizeof(T);
   };
 
   template <typename T>
@@ -1048,7 +1048,6 @@ namespace CommBench
 #else
     buffer = new T[n];
 #endif
-    memory_cpu += n * sizeof(T);
   }
 
   template <typename T>

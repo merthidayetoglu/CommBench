@@ -1,7 +1,7 @@
 
 module reset
 module load nccl
-openmpi/4.1.5+cuda
+module load openmpi/4.1.5+cuda
 
 salloc --account=bbkf-delta-gpu --partition=gpuA100x4-interactive \
   --nodes=4 --gpus-per-node=4 --ntasks-per-node=4 --cpus-per-task=16 \

@@ -1,5 +1,5 @@
-#define PORT_CUDA
-#include "comm.h"
+#define PORT_SYCL
+#include "commbench.h"
 
 using namespace CommBench;
 

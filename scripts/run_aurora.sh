@@ -20,7 +20,7 @@ echo Running on nodes `cat $PBS_NODEFILE`
 
 NNODES=`wc -l < $PBS_NODEFILE`
 NRANKS=12            # Number of MPI ranks per node
-NDEPTH=8            # Number of hardware threads per rank, spacing between MPI ranks on a node
+# NDEPTH=8            # Number of hardware threads per rank, spacing between MPI ranks on a node
 # NTHREADS=$OMP_NUM_THREADS # Number of OMP threads per rank, given to OMP_NUM_THREADS
 
 export MPICH_GPU_SUPPORT_ENABLED=1

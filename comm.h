@@ -1,4 +1,78 @@
   template <typename T>
+  class Comm {
+
+    public :
+
+    // IMPLEMENTATION LIBRARY
+    const library lib;
+
+    // STATS
+    int benchid;
+    int numcomm = 0;
+
+    // REGISTRY
+    int numsend;
+    int numrecv;
+    std::vector<T*> sendbuf;
+    std::vector<T*> recvbuf;
+    std::vector<int> sendproc;
+    std::vector<int> recvproc;
+    std::vector<size_t> sendcount;
+    std::vector<size_t> recvcount;
+    std::vector<size_t> sendoffset;
+    std::vector<size_t> recvoffset;
+
+    // MEMORY
+    std::vector<T*> buffer_list;
+    std::vector<size_t> buffer_count;
+
+    // MPI
+    std::vector<MPI_Request> sendrequest;
+    std::vector<MPI_Request> recvrequest;
+
+    // XCCL
+#if defined CAP_NCCL && defined PORT_CUDA
+    cudaStream_t stream_nccl;
+#elif defined CAP_NCCL && defined PORT_HIP
+    hipStream_t stream_nccl;
+#elif defined CAP_ONECCL
+    ccl::stream *stream_ccl;
+#endif
+
+    // IPC
+    std::vector<T*> remotebuf;
+    std::vector<size_t> remoteoffset;
+    std::vector<int> ack_sender;
+    std::vector<int> ack_recver;
+#ifdef PORT_CUDA
+    std::vector<cudaStream_t> stream_ipc;
+#elif defined PORT_HIP
+    std::vector<hipStream_t> stream_ipc;
+#elif defined PORT_SYCL
+    std::vector<sycl::queue> q_ipc;
+#endif
+
+    Comm(library lib);
+    void free();
+
+    void add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
+    void add(T *sendbuf, T *recvbuf, size_t count, int sendid, int recvid);
+    void add_lazy(size_t count, int sendid, int recvid);
+    void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
+    void start();
+    void wait();
+
+    void measure(int warmup, int numiter);
+    void measure(int warmup, int numiter, size_t data);
+    void getMatrix(std::vector<size_t> &matrix);
+    void report();
+
+    void allocate(T *&buffer, size_t n);
+    void allocate(T *&buffer, size_t n, int i);
+#include "util.h"
+  };
+
+  template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
 
     benchid = numbench;
@@ -416,7 +490,7 @@
     if(myid == printid) {
       printf("\nCommBench %d: ", benchid);
       print_lib(lib);
-      printf(" communication matrix (reciever x sender): %d\n", numcomm);
+      printf(" communication matrix (reciever x sender) nnz: %d\n", numcomm);
       for(int recver = 0; recver < numproc; recver++) {
         for(int sender = 0; sender < numproc; sender++) {
           size_t count = matrix[sender * numproc + recver];
@@ -439,18 +513,27 @@
     MPI_Allreduce(MPI_IN_PLACE, &sendTotal, 1, MPI_LONG, MPI_SUM, comm_mpi);
     MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_LONG, MPI_SUM, comm_mpi);
 
-    int total_buff = buffer_list.size();
-    std::vector<int> total_buffs(numproc);
-    MPI_Allgather(&total_buff, 1, MPI_INT, total_buffs.data(), 1, MPI_INT, MPI_COMM_WORLD);
-    size_t total_count = 0;
-    for(size_t count : buffer_count)
-      total_count += count;
-    std::vector<size_t> total_counts(numproc);
-    MPI_Allgather(&total_count, sizeof(size_t), MPI_BYTE, total_counts.data(), sizeof(size_t), MPI_BYTE, MPI_COMM_WORLD);
-    if(myid == printid) {
-      for(int p = 0; p < numproc; p++) {
-        printf("proc %d: %d pieces count %ld ", p, total_buffs[p], total_counts[p]);
-        print_data(total_counts[p] * sizeof(T));
+    int numbuf = buffer_list.size();
+    MPI_Allreduce(MPI_IN_PLACE, &numbuf, 1, MPI_INT, MPI_SUM, comm_mpi);
+    if(numbuf) {
+      int total_buff = buffer_list.size();
+      std::vector<int> total_buffs(numproc);
+      MPI_Allgather(&total_buff, 1, MPI_INT, total_buffs.data(), 1, MPI_INT, comm_mpi);
+      MPI_Allreduce(MPI_IN_PLACE, &total_buff, 1, MPI_INT, MPI_SUM, comm_mpi);
+      long total_count = 0;
+      for(size_t count : buffer_count)
+        total_count += count;
+      std::vector<long> total_counts(numproc);
+      MPI_Allgather(&total_count, sizeof(long), MPI_BYTE, total_counts.data(), sizeof(long), MPI_BYTE, comm_mpi);
+      MPI_Allreduce(MPI_IN_PLACE, &total_count, 1, MPI_LONG, MPI_SUM, comm_mpi);
+      if(myid == printid) {
+        for(int p = 0; p < numproc; p++) {
+          printf("proc %d: %d pieces count %ld ", p, total_buffs[p], total_counts[p]);
+          print_data(total_counts[p] * sizeof(T));
+          printf("\n");
+        }
+        printf("total pieces: %d count %ld ", total_buff, total_count);
+        print_data(total_count * sizeof(T));
         printf("\n");
       }
     }

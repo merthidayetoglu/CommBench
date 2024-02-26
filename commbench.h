@@ -29,7 +29,7 @@
 #ifdef PORT_SYCL
 #define CAP_ZE
 // #define CAP_ONECCL
-#define IPC_ext
+// #define IPC_ext
 #endif
 
 // DEPENDENCIES

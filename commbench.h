@@ -27,8 +27,9 @@
 #define CAP_NCCL
 #endif
 #ifdef PORT_SYCL
-// #define CAP_ONECCL
 #define CAP_ZE
+// #define CAP_ONECCL
+#define IPC_ext
 #endif
 
 // DEPENDENCIES
@@ -72,14 +73,14 @@ namespace CommBench
   static MPI_Comm comm_mpi;
   static int myid;
   static int numproc;
+#ifdef PORT_SYCL
+  static sycl::queue q(sycl::gpu_selector_v);
+#endif
 #ifdef CAP_NCCL
   static ncclComm_t comm_nccl;
 #endif
 #ifdef CAP_ONECCL
   static ccl::communicator *comm_ccl;
-#endif
-#ifdef PORT_SYCL
-  static sycl::queue q(sycl::gpu_selector_v);
 #endif
 
   static int numbench = 0;

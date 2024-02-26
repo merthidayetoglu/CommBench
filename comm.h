@@ -51,6 +51,11 @@
 #elif defined PORT_SYCL
     std::vector<sycl::queue> q_ipc;
 #endif
+#ifdef IPC_ext
+    std::vector<ze_command_list_handle_t> hCommandList;
+    ze_event_pool_handle_t hEventPool;
+    std::vector<ze_event_handle_t> hEvent;
+#endif
 
     Comm(library lib);
     void free();
@@ -59,6 +64,32 @@
     void add(T *sendbuf, T *recvbuf, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
     void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
+    void init() {
+#ifdef IPC_ext
+      if(lib == IPC) {
+        if(numsend) {
+          ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, ZE_EVENT_POOL_FLAG_HOST_VISIBLE, (uint32_t)numsend};
+          // ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, 0, (uint32_t)numsend};
+          auto hContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+          auto hDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+          // zeEventPoolCreate(hContext, &eventPoolDesc, 1, &hDevice, &hEventPool);
+          zeEventPoolCreate(hContext, &eventPoolDesc, 0, nullptr, &hEventPool);
+          ze_event_desc_t eventDesc = {};
+          eventDesc.stype = ZE_STRUCTURE_TYPE_EVENT_DESC;
+          eventDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+          // eventDesc.wait = ZE_EVENT_SCOPE_FLAG_DEVICE;
+          for(int send = 0; send < numsend; send++) {
+            eventDesc.index = send;
+            hEvent.push_back(ze_event_handle_t());
+            int error = zeEventCreate(hEventPool, &eventDesc, &hEvent[send]);
+            if(error)
+              printf("zeEventCreate is failed!!!!!!!!!!!!! *************************\n");
+          }
+          printf("myid %d numevent %ld\n", myid, hEvent.size());
+        }
+      }
+#endif
+    }
     void start();
     void wait();
 
@@ -160,6 +191,57 @@
       }
 #endif
     }
+#ifdef IPC_ext
+    if(lib == IPC) {
+      ze_context_handle_t hContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+      ze_device_handle_t hDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+
+      ze_device_properties_t device_properties = {ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
+      zeDeviceGetProperties(hDevice, &device_properties);
+      uint32_t numQueueGroups = 0;
+      zeDeviceGetCommandQueueGroupProperties(hDevice, &numQueueGroups, nullptr);
+      std::vector<ze_command_queue_group_properties_t> queueProperties(numQueueGroups);
+      for (ze_command_queue_group_properties_t &prop : queueProperties)
+        prop = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, nullptr};
+      zeDeviceGetCommandQueueGroupProperties(hDevice, &numQueueGroups, queueProperties.data());
+      int n_commands_lists = 0;
+      if(myid == printid)
+        printf("device descovery:\n");
+      for (uint32_t i = 0; i < numQueueGroups; i++) {
+        bool isCompute = false;
+        bool isCopy = false;
+        if (queueProperties[i].flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE)
+          isCompute = true;
+        if ((queueProperties[i].flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY))
+          isCopy = true;
+        if(myid == printid)
+          printf("group %d isCompute %d isCopy %d\n", i, isCompute, isCopy);
+        for (uint32_t j = 0; j < queueProperties[i].numQueues; j++) {
+          if(myid == printid)
+            printf("  queue: %d\n", j);
+          n_commands_lists++;
+        }
+      }
+      if(myid == printid)
+        printf("n_command_list %d\n", n_commands_lists);
+      {
+        ze_command_queue_desc_t cmdQueueDesc = {};
+        cmdQueueDesc.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC;
+        int q = 0;
+        for(int ord = 0; ord < numQueueGroups; ord++) {
+          cmdQueueDesc.ordinal = ord;
+          for(int ind = 0; ind < queueProperties[ord].numQueues; ind++) {
+            cmdQueueDesc.index = ind;
+            hCommandList.push_back(ze_command_list_handle_t());
+            zeCommandListCreateImmediate(hContext, hDevice, &cmdQueueDesc, &hCommandList[q]);
+            q++;
+          }
+        }
+        if(myid == printid)
+          printf("hCommandList size: %ld\n", hCommandList.size());
+      }
+    }
+#endif
   }
 
   template <typename T>
@@ -304,8 +386,8 @@
 	      memcpy((void *)&memhandle,(void *)&myfd,sizeof(int));
             }
             // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[numsend].get_context());
-	    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[numsend].get_device());
+	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+	    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
 	    error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numsend]);
 #endif
             if(error)
@@ -438,8 +520,8 @@
               memcpy((void *)&memhandle,(void *)&myfd,sizeof(int));
             }
             // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[numrecv].get_context());
-            auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q_ipc[numrecv].get_device());
+            auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+            auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
             error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numrecv]);
 #endif
             if(error)
@@ -610,7 +692,14 @@
 #elif defined PORT_HIP
           hipMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_SYCL
+#ifdef IPC_ext
+          int engine = 0;
+          int error = zeCommandListAppendMemoryCopy(hCommandList[engine], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send], hEvent[send], 0, nullptr);
+          if(error)
+            printf("zezeCommandListAppendMemoryCopy error %d\n", error);
+#else
           q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+#endif
 #endif
         }
         break;
@@ -656,7 +745,28 @@
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_SYCL
+#ifdef IPC_ext
+          for (int send = 0; send < numsend; send++) {
+            int error = zeEventHostSynchronize(hEvent[send], std::numeric_limits<uint64_t>::max());
+            if(error)
+              printf("zeEventHostSynchronize error %d\n", error);
+	  }
+          {
+            int error = zeEventQueryStatus(hEvent[send]);
+            if(error)
+              printf("zeEventQueryStatus error %d\n", error);
+          }
+          for (int send = 0; send < numsend; send++) {
+            /*int error = zeCommandListAppendEventReset(hCommandList[0], hEvent[send]);
+            if(error)
+              printf("zeCommandListAppendEventReset error %d\n", error);*/
+            int error = zeEventHostReset(hEvent[send]);
+            if(error)
+              printf("zeEventHostReset error %d\n", error);
+	  }
+#else
 	  q_ipc[send].wait();
+#endif
 #endif
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
         }

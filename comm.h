@@ -51,6 +51,12 @@
 #elif defined PORT_SYCL
     std::vector<sycl::queue> q_ipc;
 #endif
+    // IPC ZE
+// #define IPC_ze
+#ifdef IPC_ze
+    std::vector<ze_command_list_handle_t> command_list;
+    std::vector<ze_command_queue_handle_t> command_queue;
+#endif
 
     Comm(library lib);
     void free();
@@ -61,6 +67,12 @@
     void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void start();
     void wait();
+#ifdef IPC_ze
+    void init() {
+      for(int i = 0; i < command_queue.size(); i++)
+        zeCommandListClose(command_list[i]);
+    }
+#endif
 
     void measure(int warmup, int numiter);
     void measure(int warmup, int numiter, size_t data);
@@ -157,6 +169,63 @@
         if(myid == printid)
           printf("******************** ONECCL COMMUNICATOR IS CREATED\n");
         stream_ccl = new ccl::stream(ccl::create_stream(CommBench::q));
+      }
+#endif
+    }
+    if(lib == IPC) {
+#ifdef IPC_ze
+      ze_context_handle_t hContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+      ze_device_handle_t hDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+
+      ze_device_properties_t device_properties = {ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
+      zeDeviceGetProperties(hDevice, &device_properties);
+      uint32_t numQueueGroups = 0;
+      zeDeviceGetCommandQueueGroupProperties(hDevice, &numQueueGroups, nullptr);
+      std::vector<ze_command_queue_group_properties_t> queueProperties(numQueueGroups);
+      for (ze_command_queue_group_properties_t &prop : queueProperties)
+        prop = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, nullptr};
+      zeDeviceGetCommandQueueGroupProperties(hDevice, &numQueueGroups, queueProperties.data());
+      int n_commands_lists = 0;
+      if(myid == printid)
+        printf("device descovery:\n");
+      for (uint32_t i = 0; i < numQueueGroups; i++) {
+        bool isCompute = false;
+        bool isCopy = false;
+        if (queueProperties[i].flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE)
+          isCompute = true;
+        if ((queueProperties[i].flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY))
+          isCopy = true;
+        if(myid == printid)
+          printf("group %d isCompute %d isCopy %d\n", i, isCompute, isCopy);
+        for (uint32_t j = 0; j < queueProperties[i].numQueues; j++) {
+          if(myid == printid)
+            printf("  queue: %d\n", j);
+          n_commands_lists++;
+        }
+      }
+      {
+        int q = 0;
+        for(int ord = 0; ord < numQueueGroups; ord++) {
+          for(int ind = 0; ind < queueProperties[ord].numQueues; ind++) {
+            ze_command_queue_desc_t cmdQueueDesc = {};
+            cmdQueueDesc.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC;
+            cmdQueueDesc.ordinal = ord;
+            cmdQueueDesc.index = ind;
+
+	    ze_command_list_desc_t command_list_description{};
+            command_list_description.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC;
+            command_list_description.commandQueueGroupOrdinal = ord;
+            command_list_description.pNext = nullptr;
+
+	    command_queue.push_back(ze_command_queue_handle_t());
+            command_list.push_back(ze_command_list_handle_t());
+	    zeCommandQueueCreate(hContext, hDevice, &cmdQueueDesc, &command_queue[q]);
+	    zeCommandListCreate(hContext, hDevice, &command_list_description, &command_list[q]); 
+            q++;
+          }
+        }
+        if(myid == printid)
+          printf("number of command queues: %ld\n", command_queue.size());
       }
 #endif
     }
@@ -312,6 +381,14 @@
               printf("IpcOpenMemHandle error %d\n", error);
             MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
+#ifdef IPC_ze
+          {
+            int queue = numsend % command_queue.size();
+            if(myid == printid)
+              printf("selected queue: %d\n", queue);
+            zeCommandListAppendMemoryCopy(command_list[queue], remotebuf[numsend] + remoteoffset[numsend], this->sendbuf[numsend] + this->sendoffset[numsend], this->sendcount[numsend], nullptr, 0, nullptr);
+          }
+#endif
           break;
         case IPC_get:
           ack_sender.push_back(int());
@@ -609,11 +686,15 @@
           cudaMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_HIP
           hipMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
-#elif defined PORT_SYCL
+#elif defined PORT_SYCL && !defined IPC_ze
           q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
           // q_ipc[send].memset(remotebuf[send], -2, sendcount[send] * sizeof(T)).wait();
 #endif
         }
+#ifdef IPC_ze
+        for(int i = 0; i < command_queue.size(); i++)
+          zeCommandQueueExecuteCommandLists(command_queue[i], 1, &command_list[i], nullptr);
+#endif
         break;
       case IPC_get:
         for(int send = 0; send < numsend; send++)
@@ -656,13 +737,19 @@
           cudaStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[send]);
-#elif defined PORT_SYCL
+#elif defined PORT_SYCL && !defined IPC_ze
 	  q_ipc[send].wait();
 #endif
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
         }
         for(int recv = 0; recv < numrecv; recv++)
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
+#ifdef IPC_ze
+        {
+          for(int i = 0; i < command_queue.size(); i++)
+            zeCommandQueueSynchronize(command_queue[i], UINT64_MAX); 
+	}
+#endif
         break;
       case IPC_get:
         for(int recv = 0; recv < numrecv; recv++) {

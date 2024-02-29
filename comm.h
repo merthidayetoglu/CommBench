@@ -53,9 +53,12 @@
 #endif
     // IPC ZE
 // #define IPC_ze
+// #define QUEUE_ZE 0
+// #define OFFFSET_ZE 0
 #ifdef IPC_ze
     std::vector<ze_command_list_handle_t> command_list;
     std::vector<ze_command_queue_handle_t> command_queue;
+    bool command_list_closed = false;
 #endif
 
     Comm(library lib);
@@ -67,12 +70,6 @@
     void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
     void start();
     void wait();
-#ifdef IPC_ze
-    void init() {
-      for(int i = 0; i < command_queue.size(); i++)
-        zeCommandListClose(command_list[i]);
-    }
-#endif
 
     void measure(int warmup, int numiter);
     void measure(int warmup, int numiter, size_t data);
@@ -383,7 +380,14 @@
           }
 #ifdef IPC_ze
           {
+  #ifdef QUEUE_ZE
+            int queue = QUEUE_ZE;
+    #ifdef OFFSET_ZE
+            queue += OFFSET_ZE + numsend % (command_queue.size() - OFFSET_ZE)
+    #endif
+  #else
             int queue = numsend % command_queue.size();
+#endif
             if(myid == printid)
               printf("selected queue: %d\n", queue);
             zeCommandListAppendMemoryCopy(command_list[queue], remotebuf[numsend] + remoteoffset[numsend], this->sendbuf[numsend] + this->sendoffset[numsend], this->sendcount[numsend], nullptr, 0, nullptr);
@@ -692,6 +696,13 @@
 #endif
         }
 #ifdef IPC_ze
+        // closing comman list is necessary to prevent hang. This may cause one-time cost in the first communication invoke.
+        if(!command_list_closed) {
+          for(int i = 0; i < command_queue.size(); i++)
+            zeCommandListClose(command_list[i]);
+          command_list_closed = true;
+        }
+        // launch PUT commands on all queues and overlap them
         for(int i = 0; i < command_queue.size(); i++)
           zeCommandQueueExecuteCommandLists(command_queue[i], 1, &command_list[i], nullptr);
 #endif
@@ -732,6 +743,10 @@
 #endif
         break;
       case IPC:
+#ifdef IPC_ze
+        for(int i = 0; i < command_queue.size(); i++)
+          zeCommandQueueSynchronize(command_queue[i], UINT64_MAX);
+#endif
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[send]);
@@ -744,12 +759,6 @@
         }
         for(int recv = 0; recv < numrecv; recv++)
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
-#ifdef IPC_ze
-        {
-          for(int i = 0; i < command_queue.size(); i++)
-            zeCommandQueueSynchronize(command_queue[i], UINT64_MAX); 
-	}
-#endif
         break;
       case IPC_get:
         for(int recv = 0; recv < numrecv; recv++) {

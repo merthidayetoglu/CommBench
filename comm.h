@@ -169,7 +169,7 @@
       }
 #endif
     }
-    if(lib == IPC) {
+    if(lib == IPC || lib == IPC_get) {
 #ifdef IPC_ze
       ze_context_handle_t hContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
       ze_device_handle_t hDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
@@ -380,16 +380,9 @@
           }
 #ifdef IPC_ze
           {
-  #ifdef QUEUE_ZE
-            int queue = QUEUE_ZE;
-    #ifdef OFFSET_ZE
-            queue += OFFSET_ZE + numsend % (command_queue.size() - OFFSET_ZE)
-    #endif
-  #else
-            int queue = numsend % command_queue.size();
-#endif
+            int queue = (QUEUE_ZE + numsend * OFFSET_ZE) % command_queue.size();
             if(myid == printid)
-              printf("selected queue: %d\n", queue);
+              printf("selected put queue: %d\n", queue);
             zeCommandListAppendMemoryCopy(command_list[queue], remotebuf[numsend] + remoteoffset[numsend], this->sendbuf[numsend] + this->sendoffset[numsend], this->sendcount[numsend], nullptr, 0, nullptr);
           }
 #endif
@@ -527,6 +520,14 @@
               printf("IpcOpenMemHandle error %d\n", error);
             MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
+#ifdef IPC_ze
+          {
+            int queue = (QUEUE_ZE + numrecv * OFFSET_ZE) % command_queue.size();
+            if(myid == printid)
+              printf("selected get queue: %d\n", queue);
+            zeCommandListAppendMemoryCopy(command_list[queue], this->recvbuf[numrecv] + this->recvoffset[numrecv], remotebuf[numrecv] + remoteoffset[numrecv], this->recvcount[numrecv], nullptr, 0, nullptr);
+          }
+#endif
           break;
         case numlib:
           break;
@@ -696,13 +697,11 @@
 #endif
         }
 #ifdef IPC_ze
-        // closing comman list is necessary to prevent hang. This may cause one-time cost in the first communication invoke.
         if(!command_list_closed) {
           for(int i = 0; i < command_queue.size(); i++)
             zeCommandListClose(command_list[i]);
           command_list_closed = true;
         }
-        // launch PUT commands on all queues and overlap them
         for(int i = 0; i < command_queue.size(); i++)
           zeCommandQueueExecuteCommandLists(command_queue[i], 1, &command_list[i], nullptr);
 #endif
@@ -716,10 +715,19 @@
           cudaMemcpyAsync(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[recv]);
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[recv]);
-#elif defined PORT_SYCL
+#elif defined PORT_SYCL && !defined IPC_ze
           q_ipc[recv].memcpy(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T));
 #endif
         }
+#ifdef IPC_ze
+        if(!command_list_closed) {
+          for(int i = 0; i < command_queue.size(); i++)
+            zeCommandListClose(command_list[i]);
+          command_list_closed = true;
+        }
+        for(int i = 0; i < command_queue.size(); i++)
+          zeCommandQueueExecuteCommandLists(command_queue[i], 1, &command_list[i], nullptr);
+#endif
         break;
       default:
         break;
@@ -761,12 +769,16 @@
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
       case IPC_get:
+#ifdef IPC_ze
+        for(int i = 0; i < command_queue.size(); i++)
+          zeCommandQueueSynchronize(command_queue[i], UINT64_MAX);
+#endif
         for(int recv = 0; recv < numrecv; recv++) {
 #ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[recv]);
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[recv]);
-#elif defined PORT_SYCL
+#elif defined PORT_SYCL && !defined IPC_ze
           q_ipc[recv].wait();
 #endif
         }

@@ -53,12 +53,11 @@
 #endif
     // IPC ZE
 // #define IPC_ze
-// #define QUEUE_ZE 0
-// #define OFFFSET_ZE 0
 #ifdef IPC_ze
     std::vector<ze_command_list_handle_t> command_list;
     std::vector<ze_command_queue_handle_t> command_queue;
     bool command_list_closed = false;
+    int ordinal2index = 0;
 #endif
 
     Comm(library lib);
@@ -315,6 +314,49 @@
     }
     numcomm++;
 
+#ifdef IPC_ze
+    // queue selection for copy engines
+    int queue = -1; // invalid queue
+    if((lib == IPC) || (lib == IPC_get)) {
+      if(sendid / 2 == recvid / 2) {
+        // in the same device
+        if(sendid == recvid)
+          queue = 0; // self
+        else
+          queue = 1; // across tiles in the same device
+      }
+      else {
+        // tiles across devices
+        queue = 2 + (ordinal2index % 7); // roundrobin: 2, 3, 4, 5, 6, 7, 8, 2, 3, ...
+        if(((lib == IPC) && (myid == sendid)) || ((lib == IPC_get) && (myid == recvid)))
+          ordinal2index++;
+      }
+      // REPORT QUEUE
+      if(printid > -1) {
+        if(lib == IPC) {
+          // PUT (SENDER INITIALIZES)
+          if(myid == sendid)
+            MPI_Send(&queue, 1, MPI_INT, printid, 0, comm_mpi);
+          if(myid == printid) {
+            int queue_sender;
+            MPI_Recv(&queue_sender, 1, MPI_INT, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            printf("selected put queue: %d\n", queue_sender);
+          }
+        }
+        if(lib == IPC_get) {
+          // GET (RECVER INITIALIZES)
+          if(myid == recvid)
+            MPI_Send(&queue, 1, MPI_INT, printid, 0, comm_mpi);
+          if(myid == printid) {
+            int queue_recver;
+            MPI_Recv(&queue_recver, 1, MPI_INT, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            printf("selected get queue: %d\n", queue_recver);
+          }
+        }
+      }
+    }
+#endif
+
     // SENDER DATA STRUCTURES
     if(myid == sendid) {
 
@@ -379,12 +421,7 @@
             MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
 #ifdef IPC_ze
-          {
-            int queue = (QUEUE_ZE + numsend * OFFSET_ZE) % command_queue.size();
-            if(myid == printid)
-              printf("selected put queue: %d\n", queue);
-            zeCommandListAppendMemoryCopy(command_list[queue], remotebuf[numsend] + remoteoffset[numsend], this->sendbuf[numsend] + this->sendoffset[numsend], this->sendcount[numsend], nullptr, 0, nullptr);
-          }
+          zeCommandListAppendMemoryCopy(command_list[queue], remotebuf[numsend] + remoteoffset[numsend], this->sendbuf[numsend] + this->sendoffset[numsend], this->sendcount[numsend], nullptr, 0, nullptr);
 #endif
           break;
         case IPC_get:
@@ -521,12 +558,7 @@
             MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
 #ifdef IPC_ze
-          {
-            int queue = (QUEUE_ZE + numrecv * OFFSET_ZE) % command_queue.size();
-            if(myid == printid)
-              printf("selected get queue: %d\n", queue);
-            zeCommandListAppendMemoryCopy(command_list[queue], this->recvbuf[numrecv] + this->recvoffset[numrecv], remotebuf[numrecv] + remoteoffset[numrecv], this->recvcount[numrecv], nullptr, 0, nullptr);
-          }
+          zeCommandListAppendMemoryCopy(command_list[queue], this->recvbuf[numrecv] + this->recvoffset[numrecv], remotebuf[numrecv] + remoteoffset[numrecv], this->recvcount[numrecv], nullptr, 0, nullptr);
 #endif
           break;
         case numlib:

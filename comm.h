@@ -718,14 +718,16 @@
 #endif
         break;
       case IPC:
+        for(int recv = 0; recv < numrecv; recv++)
+          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
         for(int send = 0; send < numsend; send++) {
+          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
 #ifdef PORT_CUDA
           cudaMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_HIP
           hipMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_SYCL && !defined IPC_ze
           q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
-          // q_ipc[send].memset(remotebuf[send], -2, sendcount[send] * sizeof(T)).wait();
 #endif
         }
 #ifdef IPC_ze
@@ -813,7 +815,10 @@
 #elif defined PORT_SYCL && !defined IPC_ze
           q_ipc[recv].wait();
 #endif
+          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
         }
+        for(int send = 0; send < numsend; send++)
+          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
       default:
         break;

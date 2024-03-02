@@ -38,7 +38,7 @@
 #endif
 
 // UTILITIES
-#include "../util.h"
+#include "util.h"
 void print_args();
 
 namespace test {

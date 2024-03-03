@@ -286,6 +286,16 @@
     }
     MPI_Barrier(comm_mpi); // THIS IS NECESSARY FOR AURORA
 
+    if(lib == MPI) {
+      int max = 2e9 / sizeof(T);
+      while(count > max) {
+        add(sendbuf, sendoffset, recvbuf, recvoffset, max, sendid, recvid);
+        count = count - max;
+        sendoffset += max;
+        recvoffset += max;
+      }
+    }
+
     // REPORT
     if(printid > -1) {
       if(myid == sendid) {
@@ -609,8 +619,8 @@
         for(int sender = 0; sender < numproc; sender++) {
           size_t count = matrix[sender * numproc + recver];
           if(count)
-            // printf("%ld ", count);
-            printf("1 ");
+            printf("%ld ", count);
+            // printf("1 ");
           else
             printf(". ");
         }
@@ -668,9 +678,9 @@
     std::vector<size_t> sendcount_temp(numproc, 0);
     std::vector<size_t> recvcount_temp(numproc, 0);
     for (int send = 0; send < numsend; send++)
-      sendcount_temp[sendproc[send]] += sendcount[send];
+      sendcount_temp[sendproc[send]]++;// += sendcount[send];
     for (int recv = 0; recv < numrecv; recv++)
-      recvcount_temp[recvproc[recv]] += recvcount[recv];
+      recvcount_temp[recvproc[recv]]++;// += recvcount[recv];
     std::vector<size_t> sendmatrix(numproc * numproc);
     std::vector<size_t> recvmatrix(numproc * numproc);
     MPI_Allgather(sendcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, sendmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);

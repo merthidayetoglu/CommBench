@@ -23,18 +23,21 @@
 #define ROOT 0
 
 // HEADERS
- #include <nccl.h>
+// #include <nccl.h>
 // #include <rccl.h>
-// #include <sycl.hpp>
+#include <sycl.hpp>
+#include <ze_api.h>
 
 // PORTS
- #define PORT_CUDA
+//  #define PORT_CUDA
 // #define PORT_HIP
-// #define PORT_SYCL
+#define PORT_SYCL
 
-// CONTROL NCCL CAPABILITY
+// VENDOR-PROVIDED LIBRARY
 #if defined(PORT_CUDA) || defined(PORT_HIP)
 #define CAP_NCCL
+#elif defined PORT_SYCL
+#define CAP_ONECCL
 #endif
 
 // UTILITIES
@@ -149,6 +152,13 @@ int main(int argc, char *argv[])
     hipMemset(sendbuf_d, -1, count * numproc * sizeof(float));
     hipMemset(recvbuf_d, -1, count * numproc * sizeof(float));
     hipDeviceSynchronize();
+#elif defined PORT_SYCL
+    q.memset(sendbuf_d, -1, count * numproc * sizeof(float));
+    q.memset(recvbuf_d, -1, count * numproc * sizeof(float));
+    q.wait();
+#else
+    memset(sendbuf_d, -1, count * numproc * sizeof(float));
+    memset(recvbuf_d, -1, count * numproc * sizeof(float));
 #endif
     // MEASURE
     MPI_Barrier(MPI_COMM_WORLD);
@@ -167,8 +177,8 @@ int main(int argc, char *argv[])
           default            : return 0;
         }
         break;
-#ifdef CAP_NCCL
       case test::NCCL :
+#ifdef CAP_NCCL
         switch(pattern) {
           case broadcast     : ncclBcast(sendbuf_d, count * numproc, ncclFloat32, ROOT, comm_nccl, 0);                      break;
           case reduce        : ncclReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, ROOT, comm_nccl, 0); break;
@@ -177,13 +187,22 @@ int main(int argc, char *argv[])
           case allreduce     : ncclAllReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, comm_nccl, 0);    break;
           default            : return 0;
         }
-#ifdef PORT_CUDA
+  #ifdef PORT_CUDA
         cudaStreamSynchronize(0);
-#elif defined PORT_HIP
+  #elif defined PORT_HIP
         hipStreamSynchronize(0);
+  #endif
+#elif defined CAP_ONECCL
+        switch(pattern) {
+          case broadcast     : ccl::Broadcast();                      break;
+	  case reduce        : ccl::Reduce; break;
+          case allgather     : ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);                       break;
+          case reducescatter : ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);          break;
+          case allreduce     : ncclAllReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, comm_nccl, 0);    break;
+          default            : return 0;
+        }
 #endif
         break;
-#endif
       default:
         return 0;
     }
@@ -235,14 +254,22 @@ int main(int argc, char *argv[])
           case reducescatter : printf("MPI_Reduce_scatter\n"); break;
           case allreduce     : printf("MPI_Allreduce\n"); break;
         } break;
-#ifdef CAP_NCCL
       case test::NCCL :
+#ifdef CAP_NCCL
         switch(pattern) {
           case broadcast     : printf("ncclBcast\n"); break;
           case reduce        : printf("ncclReduce\n"); break;
           case allgather     : printf("ncclAllGather\n"); break;
           case reducescatter : printf("ncclReduceScatter\n"); break;
           case allreduce     : printf("ncclAllReduce\n"); break;
+        } break;
+#elif defined CAP_ONECCL
+        switch(pattern) {
+          case broadcast     : printf("ccl::Broadcast\n"); break;
+	  case reduce        : printf("ccl::Reduce\n"); break;
+	  case allgather     : printf("ccl::AllGatherv\n"); break;
+	  case reducescatter : printf("ccl::ReduceScatter\n"); break;
+	  case allreduce     : printf("ccl::AllReduce\n"); break;
         } break;
 #endif
     }

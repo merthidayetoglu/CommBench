@@ -37,6 +37,7 @@
 #if defined(PORT_CUDA) || defined(PORT_HIP)
 #define CAP_NCCL
 #elif defined PORT_SYCL
+#include <oneapi/ccl.hpp>
 #define CAP_ONECCL
 #endif
 
@@ -107,14 +108,43 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
+#if defined PORT_CUDA || defined PORT_HIP
   // SETUP NCCL
-#ifdef CAP_NCCL
-    ncclComm_t comm_nccl;
-    ncclUniqueId id;
-    if(myid == 0)
-      ncclGetUniqueId(&id);
-    MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, MPI_COMM_WORLD);
-    ncclCommInitRank(&comm_nccl, numproc, id, myid);
+  ncclComm_t comm_nccl;
+  ncclUniqueId id;
+  if(myid == 0)
+    ncclGetUniqueId(&id);
+  MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, MPI_COMM_WORLD);
+  ncclCommInitRank(&comm_nccl, numproc, id, myid);
+#elif defined PORT_SYCL
+  sycl::queue q(sycl::gpu_selector_v);
+  std::cout << " myid " << myid << " running on " << q.get_device().get_info<sycl::info::device::name>() << "\n";
+  // SETUP ONECCL
+  ccl::stream *stream_ccl;
+  ccl::communicator *comm_ccl;
+  {
+    /* initialize ccl */
+    ccl::init();
+    /* create kvs */
+    ccl::shared_ptr_class<ccl::kvs> kvs;
+    ccl::kvs::address_type main_addr;
+    if (myid == 0) {
+      kvs = ccl::create_main_kvs();
+      main_addr = kvs->get_address();
+      MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+    }
+    else {
+      MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+      kvs = ccl::create_kvs(main_addr);
+    }
+    /* create communicator */
+    auto dev = ccl::create_device(q.get_device());
+    auto ctx = ccl::create_context(q.get_context());
+    comm_ccl = new ccl::communicator(ccl::create_communicator(numproc, myid, dev, ctx, kvs));
+    if(myid == ROOT)
+      printf("******************** ONECCL COMMUNICATOR IS CREATED\n");
+    stream_ccl = new ccl::stream(ccl::create_stream(q));
+  }
 #endif
 
   float *sendbuf_d;
@@ -126,7 +156,6 @@ int main(int argc, char *argv[])
   hipMalloc(&sendbuf_d, count * sizeof(float) * numproc);
   hipMalloc(&recvbuf_d, count * sizeof(float) * numproc);
 #elif defined PORT_SYCL
-  sycl::queue q(sycl::gpu_selector_v);
   sendbuf_d = sycl::malloc_device<float>(count * numproc, q);
   recvbuf_d = sycl::malloc_device<float>(count * numproc, q);
 #else
@@ -141,7 +170,6 @@ int main(int argc, char *argv[])
   double times[numiter];
   if(myid == ROOT)
     printf("%d warmup iterations (in order):\n", warmup);
-
   for (int iter = -warmup; iter < numiter; iter++) {
     //INITIALIZE
 #ifdef PORT_CUDA
@@ -160,6 +188,7 @@ int main(int argc, char *argv[])
     memset(sendbuf_d, -1, count * numproc * sizeof(float));
     memset(recvbuf_d, -1, count * numproc * sizeof(float));
 #endif
+    std::vector<size_t> recv_counts(numproc, count);
     // MEASURE
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
@@ -194,13 +223,15 @@ int main(int argc, char *argv[])
   #endif
 #elif defined CAP_ONECCL
         switch(pattern) {
-          case broadcast     : ccl::Broadcast();                      break;
-	  case reduce        : ccl::Reduce; break;
-          case allgather     : ncclAllGather(sendbuf_d, recvbuf_d, count, ncclFloat32, comm_nccl, 0);                       break;
-          case reducescatter : ncclReduceScatter(sendbuf_d, recvbuf_d, count, ncclFloat32, ncclSum, comm_nccl, 0);          break;
-          case allreduce     : ncclAllReduce(sendbuf_d, recvbuf_d, count * numproc, ncclFloat32, ncclSum, comm_nccl, 0);    break;
+          case broadcast     : ccl::broadcast(sendbuf_d, count * numproc, ROOT, *comm_ccl, *stream_ccl);                              break;
+	  case reduce        : ccl::reduce(sendbuf_d, recvbuf_d, count * numproc, ccl::reduction::sum, ROOT, *comm_ccl, *stream_ccl); break;
+	  case allgather     : ccl::allgatherv(sendbuf_d, count, recvbuf_d, recv_counts, *comm_ccl, *stream_ccl);                     break;
+	  case reducescatter : ccl::reduce_scatter(sendbuf_d, recvbuf_d, count, ccl::reduction::sum, *comm_ccl, *stream_ccl);         break;
+	  case allreduce     : ccl::allreduce(sendbuf_d, recvbuf_d, count * numproc, ccl::reduction::sum, *comm_ccl, *stream_ccl);    break;
+	  case alltoall      : ccl::alltoall(sendbuf_d, recvbuf_d, count, *comm_ccl, *stream_ccl);                                    break;
           default            : return 0;
         }
+        q.wait();
 #endif
         break;
       default:
@@ -270,6 +301,7 @@ int main(int argc, char *argv[])
 	  case allgather     : printf("ccl::AllGatherv\n"); break;
 	  case reducescatter : printf("ccl::ReduceScatter\n"); break;
 	  case allreduce     : printf("ccl::AllReduce\n"); break;
+	  case alltoall      : printf("ccl::Altoall\n"); break;
         } break;
 #endif
     }

@@ -17,6 +17,7 @@
 #include <stdlib.h> // for atoi
 #include <cstring> // for memcpy
 #include <algorithm> // for sort
+#include <vector> // for vector
 #include <mpi.h>
 #include <omp.h>
 
@@ -24,14 +25,14 @@
 
 // HEADERS
 // #include <nccl.h>
-// #include <rccl.h>
-#include <sycl.hpp>
-#include <ze_api.h>
+#include <rccl.h>
+// #include <sycl.hpp>
+// #include <ze_api.h>
 
 // PORTS
 //  #define PORT_CUDA
-// #define PORT_HIP
-#define PORT_SYCL
+#define PORT_HIP
+// #define PORT_SYCL
 
 // VENDOR-PROVIDED LIBRARY
 #if defined(PORT_CUDA) || defined(PORT_HIP)

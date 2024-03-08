@@ -3,7 +3,7 @@
 // #define PORT_CUDA
 // #define PORT_HIP
 #define PORT_SYCL
-#include "comm.h"
+#include "commbench.h"
 
 using namespace CommBench;
 using namespace std;

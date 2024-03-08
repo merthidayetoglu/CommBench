@@ -16,8 +16,6 @@
 #ifndef COMMBENCH_H
 #define COMMBENCH_H
 
-#include <mpi.h>
-
 // GPU PORTS
 // For NVIDIA: #define PORT_CUDA
 // For AMD: #define PORT_HIP
@@ -32,6 +30,7 @@
 #endif
 
 // DEPENDENCIES
+#include <mpi.h>
 #ifdef PORT_CUDA
 #ifdef CAP_NCCL
 #include <nccl.h>

@@ -279,15 +279,20 @@
   }
   template <typename T>
   void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
+    // OMIT ZERO MESSAGE SIZE
     if(count == 0) {
       if(myid == printid)
         printf("Bench %d communication (%d->%d) count = 0 (skipped)\n", benchid, sendid, recvid);
       return;
     }
-    MPI_Barrier(comm_mpi); // THIS IS NECESSARY FOR AURORA
-
-    if(lib == MPI) {
-      int max = 2e9 / sizeof(T);
+    // ADJUST MESSAGE SIZE
+    {
+// #define COMMBENCH_MESSAGE 16777216 // 16 MB message size if desired
+#ifdef COMMBENCH_MESSAGE
+      size_t max = COMMBENCH_MESSAGE / sizeof(T);
+#else
+      size_t max = (lib == MPI ? 2e9 / sizeof(T) : count);
+#endif
       while(count > max) {
         add(sendbuf, sendoffset, recvbuf, recvoffset, max, sendid, recvid);
         count = count - max;
@@ -295,6 +300,7 @@
         recvoffset += max;
       }
     }
+    MPI_Barrier(comm_mpi); // THIS IS NECESSARY FOR AURORA
 
     // REPORT
     if(printid > -1) {

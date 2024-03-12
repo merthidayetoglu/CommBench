@@ -1,4 +1,3 @@
-
   template <typename T>
   class Comm {
 
@@ -52,13 +51,10 @@
 #elif defined PORT_SYCL
     std::vector<sycl::queue> q_ipc;
 #endif
-    // IPC ZE
-// #define IPC_ze
-#ifdef IPC_ze
-    std::vector<ze_command_list_handle_t> command_list;
-    std::vector<ze_command_queue_handle_t> command_queue;
-    bool command_list_closed = false;
-    int ordinal2index = 0;
+#ifdef IPC_ext
+    std::vector<ze_command_list_handle_t> hCommandList;
+    ze_event_pool_handle_t hEventPool;
+    std::vector<ze_event_handle_t> hEvent;
 #endif
 
     Comm(library lib);
@@ -68,6 +64,32 @@
     void add(T *sendbuf, T *recvbuf, size_t count, int sendid, int recvid);
     void add_lazy(size_t count, int sendid, int recvid);
     void pyadd(pyalloc<T> sendbuf, size_t sendoffset, pyalloc<T> recvbuf, size_t recvoffset, size_t count, int sendid, int recvid);
+    void init() {
+#ifdef IPC_ext
+      if(lib == IPC) {
+        if(numsend) {
+          ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, ZE_EVENT_POOL_FLAG_HOST_VISIBLE, (uint32_t)numsend};
+          // ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, 0, (uint32_t)numsend};
+          auto hContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
+          auto hDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
+          // zeEventPoolCreate(hContext, &eventPoolDesc, 1, &hDevice, &hEventPool);
+          zeEventPoolCreate(hContext, &eventPoolDesc, 0, nullptr, &hEventPool);
+          ze_event_desc_t eventDesc = {};
+          eventDesc.stype = ZE_STRUCTURE_TYPE_EVENT_DESC;
+          eventDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+          // eventDesc.wait = ZE_EVENT_SCOPE_FLAG_DEVICE;
+          for(int send = 0; send < numsend; send++) {
+            eventDesc.index = send;
+            hEvent.push_back(ze_event_handle_t());
+            int error = zeEventCreate(hEventPool, &eventDesc, &hEvent[send]);
+            if(error)
+              printf("zeEventCreate is failed!!!!!!!!!!!!! *************************\n");
+          }
+          printf("myid %d numevent %ld\n", myid, hEvent.size());
+        }
+      }
+#endif
+    }
     void start();
     void wait();
 
@@ -169,8 +191,8 @@
       }
 #endif
     }
-    if(lib == IPC || lib == IPC_get) {
-#ifdef IPC_ze
+#ifdef IPC_ext
+    if(lib == IPC) {
       ze_context_handle_t hContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
       ze_device_handle_t hDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
 
@@ -200,32 +222,26 @@
           n_commands_lists++;
         }
       }
+      if(myid == printid)
+        printf("n_command_list %d\n", n_commands_lists);
       {
+        ze_command_queue_desc_t cmdQueueDesc = {};
+        cmdQueueDesc.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC;
         int q = 0;
         for(int ord = 0; ord < numQueueGroups; ord++) {
+          cmdQueueDesc.ordinal = ord;
           for(int ind = 0; ind < queueProperties[ord].numQueues; ind++) {
-            ze_command_queue_desc_t cmdQueueDesc = {};
-            cmdQueueDesc.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC;
-            cmdQueueDesc.ordinal = ord;
             cmdQueueDesc.index = ind;
-
-	    ze_command_list_desc_t command_list_description{};
-            command_list_description.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC;
-            command_list_description.commandQueueGroupOrdinal = ord;
-            command_list_description.pNext = nullptr;
-
-	    command_queue.push_back(ze_command_queue_handle_t());
-            command_list.push_back(ze_command_list_handle_t());
-	    zeCommandQueueCreate(hContext, hDevice, &cmdQueueDesc, &command_queue[q]);
-	    zeCommandListCreate(hContext, hDevice, &command_list_description, &command_list[q]); 
+            hCommandList.push_back(ze_command_list_handle_t());
+            zeCommandListCreateImmediate(hContext, hDevice, &cmdQueueDesc, &hCommandList[q]);
             q++;
           }
         }
         if(myid == printid)
-          printf("number of command queues: %ld\n", command_queue.size());
+          printf("hCommandList size: %ld\n", hCommandList.size());
       }
-#endif
     }
+#endif
   }
 
   template <typename T>
@@ -280,26 +296,10 @@
   }
   template <typename T>
   void Comm<T>::add(T *sendbuf, size_t sendoffset, T *recvbuf, size_t recvoffset, size_t count, int sendid, int recvid) {
-    // OMIT ZERO MESSAGE SIZE
     if(count == 0) {
       if(myid == printid)
         printf("Bench %d communication (%d->%d) count = 0 (skipped)\n", benchid, sendid, recvid);
       return;
-    }
-    // ADJUST MESSAGE SIZE
-    {
-// #define COMMBENCH_MESSAGE 16777216 // 16 MB message size if desired
-#ifdef COMMBENCH_MESSAGE
-      size_t max = COMMBENCH_MESSAGE / sizeof(T);
-#else
-      size_t max = (lib == MPI ? 2e9 / sizeof(T) : count);
-#endif
-      while(count > max) {
-        add(sendbuf, sendoffset, recvbuf, recvoffset, max, sendid, recvid);
-        count = count - max;
-        sendoffset += max;
-        recvoffset += max;
-      }
     }
     MPI_Barrier(comm_mpi); // THIS IS NECESSARY FOR AURORA
 
@@ -330,49 +330,6 @@
       }
     }
     numcomm++;
-
-#ifdef IPC_ze
-    // queue selection for copy engines
-    int queue = -1; // invalid queue
-    if((lib == IPC) || (lib == IPC_get)) {
-      if(sendid / 2 == recvid / 2) {
-        // in the same device
-        if(sendid == recvid)
-          queue = 0; // self
-        else
-          queue = 1; // across tiles in the same device
-      }
-      else {
-        // tiles across devices
-        queue = 2 + (ordinal2index % 7); // roundrobin: 2, 3, 4, 5, 6, 7, 8, 2, 3, ...
-        if(((lib == IPC) && (myid == sendid)) || ((lib == IPC_get) && (myid == recvid)))
-          ordinal2index++;
-      }
-      // REPORT QUEUE
-      if(printid > -1) {
-        if(lib == IPC) {
-          // PUT (SENDER INITIALIZES)
-          if(myid == sendid)
-            MPI_Send(&queue, 1, MPI_INT, printid, 0, comm_mpi);
-          if(myid == printid) {
-            int queue_sender;
-            MPI_Recv(&queue_sender, 1, MPI_INT, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            printf("selected put queue: %d\n", queue_sender);
-          }
-        }
-        if(lib == IPC_get) {
-          // GET (RECVER INITIALIZES)
-          if(myid == recvid)
-            MPI_Send(&queue, 1, MPI_INT, printid, 0, comm_mpi);
-          if(myid == printid) {
-            int queue_recver;
-            MPI_Recv(&queue_recver, 1, MPI_INT, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            printf("selected get queue: %d\n", queue_recver);
-          }
-        }
-      }
-    }
-#endif
 
     // SENDER DATA STRUCTURES
     if(myid == sendid) {
@@ -437,9 +394,6 @@
               printf("IpcOpenMemHandle error %d\n", error);
             MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
-#ifdef IPC_ze
-          zeCommandListAppendMemoryCopy(command_list[queue], remotebuf[numsend] + remoteoffset[numsend], this->sendbuf[numsend] + this->sendoffset[numsend], this->sendcount[numsend], nullptr, 0, nullptr);
-#endif
           break;
         case IPC_get:
           ack_sender.push_back(int());
@@ -574,9 +528,6 @@
               printf("IpcOpenMemHandle error %d\n", error);
             MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
-#ifdef IPC_ze
-          zeCommandListAppendMemoryCopy(command_list[queue], this->recvbuf[numrecv] + this->recvoffset[numrecv], remotebuf[numrecv] + remoteoffset[numrecv], this->recvcount[numrecv], nullptr, 0, nullptr);
-#endif
           break;
         case numlib:
           break;
@@ -626,8 +577,8 @@
         for(int sender = 0; sender < numproc; sender++) {
           size_t count = matrix[sender * numproc + recver];
           if(count)
-            printf("%ld ", count);
-            // printf("1 ");
+            // printf("%ld ", count);
+            printf("1 ");
           else
             printf(". ");
         }
@@ -685,9 +636,9 @@
     std::vector<size_t> sendcount_temp(numproc, 0);
     std::vector<size_t> recvcount_temp(numproc, 0);
     for (int send = 0; send < numsend; send++)
-      sendcount_temp[sendproc[send]]++;// += sendcount[send];
+      sendcount_temp[sendproc[send]] += sendcount[send];
     for (int recv = 0; recv < numrecv; recv++)
-      recvcount_temp[recvproc[recv]]++;// += recvcount[recv];
+      recvcount_temp[recvproc[recv]] += recvcount[recv];
     std::vector<size_t> sendmatrix(numproc * numproc);
     std::vector<size_t> recvmatrix(numproc * numproc);
     MPI_Allgather(sendcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, sendmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
@@ -735,27 +686,22 @@
 #endif
         break;
       case IPC:
-        for(int recv = 0; recv < numrecv; recv++)
-          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
         for(int send = 0; send < numsend; send++) {
-          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
 #ifdef PORT_CUDA
           cudaMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_HIP
           hipMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
-#elif defined PORT_SYCL && !defined IPC_ze
+#elif defined PORT_SYCL
+#ifdef IPC_ext
+          int engine = send % 2;
+          int error = zeCommandListAppendMemoryCopy(hCommandList[engine], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send], hEvent[send], 0, nullptr);
+          if(error)
+            printf("zeCommandListAppendMemoryCopy error %d\n", error);
+#else
           q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
 #endif
-        }
-#ifdef IPC_ze
-        if(!command_list_closed) {
-          for(int i = 0; i < command_queue.size(); i++)
-            zeCommandListClose(command_list[i]);
-          command_list_closed = true;
-        }
-        for(int i = 0; i < command_queue.size(); i++)
-          zeCommandQueueExecuteCommandLists(command_queue[i], 1, &command_list[i], nullptr);
 #endif
+        }
         break;
       case IPC_get:
         for(int send = 0; send < numsend; send++)
@@ -766,19 +712,10 @@
           cudaMemcpyAsync(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[recv]);
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[recv]);
-#elif defined PORT_SYCL && !defined IPC_ze
+#elif defined PORT_SYCL
           q_ipc[recv].memcpy(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T));
 #endif
         }
-#ifdef IPC_ze
-        if(!command_list_closed) {
-          for(int i = 0; i < command_queue.size(); i++)
-            zeCommandListClose(command_list[i]);
-          command_list_closed = true;
-        }
-        for(int i = 0; i < command_queue.size(); i++)
-          zeCommandQueueExecuteCommandLists(command_queue[i], 1, &command_list[i], nullptr);
-#endif
         break;
       default:
         break;
@@ -802,40 +739,49 @@
 #endif
         break;
       case IPC:
-#ifdef IPC_ze
-        for(int i = 0; i < command_queue.size(); i++)
-          zeCommandQueueSynchronize(command_queue[i], UINT64_MAX);
-#endif
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[send]);
-#elif defined PORT_SYCL && !defined IPC_ze
+#elif defined PORT_SYCL
+#ifdef IPC_ext
+          {
+            int error = zeEventHostSynchronize(hEvent[send], std::numeric_limits<uint64_t>::max());
+            if(error)
+              printf("zeEventHostSynchronize error %d\n", error);
+          }
+          // int error = zeEventQueryStatus(hEvent[send]);
+          // if(error)
+          //  printf("zeEventQueryStatus error %d\n", error);
+          /*int error = zeCommandListAppendEventReset(hCommandList[0], hEvent[send]);
+          if(error)
+            printf("zeCommandListAppendEventReset error %d\n", error);*/
+          {
+            int error = zeEventHostReset(hEvent[send]);
+            if(error)
+              printf("zeEventHostReset error %d\n", error);
+          }
+#else
 	  q_ipc[send].wait();
 #endif
-          MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
+#endif
         }
+        for(int send = 0; send < numsend; send++)
+          MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
         for(int recv = 0; recv < numrecv; recv++)
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
       case IPC_get:
-#ifdef IPC_ze
-        for(int i = 0; i < command_queue.size(); i++)
-          zeCommandQueueSynchronize(command_queue[i], UINT64_MAX);
-#endif
         for(int recv = 0; recv < numrecv; recv++) {
 #ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[recv]);
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[recv]);
-#elif defined PORT_SYCL && !defined IPC_ze
+#elif defined PORT_SYCL
           q_ipc[recv].wait();
 #endif
-          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
         }
-        for(int send = 0; send < numsend; send++)
-          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
       default:
         break;

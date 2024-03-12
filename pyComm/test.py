@@ -1,6 +1,8 @@
 import pyComm
 import numpy as np
+from mpi4py import MPI
 
+comm = MPI.COMM_WORLD
 #pyComm.init()
 #pyComm.setup_gpu()
 #pyComm.Comm.setprintid(0)

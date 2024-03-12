@@ -34,7 +34,7 @@ PYBIND11_MODULE(pyComm, m) {
 	.def(py::init<size_t>())
         .def("free", &CommBench::pyalloc<int>::pyfree);
     py::class_<CommBench::Comm<int>>(m, "Comm")
-        .def(py::init<CommBench::library, int>())
+        .def(py::init<CommBench::library>())
         .def("add", &CommBench::Comm<int>::pyadd)
         .def("add_lazy", &CommBench::Comm<int>::add_lazy)
         // .def("setprintid", &CommBench::setprintid)

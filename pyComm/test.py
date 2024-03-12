@@ -1,8 +1,5 @@
 import pyComm
-import numpy as np
-from mpi4py import MPI
 
-comm = MPI.COMM_WORLD
 sendbuf = pyComm.pyalloc(1024)
 tempbuf = pyComm.pyalloc(1024)
 recvbuf = pyComm.pyalloc(1024)

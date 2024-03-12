@@ -3,7 +3,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #define PORT_CUDA
-#include "../comm.h"
+#include "../commbench.h"
 
 namespace py = pybind11;
 

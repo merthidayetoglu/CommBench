@@ -24,19 +24,22 @@
 #define ROOT 0
 
 // HEADERS
-// #include <nccl.h>
-#include <rccl.h>
+#include <nccl.h>
+// #include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
-//  #define PORT_CUDA
-#define PORT_HIP
+#define PORT_CUDA
+// #define PORT_HIP
 // #define PORT_SYCL
+
+// PERSISTENT MPI
+#define CAP_MPI_PERSISTENT
 
 // VENDOR-PROVIDED LIBRARY
 #if defined(PORT_CUDA) || defined(PORT_HIP)
-#define CAP_NCCL
+// #define CAP_NCCL
 #elif defined PORT_SYCL
 #include <oneapi/ccl.hpp>
 #define CAP_ONECCL
@@ -46,9 +49,7 @@
 #include "util.h"
 void print_args();
 
-namespace test {
-enum library {MPI, NCCL};
-}
+namespace test {enum library {MPI, NCCL, MPI_per};}
 enum pattern {pt2pt, gather, scatter, broadcast, reduce, alltoall, allgather, reducescatter, allreduce};
 
 int main(int argc, char *argv[])
@@ -88,8 +89,9 @@ int main(int argc, char *argv[])
 
     printf("Library: ");
     switch(library) {
-      case test::NCCL : printf("NCCL\n"); break;
-      case test::MPI  : printf("MPI\n");  break;
+      case test::NCCL    : printf("NCCL\n");                 break;
+      case test::MPI     : printf("MPI\n");                  break;
+      case test::MPI_per : printf("MPI (persistent API)\n"); break;
     }
     printf("Pattern: ");
     switch(pattern) {
@@ -109,7 +111,7 @@ int main(int argc, char *argv[])
 
   setup_gpu();
 
-#if defined PORT_CUDA || defined PORT_HIP
+#if defined CAP_NCCL
   // SETUP NCCL
   ncclComm_t comm_nccl;
   ncclUniqueId id;
@@ -162,6 +164,27 @@ int main(int argc, char *argv[])
 #else
   sendbuf_d = new float[count * numproc];
   recvbuf_d = new float[count * numproc];
+#endif
+
+
+#ifdef CAP_MPI_PERSISTENT
+  // for persistent MPI functions
+  MPI_Request request;
+  MPI_Info info;
+  MPI_Info_create(&info);
+  if(library == test::MPI_per) {
+    switch(pattern) {
+      case gather        : MPI_Gather_init(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD, info, &request);  break;
+      case scatter       : MPI_Scatter_init(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, ROOT, MPI_COMM_WORLD, info, &request); break;
+      case broadcast     : MPI_Bcast_init(sendbuf_d, count * numproc, MPI_FLOAT, ROOT, MPI_COMM_WORLD, info, &request);                      break;
+      case reduce        : MPI_Reduce_init(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, ROOT, MPI_COMM_WORLD, info, &request); break;
+      case alltoall      : MPI_Alltoall_init(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD, info, &request);      break;
+      case allgather     : MPI_Allgather_init(sendbuf_d, count, MPI_FLOAT, recvbuf_d, count, MPI_FLOAT, MPI_COMM_WORLD, info, &request);     break;
+      case reducescatter : MPI_Reduce_scatter_init(sendbuf_d, recvbuf_d, recvcounts, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD, info, &request);    break;
+      case allreduce     : MPI_Allreduce_init(sendbuf_d, recvbuf_d, count * numproc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD, info, &request);    break;
+      default            : return 0;
+    }
+  }
 #endif
 
   int recvcounts[numproc];
@@ -285,7 +308,8 @@ int main(int argc, char *argv[])
           case allgather     : printf("MPI_Allgather\n"); break;
           case reducescatter : printf("MPI_Reduce_scatter\n"); break;
           case allreduce     : printf("MPI_Allreduce\n"); break;
-        } break;
+        }
+        break;
       case test::NCCL :
 #ifdef CAP_NCCL
         switch(pattern) {
@@ -294,7 +318,7 @@ int main(int argc, char *argv[])
           case allgather     : printf("ncclAllGather\n"); break;
           case reducescatter : printf("ncclReduceScatter\n"); break;
           case allreduce     : printf("ncclAllReduce\n"); break;
-        } break;
+        }
 #elif defined CAP_ONECCL
         switch(pattern) {
           case broadcast     : printf("ccl::Broadcast\n"); break;
@@ -303,8 +327,9 @@ int main(int argc, char *argv[])
 	  case reducescatter : printf("ccl::ReduceScatter\n"); break;
 	  case allreduce     : printf("ccl::AllReduce\n"); break;
 	  case alltoall      : printf("ccl::Altoall\n"); break;
-        } break;
+        }
 #endif
+      break;
     }
     if (data < 1e3)
       printf("%d bytes", (int)data);

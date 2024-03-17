@@ -24,22 +24,22 @@
 #define ROOT 0
 
 // HEADERS
-#include <nccl.h>
-// #include <rccl.h>
+// #include <nccl.h>
+#include <rccl.h>
 // #include <sycl.hpp>
 // #include <ze_api.h>
 
 // PORTS
-#define PORT_CUDA
-// #define PORT_HIP
+// #define PORT_CUDA
+ #define PORT_HIP
 // #define PORT_SYCL
 
 // PERSISTENT MPI
-#define CAP_MPI_PERSISTENT
+// #define CAP_MPI_PERSISTENT
 
 // VENDOR-PROVIDED LIBRARY
 #if defined(PORT_CUDA) || defined(PORT_HIP)
-// #define CAP_NCCL
+#define CAP_NCCL
 #elif defined PORT_SYCL
 #include <oneapi/ccl.hpp>
 #define CAP_ONECCL

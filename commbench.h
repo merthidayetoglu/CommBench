@@ -138,11 +138,35 @@ namespace CommBench
     }
   };
 
-  // class Comm<T>
-#include "comm.h"
+#include "util.h"
+  static void init() {
+    int init_mpi;
+    MPI_Initialized(&init_mpi);
+    if(!init_mpi_comm) {
+      if(!init_mpi) {
+        MPI_Init(NULL, NULL);
+        // MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, NULL);
+      }
+      MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
+      MPI_Comm_rank(comm_mpi, &myid);
+      MPI_Comm_size(comm_mpi, &numproc);
+      init_mpi_comm = true;
+      if(myid == printid) {
+        if(!init_mpi) {
+          printf("#################### MPI IS INITIALIZED, it is user's responsibility to finalize.\n");
+          int provided;
+          MPI_Query_thread(&provided);
+          printf("provided thread support: %d\n", provided);
+        }
+        printf("******************** MPI COMMUNICATOR IS CREATED\n");
+      }
+    }
+    setup_gpu();
+  }
 
+#include "comm.h"
   // THIS IS TO INITIALIZE COMMBENCH
-  static Comm<char> init(dummy);
+  // static Comm<char> init(dummy);
 
   static void print_stats(std::vector<double> times, size_t data) {
 

@@ -78,7 +78,6 @@
 
     void allocate(T *&buffer, size_t n);
     void allocate(T *&buffer, size_t n, int i);
-#include "util.h"
   };
 
   template <typename T>
@@ -86,25 +85,6 @@
 
     benchid = numbench;
     numbench++;
-
-    int init_mpi;
-    MPI_Initialized(&init_mpi);
-
-    if(!init_mpi_comm) {
-      if(!init_mpi) {
-        MPI_Init(NULL, NULL);
-      }
-      MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
-      MPI_Comm_rank(comm_mpi, &myid);
-      MPI_Comm_size(comm_mpi, &numproc);
-      setup_gpu();
-      init_mpi_comm = true;
-      if(myid == printid) {
-        if(!init_mpi)
-          printf("#################### MPI IS INITIALIZED, it is user's responsibility to finalize.\n");
-        printf("******************** MPI COMMUNICATOR IS CREATED\n");
-      }
-    }
 
     numsend = 0;
     numrecv = 0;

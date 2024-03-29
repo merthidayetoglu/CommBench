@@ -281,10 +281,10 @@
         recvoffset += max;
       }
     }
-    MPI_Barrier(comm_mpi); // THIS IS NECESSARY FOR AURORA
 
     // REPORT
     if(printid > -1) {
+      MPI_Barrier(comm_mpi); // THIS IS NECESSARY FOR AURORA
       if(myid == sendid) {
         MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
         MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);

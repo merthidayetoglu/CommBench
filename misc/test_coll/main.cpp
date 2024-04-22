@@ -25,14 +25,14 @@
 
 // HEADERS
 // #include <nccl.h>
-#include <rccl.h>
-// #include <sycl.hpp>
-// #include <ze_api.h>
+// #include <rccl.h>
+ #include <sycl.hpp>
+ #include <ze_api.h>
 
 // PORTS
 // #define PORT_CUDA
- #define PORT_HIP
-// #define PORT_SYCL
+//  #define PORT_HIP
+ #define PORT_SYCL
 
 // PERSISTENT MPI
 // #define CAP_MPI_PERSISTENT
@@ -42,7 +42,7 @@
 #define CAP_NCCL
 #elif defined PORT_SYCL
 #include <oneapi/ccl.hpp>
-#define CAP_ONECCL
+// #define CAP_ONECCL
 #endif
 
 // UTILITIES
@@ -121,6 +121,7 @@ int main(int argc, char *argv[])
   ncclCommInitRank(&comm_nccl, numproc, id, myid);
 #elif defined PORT_SYCL
   sycl::queue q(sycl::gpu_selector_v);
+#ifdef CAP_ONECCL
   std::cout << " myid " << myid << " running on " << q.get_device().get_info<sycl::info::device::name>() << "\n";
   // SETUP ONECCL
   ccl::stream *stream_ccl;
@@ -148,6 +149,7 @@ int main(int argc, char *argv[])
       printf("******************** ONECCL COMMUNICATOR IS CREATED\n");
     stream_ccl = new ccl::stream(ccl::create_stream(q));
   }
+#endif
 #endif
 
   float *sendbuf_d;

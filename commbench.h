@@ -382,9 +382,9 @@ namespace CommBench
   template <typename T>
   void allocate(T *&buffer, size_t n) {
 #ifdef PORT_CUDA
-    cudaMalloc(&buffer, n * sizeof(T));
+    cudaMalloc((void**)&buffer, n * sizeof(T));
 #elif defined PORT_HIP
-    hipMalloc(&buffer, n * sizeof(T));
+    hipMalloc((void**)&buffer, n * sizeof(T));
 #elif defined PORT_SYCL
     buffer = sycl::malloc_device<T>(n, CommBench::q);
 #else
@@ -396,9 +396,9 @@ namespace CommBench
   template <typename T>
   void allocateHost(T *&buffer, size_t n) {
 #ifdef PORT_CUDA
-    cudaMallocHost(&buffer, n * sizeof(T));
+    cudaMallocHost((void**)&buffer, n * sizeof(T));
 #elif defined PORT_HIP
-    hipHostMalloc(&buffer, n * sizeof(T));
+    hipHostMalloc((void**)&buffer, n * sizeof(T));
 #elif defined PORT_SYCL
     buffer = sycl::malloc_host<T>(n, CommBench::q);
 #else

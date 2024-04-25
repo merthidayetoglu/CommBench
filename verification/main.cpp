@@ -13,32 +13,16 @@
  * limitations under the License.
  */
 
-#include <stdio.h> // for printf
-#include <stdlib.h> // for atoi
-#include <cstring> // for memcpy
-#include <algorithm> // for sort
-#include <mpi.h>
-#include <omp.h>
-
-#define ROOT 0
-
-// HEADERS
- #include <nccl.h>
-// #include <rccl.h>
-// #include <sycl.hpp>
-// #include <ze_api.h>
-
 // PORTS
- #define PORT_CUDA
+#define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 
-#include "../comm.h"
+#include "../commbench.h"
 
+#define ROOT 0
 #include "coll.h"
 
-// UTILITIES
-#include "../util.h"
 void print_args();
 
 // USER DEFINED TYPE
@@ -58,14 +42,6 @@ int main(int argc, char *argv[])
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &numproc);
-  int numthread;
-  #pragma omp parallel
-  if(omp_get_thread_num() == 0)
-    numthread = omp_get_num_threads();
-  // char machine_name[MPI_MAX_PROCESSOR_NAME];
-  // int name_len = 0;
-  // MPI_Get_processor_name(machine_name, &name_len);
-  // printf("myid %d %s\n",myid, machine_name);
 
   // INPUT PARAMETERS
   if(argc != 6) {
@@ -86,7 +62,6 @@ int main(int argc, char *argv[])
   {
     printf("\n");
     printf("Number of processes: %d\n", numproc);
-    printf("Number of threads per proc: %d\n", numthread);
     printf("Number of warmup %d\n", warmup);
     printf("Number of iterations %d\n", numiter);
 
@@ -97,30 +72,23 @@ int main(int argc, char *argv[])
     printf("\n");
   }
 
-  setup_gpu();
-
-  // ALLOCATE
-  Type *sendbuf_d;
-  Type *recvbuf_d;
-#ifdef PORT_CUDA
-  cudaMalloc(&sendbuf_d, count * numproc * sizeof(Type));
-  cudaMalloc(&recvbuf_d, count * numproc * sizeof(Type));
-#elif defined PORT_HIP
-  hipMalloc(&sendbuf_d, count * numproc * sizeof(Type));
-  hipMalloc(&recvbuf_d, count * numproc * sizeof(Type));
-#elif defined PORT_SYCL
-  sycl::queue q(sycl::gpu_selector_v);
-  sendbuf_d = sycl::malloc_device<Type>(count * numproc, q);
-  recvbuf_d = sycl::malloc_device<Type>(count * numproc, q);
-#else
-  sendbuf_d = new Type[count * numproc];
-  recvbuf_d = new Type[count * numproc];
-#endif
-
+  // BUFFERS
   {
-    namespace Comm = CommBench;
-    Comm::Comm<Type> coll(MPI_COMM_WORLD, (Comm::library) library);
+    using namespace CommBench;
 
+    // INITIALIZE
+    init();
+
+    // ALLOCATE
+    Type *sendbuf_d;
+    Type *recvbuf_d;
+    allocate(sendbuf_d, count * numproc);
+    allocate(recvbuf_d, count * numproc);
+
+    // CREATE COMMUNICATOR
+    Comm<Type> coll((CommBench::library) library);
+
+    // REGISTER PATTERN
     switch(pattern) {
       case 0:
         if(myid == 0)
@@ -148,6 +116,7 @@ int main(int argc, char *argv[])
       case 4:
         if(myid == ROOT)
           printf("TEST REDUCE\n");
+        // CommBench does not offer computational kernels.
         break;
       case 5:
         if(myid == ROOT)
@@ -166,35 +135,27 @@ int main(int argc, char *argv[])
       case 7:
         if(myid == ROOT)
           printf("TEST REDUCE-SCATTER\n");
+        // CommBench does not offer computational kernels.
         break;
       case 8:
         if(myid == ROOT)
           printf("TEST ALL-REDUCE\n");
+        // CommBench does not offer computational kernels.
         break;
     }
 
+    // MEASURE 
     coll.report();
+    measure(count * numproc, warmup, numiter, coll);
 
+    // VALIDATE
     for(int iter = 0; iter < numiter; iter++)
       validate(sendbuf_d, recvbuf_d, count, pattern, coll);
 
-    measure(count * numproc, warmup, numiter, coll);
+    // DEALLOCATE
+    free(sendbuf_d);
+    free(recvbuf_d);
   }
-
-// DEALLOCATE
-#ifdef PORT_CUDA
-  cudaFree(sendbuf_d);
-  cudaFree(recvbuf_d);
-#elif defined PORT_HIP
-  hipFree(sendbuf_d);
-  hipFree(recvbuf_d);
-#elif defined PORT_SYCL
-  sycl::free(sendbuf_d, q);
-  sycl::free(recvbuf_d, q);
-#else
-  delete[] sendbuf_d;
-  delete[] recvbuf_d;
-#endif
 
   // FINALIZE
   MPI_Finalize();

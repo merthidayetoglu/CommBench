@@ -1,4 +1,4 @@
-#define PORT_SYCL
+#define PORT_HIP
 #include "commbench.h"
 
 using namespace CommBench;
@@ -8,6 +8,8 @@ int main() {
   char *sendbuf;
   char *recvbuf;
   size_t numbytes = 1e9;
+
+  init();
   allocate(sendbuf, numbytes);
   allocate(recvbuf, numbytes);
 

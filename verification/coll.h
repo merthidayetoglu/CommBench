@@ -12,7 +12,8 @@ void measure(size_t count, int warmup, int numiter, Coll &coll) {
   for (int iter = -warmup; iter < numiter; iter++) {
     MPI_Barrier(MPI_COMM_WORLD);
     double time = MPI_Wtime();
-    coll.run();
+    coll.start();
+    coll.wait();
     time = MPI_Wtime() - time;
     MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     if(iter < 0) {
@@ -103,7 +104,8 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  coll.run();
+  coll.start();
+  coll.wait();
 
 #ifdef PORT_CUDA
   cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int) * numproc, cudaMemcpyDeviceToHost, stream);
@@ -200,4 +202,3 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
   hipHostFree(recvbuf);
 #endif
 };
-

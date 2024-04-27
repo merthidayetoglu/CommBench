@@ -14,8 +14,8 @@
  */
 
 // PORTS
-#define PORT_CUDA
-// #define PORT_HIP
+// #define PORT_CUDA
+#define PORT_HIP
 // #define PORT_SYCL
 
 #include "../commbench.h"
@@ -97,15 +97,15 @@ int main(int argc, char *argv[])
         break;
       case 1:
         if(myid == ROOT)
-          printf("TEST SCATTER\n");
-        for(int p = 0; p < numproc; p++)
-          coll.add(sendbuf_d, p * count, recvbuf_d, 0, count, ROOT, p);
-        break;
-      case 2:
-        if(myid == ROOT)
           printf("TEST GATHER\n");
         for(int p = 0; p < numproc; p++)
           coll.add(sendbuf_d, 0, recvbuf_d, p * count, count, p, ROOT);
+        break;
+      case 2:
+        if(myid == ROOT)
+          printf("TEST SCATTER\n");
+        for(int p = 0; p < numproc; p++)
+          coll.add(sendbuf_d, p * count, recvbuf_d, 0, count, ROOT, p);
         break;
       case 3:
         if(myid == ROOT)
@@ -178,8 +178,8 @@ void print_args() {
     printf("      1 for MPI\n");
     printf("      2 for NCCL\n");
     printf("2. pattern:\n");
-    printf("      1 for Scatter\n");
-    printf("      2 for Gather\n");
+    printf("      1 for Gather\n");
+    printf("      2 for Scatter\n");
     printf("      3 for Broadcast\n");
     printf("      4 for Reduce\n");
     printf("      5 for Alltoall\n");

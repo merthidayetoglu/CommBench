@@ -13,8 +13,8 @@ int main() {
   allocate(sendbuf, numbytes);
   allocate(recvbuf, numbytes);
 
-  Comm<char> test(IPC);
-  test.add(sendbuf, recvbuf, numbytes, 0, 1);
+  Comm<char> test(MPI);
+  test.add(sendbuf, recvbuf, numbytes, 0, 8);
 
   test.measure(5, 10);
 

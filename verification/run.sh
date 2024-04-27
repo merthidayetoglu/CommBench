@@ -1,12 +1,5 @@
 #!/bin/bash
 
-#SBATCH -A CHM137
-#SBATCH -t 00:30:00
-#SBATCH -N 2
-#SBATCH --ntasks-per-node=8
-#SBATCH --gpus-per-node=8
-#SBATCH --gpu-bind=closest
-
 module -t list
 
 date
@@ -40,7 +33,7 @@ for pattern in 1 2 3 4 5 6 7 8
 # 7: Reduce-scatter
 # 8: All-reduce
 do
-for size in 0
+for size in 10000000
 do
   count=$((2**size))$
   srun -c7 ./CommBench $library $pattern $count $warmup $numiter

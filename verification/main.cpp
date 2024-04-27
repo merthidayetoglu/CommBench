@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     printf("\n");
   }
 
-  // BUFFERS
+  // COMMBENCH SCOPE
   {
     using namespace CommBench;
 

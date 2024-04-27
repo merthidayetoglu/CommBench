@@ -21,7 +21,7 @@
 #include "../commbench.h"
 
 #define ROOT 0
-#include "coll.h"
+#include "validate.h"
 
 void print_args();
 
@@ -145,8 +145,7 @@ int main(int argc, char *argv[])
     }
 
     // MEASURE 
-    coll.report();
-    measure(count * numproc, warmup, numiter, coll);
+    coll.measure(warmup, numiter, count * numproc);
 
     // VALIDATE
     for(int iter = 0; iter < numiter; iter++)

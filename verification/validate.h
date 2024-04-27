@@ -1,71 +1,4 @@
 template <class Coll>
-void measure(size_t count, int warmup, int numiter, Coll &coll) {
-
-  int myid;
-  int numproc;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numproc);
-
-  double times[numiter];
-  if(myid == ROOT)
-    printf("%d warmup iterations (in order):\n", warmup);
-  for (int iter = -warmup; iter < numiter; iter++) {
-    MPI_Barrier(MPI_COMM_WORLD);
-    double time = MPI_Wtime();
-    coll.start();
-    coll.wait();
-    time = MPI_Wtime() - time;
-    MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    if(iter < 0) {
-      if(myid == ROOT)
-        printf("warmup: %e\n", time);
-    }
-    else
-      times[iter] = time;
-  }
-  std::sort(times, times + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
-
-  if(myid == ROOT) {
-    printf("%d measurement iterations (sorted):\n", numiter);
-    for(int iter = 0; iter < numiter; iter++) {
-      printf("time: %.4e", times[iter]);
-      if(iter == 0)
-        printf(" -> min\n");
-      else if(iter == numiter / 2)
-        printf(" -> median\n");
-      else if(iter == numiter - 1)
-        printf(" -> max\n");
-      else
-        printf("\n");
-    }
-    printf("\n");
-    double minTime = times[0];
-    double medTime = times[numiter / 2];
-    double maxTime = times[numiter - 1];
-    double avgTime = 0;
-    for(int iter = 0; iter < numiter; iter++)
-      avgTime += times[iter];
-    avgTime /= numiter;
-    double data = count * sizeof(int);
-    if (data < 1e3)
-      printf("data: %d bytes\n", (int)data);
-    else if (data < 1e6)
-      printf("data: %.4f KB\n", data / 1e3);
-    else if (data < 1e9)
-      printf("data: %.4f MB\n", data / 1e6);
-    else if (data < 1e12)
-      printf("data: %.4f GB\n", data / 1e9);
-    else
-      printf("data: %.4f TB\n", data / 1e12);
-    printf("minTime: %.4e us, %.4e s/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e9, data / minTime / 1e9);
-    printf("medTime: %.4e us, %.4e s/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e9, data / medTime / 1e9);
-    printf("maxTime: %.4e us, %.4e s/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e9, data / maxTime / 1e9);
-    printf("avgTime: %.4e us, %.4e s/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e9, data / avgTime / 1e9);
-    printf("\n");
-  }
-}
-
-template <class Coll>
 void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &coll) {
 
   int myid;
@@ -162,6 +95,12 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
         }
       }
       break;
+    case 4:
+      {
+        if(myid == ROOT) printf("REDUCE IS NOT TESTED\n");
+          pass = false;
+      }
+      break;
     case 5:
       {
         if(myid == ROOT) printf("VERIFY ALL-TO-ALL\n");
@@ -182,6 +121,18 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
             if(recvbuf[p * count + i] != i)
               pass = false;
           }
+      }
+      break;
+    case 7:
+      {
+        if(myid == ROOT) printf("REDUCE-SCATTER IS NOT TESTED\n");
+          pass = false;
+      }
+      break;
+    case 8: 
+      { 
+        if(myid == ROOT) printf("ALL-REDUCE IS NOT TESTED\n");
+          pass = false;
       }
       break;
   }

@@ -121,7 +121,7 @@ On the other hand, the SYCL port uses Level Zero backend and the device selectio
 
 MPI rank 0 and rank 4 can chosen for measuring bandwidth across nodes. When there are multiple NICs, measuring with one process per node results in utilization of a single NIC. The following micro-benchmark utilizes all NICs by striping point-to-point data across nodes.
 
-## Sequential Patterns
+## Multi-Step Patterns
 
 For benchmarking multiple steps of communication patterns where each step depends on the previous, CommBench provides the following function:
 ```cpp

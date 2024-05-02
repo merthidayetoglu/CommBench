@@ -19,12 +19,12 @@
 // GPU PORTS
 // For NVIDIA: #define PORT_CUDA
 // For AMD: #define PORT_HIP
-// For SYCL: #define PORT_SYCL
+// For INTEL: #define PORT_ONEAPI
 
 #if defined PORT_CUDA || defined PORT_HIP
 #define CAP_NCCL
 #endif
-#ifdef PORT_SYCL
+#ifdef PORT_ONEAPI
 #define CAP_ZE
 // #define CAP_ONECCL
 #endif
@@ -43,7 +43,7 @@
 #else
 #include <hip_runtime.h>
 #endif
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
 #ifdef CAP_ONECCL
 #include <oneapi/ccl.hpp>
 #else
@@ -71,7 +71,7 @@ namespace CommBench
   static MPI_Comm comm_mpi;
   static int myid;
   static int numproc;
-#ifdef PORT_SYCL
+#ifdef PORT_ONEAPI
   static sycl::queue q(sycl::gpu_selector_v);
 #endif
 #ifdef CAP_NCCL
@@ -307,7 +307,7 @@ namespace CommBench
         // cudaMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
 #elif defined PORT_HIP
         // hipMemset(sendbuf[send], -1, sendcount[send] * sizeof(T));
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
         // q->memset(sendbuf[send], -1, sendcount[send] * sizeof(T)).wait();
 #else
         // memset(comm.sendbuf[send], -1, comm.sendcount[send] * sizeof(T)); // NECESSARY FOR CPU TO PREVENT CACHING
@@ -385,7 +385,7 @@ namespace CommBench
     cudaMalloc((void**)&buffer, n * sizeof(T));
 #elif defined PORT_HIP
     hipMalloc((void**)&buffer, n * sizeof(T));
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
     buffer = sycl::malloc_device<T>(n, CommBench::q);
 #else
     allocateHost(buffer, n);
@@ -399,7 +399,7 @@ namespace CommBench
     cudaMallocHost((void**)&buffer, n * sizeof(T));
 #elif defined PORT_HIP
     hipHostMalloc((void**)&buffer, n * sizeof(T));
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
     buffer = sycl::malloc_host<T>(n, CommBench::q);
 #else
     buffer = new T[n];
@@ -412,7 +412,7 @@ namespace CommBench
     cudaMemcpy(recvbuf, sendbuf, n * sizeof(T), cudaMemcpyDeviceToDevice);
 #elif defined PORT_HIP
     hipMemcpy(recvbuf, sendbuf, n * sizeof(T), hipMemcpyDeviceToDevice);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
     CommBench::q.memcpy(recvbuf, sendbuf, n * sizeof(T)).wait();
 #else
     memcpy(recvbuf, sendbuf, n * sizeof(T));
@@ -425,7 +425,7 @@ namespace CommBench
     cudaMemcpy(device, host, n * sizeof(T), cudaMemcpyHostToDevice);
 #elif defined PORT_HIP  
     hipMemcpy(device, host, n * sizeof(T), hipMemcpyHostToDevice);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
     CommBench::q.memcpy(device, host, n * sizeof(T)).wait();
 #else
     memcpy(device, host, n * sizeof(T));
@@ -438,7 +438,7 @@ namespace CommBench
     cudaMemcpy(host, device, n * sizeof(T), cudaMemcpyDeviceToHost);
 #elif defined PORT_HIP
     hipMemcpy(host, device, n * sizeof(T), hipMemcpyDeviceToHost);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
     CommBench::q.memcpy(host, device, n * sizeof(T)).wait();
 #else
     memcpy(host, device, n * sizeof(T));
@@ -451,7 +451,7 @@ namespace CommBench
     cudaFree(buffer);
 #elif defined PORT_HIP
     hipFree(buffer);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
     sycl::free(buffer, CommBench::q);
 #else
     freeHost(buffer);
@@ -464,7 +464,7 @@ namespace CommBench
     cudaFreeHost(buffer);
 #elif defined PORT_HIP
     hipHostFree(buffer);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
     sycl::free(buffer, CommBench::q);
 #else
     delete[] buffer;

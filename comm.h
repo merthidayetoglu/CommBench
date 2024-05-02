@@ -1,4 +1,3 @@
-
   template <typename T>
   class Comm {
 
@@ -49,7 +48,7 @@
     std::vector<cudaStream_t> stream_ipc;
 #elif defined PORT_HIP
     std::vector<hipStream_t> stream_ipc;
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
     std::vector<sycl::queue> q_ipc;
 #endif
     // IPC ZE
@@ -93,13 +92,21 @@
       printf("printid: %d Create Bench %d with %d processors\n", printid, benchid, numproc);
       printf("  Port: ");
 #ifdef PORT_CUDA
-      printf("CUDA ");
+      printf("CUDA, ");
 #elif defined PORT_HIP
       printf("HIP, ");
-#elif defined PORT_SYCL
-      printf("SYCL, ");
+#elif defined PORT_ONEAPI
+      printf("ONEAPI, ");
 #else
       printf("CPU, ");
+#endif
+#ifdef CAP_NCCL
+      printf("NCCL, ");
+#elif CAP_ONECCL
+      printf("ONECCL, ");
+#endif
+#ifdef IPC_kernel
+      printf("IPC will call a kernel, \n");
 #endif
       printf("Library: ");
       print_lib(lib);
@@ -383,7 +390,7 @@
 #elif defined PORT_HIP
           stream_ipc.push_back(hipStream_t());
           hipStreamCreate(&stream_ipc[numsend]);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
           q_ipc.push_back(sycl::queue(sycl::gpu_selector_v));
 #endif
           // RECIEVE REMOTE MEMORY HANDLE
@@ -397,7 +404,7 @@
             hipIpcMemHandle_t memhandle;
             MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
             error = hipIpcOpenMemHandle((void**)&remotebuf[numsend], memhandle, hipIpcMemLazyEnablePeerAccess);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
             ze_ipc_mem_handle_t memhandle;
             {
               typedef struct { int fd; pid_t pid ; } clone_mem_t;
@@ -435,7 +442,7 @@
             hipIpcMemHandle_t memhandle;
             error = hipIpcGetMemHandle(&memhandle, sendbuf);
             MPI_Send(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
             ze_ipc_mem_handle_t memhandle;
             auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
             error = zeMemGetIpcHandle(zeContext, sendbuf, &memhandle);
@@ -491,7 +498,7 @@
             hipIpcMemHandle_t memhandle;
             error = hipIpcGetMemHandle(&memhandle, recvbuf);
             MPI_Send(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
             ze_ipc_mem_handle_t memhandle;
 	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
 	    error = zeMemGetIpcHandle(zeContext, recvbuf, &memhandle);
@@ -520,7 +527,7 @@
 #elif defined PORT_HIP
           stream_ipc.push_back(hipStream_t());
           hipStreamCreate(&stream_ipc[numrecv]);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
           q_ipc.push_back(sycl::queue(sycl::gpu_selector_v));
 #endif
           // RECV REMOTE MEMORY HANDLE
@@ -534,7 +541,7 @@
             hipIpcMemHandle_t memhandle;
             MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
             error = hipIpcOpenMemHandle((void**)&remotebuf[numrecv], memhandle, hipIpcMemLazyEnablePeerAccess);
-#elif defined PORT_SYCL
+#elif defined PORT_ONEAPI
             ze_ipc_mem_handle_t memhandle;
             {
               typedef struct { int fd; pid_t pid ; } clone_mem_t;
@@ -690,6 +697,15 @@
     }*/
   }
 
+#ifdef IPC_kernel
+  template <typename T>
+  __global__ void copy_kernel(T *output, T *input, size_t count) {
+    const size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if(tid < count)
+      output[tid] = input[tid];
+  }
+#endif
+
   template <typename T>
   void Comm<T>::start() {
     switch(lib) {
@@ -719,12 +735,20 @@
           MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
         for(int send = 0; send < numsend; send++) {
           MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
-#ifdef PORT_CUDA
+#ifdef IPC_kernel
+  #if defined(PORT_CUDA) || defined(PORT_HIP)
+          copy_kernel<T><<<(sendcount[send] + 255) / 256, 256, 0, stream_ipc[send]>>>(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send]);
+  #elif defined PORT_ONEAPI && !defined IPC_ze
+          // q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+  #endif
+#else
+  #ifdef PORT_CUDA
           cudaMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
-#elif defined PORT_HIP
+  #elif defined PORT_HIP
           hipMemcpyAsync(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
-#elif defined PORT_SYCL && !defined IPC_ze
+  #elif defined PORT_ONEAPI && !defined IPC_ze
           q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+  #endif
 #endif
         }
 #ifdef IPC_ze
@@ -742,12 +766,20 @@
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
         for(int recv = 0; recv < numrecv; recv++) {
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
-#ifdef PORT_CUDA
+#ifdef IPC_kernel
+  #if defined(PORT_CUDA) || defined(PORT_HIP)
+          copy_kernel<T><<<(recvcount[recv] + 255) / 256, 256, 0, stream_ipc[recv]>>>(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv]);
+  #elif defined PORT_ONEAPI && !defined IPC_ze
+          // q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
+  #endif
+#else
+  #ifdef PORT_CUDA
           cudaMemcpyAsync(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[recv]);
-#elif defined PORT_HIP
+  #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[recv]);
-#elif defined PORT_SYCL && !defined IPC_ze
+  #elif defined PORT_ONEAPI && !defined IPC_ze
           q_ipc[recv].memcpy(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T));
+  #endif
 #endif
         }
 #ifdef IPC_ze
@@ -791,7 +823,7 @@
           cudaStreamSynchronize(stream_ipc[send]);
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[send]);
-#elif defined PORT_SYCL && !defined IPC_ze
+#elif defined PORT_ONEAPI && !defined IPC_ze
 	  q_ipc[send].wait();
 #endif
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
@@ -809,7 +841,7 @@
           cudaStreamSynchronize(stream_ipc[recv]);
 #elif defined PORT_HIP
           hipStreamSynchronize(stream_ipc[recv]);
-#elif defined PORT_SYCL && !defined IPC_ze
+#elif defined PORT_ONEAPI && !defined IPC_ze
           q_ipc[recv].wait();
 #endif
           MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);

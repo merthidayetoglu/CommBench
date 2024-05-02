@@ -8,22 +8,24 @@ export OMP_NUM_THREADS=7
 
 # export MPICH_OFI_NIC_VERBOSE=2
 # export MPICH_ENV_DISPLAY=1
-# export NCCL_DEBUG=INFO
-# export HSA_ENABLE_SDMA=0
-
 
 # to make RCCL work
 export LD_LIBRARY_PATH=/ccs/home/merth/HiCCL/CommBench/aws-ofi-rccl/lib:$LD_LIBRARY_PATH
 export NCCL_NET_GDR_LEVEL=3
+#export NCCL_DEBUG=INFO
+
+#export HSA_ENABLE_SDMA=1
 
 warmup=5
 numiter=10
 
-library=2
-# 0: IPC
+for library in 1 3 4
 # 1: MPI
 # 2: XCCL
-for pattern in 1 2 3 4 5 6 7 8
+# 3: IPC (PUT)
+# 4: IPC (GET)
+do
+for pattern in 5
 # 1: Gather
 # 2: Scatter
 # 3: Broadcast
@@ -33,10 +35,11 @@ for pattern in 1 2 3 4 5 6 7 8
 # 7: Reduce-scatter
 # 8: All-reduce
 do
-for size in 10000000
+for size in 22
 do
-  count=$((2**size))$
+  count=$((2**size))
   srun -c7 ./CommBench $library $pattern $count $warmup $numiter
+done
 done
 done
 

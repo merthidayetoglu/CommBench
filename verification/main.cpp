@@ -47,7 +47,6 @@ int main(int argc, char *argv[])
   if(argc != 6) {
     printf("arcgc: %d\n", argc);
     print_args();
-    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
     return 0;
   }
@@ -173,9 +172,10 @@ void print_args() {
     printf("\n");
     printf("CollBench requires five arguments:\n");
     printf("1. library:\n");
-    printf("      0 for IPC\n");
     printf("      1 for MPI\n");
-    printf("      2 for NCCL\n");
+    printf("      2 for NCCL/RCCL/OneCCL\n");
+    printf("      3 for IPC (PUT)\n");
+    printf("      4 for IPC (GET)\n");
     printf("2. pattern:\n");
     printf("      1 for Gather\n");
     printf("      2 for Scatter\n");

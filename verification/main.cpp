@@ -18,6 +18,9 @@
 #define PORT_HIP
 // #define PORT_SYCL
 
+// #define IPC_kernel
+// #define IPC_ze
+
 #include "../commbench.h"
 
 #define ROOT 0

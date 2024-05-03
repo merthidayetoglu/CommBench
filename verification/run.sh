@@ -14,12 +14,13 @@ export LD_LIBRARY_PATH=/ccs/home/merth/HiCCL/CommBench/aws-ofi-rccl/lib:$LD_LIBR
 export NCCL_NET_GDR_LEVEL=3
 #export NCCL_DEBUG=INFO
 
-#export HSA_ENABLE_SDMA=1
+# use SDMA by default
+# export HSA_ENABLE_SDMA=0
 
 warmup=5
 numiter=10
 
-for library in 1 3 4
+for library in 3 4
 # 1: MPI
 # 2: XCCL
 # 3: IPC (PUT)

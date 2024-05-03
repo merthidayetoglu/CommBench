@@ -52,7 +52,6 @@
     std::vector<sycl::queue> q_ipc;
 #endif
     // IPC ZE
-// #define IPC_ze
 #ifdef IPC_ze
     std::vector<ze_command_list_handle_t> command_list;
     std::vector<ze_command_queue_handle_t> command_queue;

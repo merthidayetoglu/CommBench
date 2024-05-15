@@ -135,4 +135,6 @@ As an example, the above shows striping of point-to-point communications across 
 
 For questions and support, please send an email to merth@stanford.edu
 
-Collaborators: Simon Garcia de Gonzalo (Sandia), Elliot Slaughter (SLAC), Yu Li (Illinois) Chris Zimmer (ORNL), Bin Ren (W&M), Tekin Bicer (ANL), Wen-mei Hwu (Nvidia), Bill Gropp (Illinois), Alex Aiken (Stanford). 
+Collaborators: Simon Garcia de Gonzalo (Sandia), Elliot Slaughter (SLAC), Yu Li (Illinois) Chris Zimmer (ORNL), Bin Ren (W&M), Tekin Bicer (ANL), Wen-mei Hwu (Nvidia), Bill Gropp (Illinois), Alex Aiken (Stanford).
+
+Paper: [CommBench: Micro-Benchmarking Hierarchical Networks with Multi-GPU, Multi-NIC Nodes](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping)

@@ -879,7 +879,7 @@
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
         for(int recv = 0; recv < numrecv; recv++) {
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
-          gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(CommBench::myep, 1), recvbuf[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
+          gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(CommBench::myep, 1), recvbuf[recv] + recvoffset[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
         }
         break;
 #endif

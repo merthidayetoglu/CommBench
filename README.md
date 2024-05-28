@@ -6,7 +6,7 @@ For questions and support, please send an email to merth@stanford.edu
 
 ## API
 
-CommBench has a higher-level interface for implementing custom micro-benchmarks in a system-agnostic way. C++ API is used to program a desired pattern by composition of point-to-point communication primitives. A more straightforward Python scripting interface is available in [pyComm](https://github.com/merthidayetoglu/CommBench/tree/master/pyComm). With either API, when programming a microbenchmark, CommBench's API functions must be hit by all processes, where each process is bound to a GPU. See [mapping](#rank-assignment) of parallel processes to the GPUs in the physical system.
+CommBench has a higher-level interface for implementing custom micro-benchmarks in a system-agnostic way. C++ API is used to program a desired pattern by composition of point-to-point communication primitives. A more straightforward Python scripting interface is available in [pyComm](https://github.com/merthidayetoglu/CommBench/tree/master/pyComm). With either API, CommBench's API functions must be hit by all processes when programming a microbenchmark, where each process is bound to a single GPU. See [mapping](#rank-assignment) of parallel processes to the GPUs in the physical system.
 
 
 #### Inclusion

@@ -83,6 +83,8 @@ void CommBench::Comm<T>::start();
 void CommBench::Comm<T>::wait();
 ```
 
+#### Measurement
+
 The communication time can be measured with minimal overhead using the synchronization functions as below.
 
 ```cpp
@@ -93,8 +95,6 @@ comm.wait();
 time = MPI_Wtime() - time;
 MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 ```
-
-#### Measurement
 
 It is tedious to take accurate measurements, mainly because it has to be repeated several times to find the peak performance. We provide a measurement functions that executes the communications multiple times and reports the statistics.
 ```cpp

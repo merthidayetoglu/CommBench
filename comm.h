@@ -21,6 +21,11 @@
     std::vector<size_t> recvcount;
     std::vector<size_t> sendoffset;
     std::vector<size_t> recvoffset;
+    // REMOTE BUFFER
+    std::vector<T*> remotebuf;
+    std::vector<size_t> remoteoffset;
+    std::vector<int> ack_sender;
+    std::vector<int> ack_recver;
 
     // MEMORY
     std::vector<T*> buffer_list;
@@ -40,10 +45,6 @@
 #endif
 
     // IPC
-    std::vector<T*> remotebuf;
-    std::vector<size_t> remoteoffset;
-    std::vector<int> ack_sender;
-    std::vector<int> ack_recver;
 #ifdef PORT_CUDA
     std::vector<cudaStream_t> stream_ipc;
 #elif defined PORT_HIP
@@ -57,6 +58,11 @@
     std::vector<ze_command_queue_handle_t> command_queue;
     bool command_list_closed = false;
     int ordinal2index = 0;
+#endif
+
+    // GASNET
+#ifdef CAP_GASNET
+    std::vector<gex_Event_t> gex_event;
 #endif
 
     Comm(library lib);
@@ -113,7 +119,9 @@
     }
     if(lib == XCCL) {
 #ifdef CAP_NCCL
+      static bool init_nccl_comm = false;
       if(!init_nccl_comm) {
+        init_nccl_comm = true;
         ncclUniqueId id;
         if(myid == 0)
           ncclGetUniqueId(&id);
@@ -121,7 +129,6 @@
         ncclCommInitRank(&comm_nccl, numproc, id, myid);
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
-        init_nccl_comm = true;
       }
 #ifdef PORT_CUDA
       cudaStreamCreate(&stream_nccl);
@@ -129,7 +136,9 @@
       hipStreamCreate(&stream_nccl);
 #endif
 #elif defined CAP_ONECCL
+      static bool init_ccl_comm = false;
       if(!init_ccl_comm) {
+        init_ccl_comm = true;
         /* initialize ccl */
         ccl::init();
         /* create kvs */
@@ -148,13 +157,40 @@
         auto dev = ccl::create_device(CommBench::q.get_device());
         auto ctx = ccl::create_context(CommBench::q.get_context());
         comm_ccl = new ccl::communicator(ccl::create_communicator(numproc, myid, dev, ctx, kvs));
-        init_ccl_comm = true;
         if(myid == printid)
           printf("******************** ONECCL COMMUNICATOR IS CREATED\n");
         stream_ccl = new ccl::stream(ccl::create_stream(CommBench::q));
       }
 #endif
     }
+#ifdef CAP_GASNET
+    static bool init_gasnet_ep = false;
+    if(!init_gasnet_ep) {
+      init_gasnet_ep = true;
+      // create device endpoint
+      gex_EP_Create(&myep, myclient, GEX_EP_CAPABILITY_RMA, 0);
+#if defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI)
+      // create device memory kind
+      gex_MK_Create_args_t args;
+      args.gex_flags = 0;
+#ifdef PORT_CUDA
+      args.gex_class = GEX_MK_CLASS_CUDA_UVA;
+      args.gex_args.gex_class_cuda_uva.gex_CUdevice = mydevice;
+#elif defined PORT_HIP
+      args.gex_class = GEX_MK_CLASS_HIP;
+      args.gex_args.gex_class_hip.gex_hipDevice = mydevice;
+#elif defined PORT_ONEAPI
+      args.gex_class = GEX_MK_CLASS_ZE; // TODO: implement MK args for ZE
+      // args.gex_args.gex_class_ze.gex_zeDevice =
+      // args.gex_args.gex_class_ze.gex_zeContext =
+      // args.gex_args.gex_class_ze.gex_zeMemoryOrdinal =
+#endif
+      gex_MK_Create(&memkind, myclient, &args, 0);
+#else
+      memkind = GEX_MK_HOST;
+#endif
+    }
+#endif
     if(lib == IPC || lib == IPC_get) {
 #ifdef IPC_ze
       ze_context_handle_t hContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
@@ -459,6 +495,25 @@
             MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi);
           }
           break;
+#ifdef CAP_GASNET
+        case GASNET:
+          ack_sender.push_back(int());
+          remotebuf.push_back(recvbuf);
+          remoteoffset.push_back(recvoffset);
+          gex_event.push_back(gex_Event_t());
+          if(sendid != recvid) {
+            MPI_Recv(&remotebuf[numsend], sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+          }
+          break;
+        case GASNET_get:
+          ack_sender.push_back(int());
+          if(sendid != recvid) {
+            MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi);
+            MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi);
+          }
+          break;
+#endif
         case numlib:
           break;
       } // switch(lib)
@@ -564,6 +619,25 @@
           zeCommandListAppendMemoryCopy(command_list[queue], this->recvbuf[numrecv] + this->recvoffset[numrecv], remotebuf[numrecv] + remoteoffset[numrecv], this->recvcount[numrecv], nullptr, 0, nullptr);
 #endif
           break;
+#ifdef CAP_GASNET
+        case GASNET:
+          ack_recver.push_back(int());
+          if(sendid != recvid) {
+            MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi);
+            MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
+          }
+          break;
+        case GASNET_get:
+          ack_recver.push_back(int());
+          remotebuf.push_back(sendbuf);
+          remoteoffset.push_back(sendoffset);
+          gex_event.push_back(gex_Event_t());
+          if(sendid != recvid) {
+            MPI_Recv(&remotebuf[numrecv], sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+          }
+          break;
+#endif
         case numlib:
           break;
       } // switch(lib)
@@ -791,7 +865,27 @@
           zeCommandQueueExecuteCommandLists(command_queue[i], 1, &command_list[i], nullptr);
 #endif
         break;
+#ifdef CAP_GASNET
+      case GASNET:
+        for(int recv = 0; recv < numrecv; recv++)
+          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
+        for(int send = 0; send < numsend; send++) {
+          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
+          gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(CommBench::myep, 1), sendproc[send], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), GEX_EVENT_DEFER, 0);
+        }
+        break;
+      case GASNET_get:
+        for(int send = 0; send < numsend; send++)
+          MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
+        for(int recv = 0; recv < numrecv; recv++) {
+          MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
+          gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(CommBench::myep, 1), recvbuf[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
+        }
+        break;
+#endif
       default:
+        print_lib(lib);
+        printf(" option is not implemented!\n");
         break;
     }
   }
@@ -848,7 +942,27 @@
         for(int send = 0; send < numsend; send++)
           MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
+#ifdef CAP_GASNET
+      case GASNET:
+        for(int send = 0; send < numsend; send++) {
+          gex_Event_Wait(gex_event[send]);
+          MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
+        }
+        for(int recv = 0; recv < numrecv; recv++)
+          MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
+        break;
+      case GASNET_get:
+        for(int recv = 0; recv < numrecv; recv++) {
+          gex_Event_Wait(gex_event[recv]);
+          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
+        }
+        for(int send = 0; send < numsend; send++)
+           MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
+        break;
+#endif
       default:
+        print_lib(lib);
+        printf(" option is not implemented!\n");
         break;
     }
   }

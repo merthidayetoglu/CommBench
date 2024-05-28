@@ -20,12 +20,18 @@
 // For NVIDIA: #define PORT_CUDA
 // For AMD: #define PORT_HIP
 // For INTEL: #define PORT_ONEAPI
+//
+// CAPABILITIES
+// CAP_NCCL
+// CAP_ONECCL
+// CAP_ZE
+// CAP_GASNET
 
 #if defined PORT_CUDA || defined PORT_HIP
-#define CAP_NCCL
+// #define CAP_NCCL
 #endif
 #ifdef PORT_ONEAPI
-#define CAP_ZE
+// #define CAP_ZE
 // #define CAP_ONECCL
 #endif
 
@@ -35,7 +41,7 @@
 #ifdef CAP_NCCL
 #include <nccl.h>
 #else
-#include <cuda.h>
+#include <cuda_runtime.h>
 #endif
 #elif defined PORT_HIP
 #ifdef CAP_NCCL
@@ -54,6 +60,12 @@
 #endif
 #endif
 
+#ifdef CAP_GASNET
+#define GASNET_PAR
+#include <gasnetex.h>
+#include <gasnet_mk.h>
+#endif
+
 // CPP LIBRARIES
 #include <stdio.h> // for printf
 #include <string.h> // for memcpy
@@ -66,7 +78,9 @@ namespace CommBench
 {
   static int printid = 0;
 
-  enum library {dummy, MPI, XCCL, IPC, IPC_get, numlib};
+  enum library {dummy, MPI, XCCL, IPC, IPC_get, GASNET, GASNET_get, numlib};
+
+  static int mydevice = -1;
 
   static MPI_Comm comm_mpi;
   static int myid;
@@ -80,11 +94,14 @@ namespace CommBench
 #ifdef CAP_ONECCL
   static ccl::communicator *comm_ccl;
 #endif
+#ifdef CAP_GASNET
+  static gex_Client_t myclient;
+  static gex_EP_t myep;
+  static gex_TM_t myteam;
+  static gex_MK_t memkind;
+#endif
 
   static int numbench = 0;
-  static bool init_mpi_comm = false;
-  static bool init_nccl_comm = false;
-  static bool init_ccl_comm = false;
 
   static void print_data(size_t data) {
     if (data < 1e3)
@@ -100,12 +117,14 @@ namespace CommBench
   }
   static void print_lib(library lib) {
     switch(lib) {
-      case dummy : printf("dummy"); break;
-      case IPC     : printf("PUT"); break;
-      case IPC_get : printf("GET"); break;
-      case MPI     : printf("MPI"); break;
-      case XCCL    : printf("XCCL"); break;
-      case numlib  : printf("numlib"); break;
+      case dummy      : printf("dummy");        break;
+      case IPC        : printf("IPC (PUT)");    break;
+      case IPC_get    : printf("IPC (GET)");    break;
+      case MPI        : printf("MPI");          break;
+      case XCCL       : printf("XCCL");         break;
+      case GASNET     : printf("GASNET (PUT)"); break;
+      case GASNET_get : printf("GASNET (GET)"); break;
+      case numlib     : printf("numlib");       break;
     }
   }
 
@@ -115,9 +134,9 @@ namespace CommBench
   template <typename T>
   void allocateHost(T *&buffer, size_t n);
   template <typename T>
-  void memcpyD2H(T *device, T *host, size_t n);
+  void memcpyD2H(T *host, T *device, size_t n);
   template <typename T>
-  void memcpyH2D(T *host, T *device, size_t n);
+  void memcpyH2D(T *device, T *host, size_t n);
   template <typename T>
   void free(T *buffer);
   template <typename T>
@@ -139,10 +158,13 @@ namespace CommBench
   };
 
 #include "util.h"
+
   static void init() {
-    int init_mpi;
-    MPI_Initialized(&init_mpi);
+    static bool init_mpi_comm = false;
     if(!init_mpi_comm) {
+      init_mpi_comm = true;
+      int init_mpi;
+      MPI_Initialized(&init_mpi);
       if(!init_mpi) {
         MPI_Init(NULL, NULL);
         // MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, NULL);
@@ -150,7 +172,6 @@ namespace CommBench
       MPI_Comm_dup(MPI_COMM_WORLD, &comm_mpi); // CREATE SEPARATE COMMUNICATOR EXPLICITLY
       MPI_Comm_rank(comm_mpi, &myid);
       MPI_Comm_size(comm_mpi, &numproc);
-      init_mpi_comm = true;
       if(myid == printid) {
         if(!init_mpi) {
           printf("#################### MPI IS INITIALIZED, it is user's responsibility to finalize.\n");
@@ -161,6 +182,16 @@ namespace CommBench
         printf("******************** MPI COMMUNICATOR IS CREATED\n");
       }
     }
+#ifdef CAP_GASNET
+    static bool init_gasnet = false;
+    if(!init_gasnet) {
+      init_gasnet = true;
+      // initialize
+      gex_EP_t myep_premordial; // lost after creation
+      gex_Client_Init(&myclient, &myep_premordial, &myteam, "CommBench+GASNet-EX", NULL, NULL, 0);
+    }
+    gex_Event_Wait(gex_Coll_BarrierNB(myteam, 0));
+#endif
     setup_gpu();
   }
 
@@ -379,6 +410,10 @@ namespace CommBench
     }
   }
 
+  void barrier() {
+    MPI_Barrier(comm_mpi);
+  }
+
   template <typename T>
   void allocate(T *&buffer, size_t n) {
 #ifdef PORT_CUDA
@@ -389,6 +424,12 @@ namespace CommBench
     buffer = sycl::malloc_device<T>(n, CommBench::q);
 #else
     allocateHost(buffer, n);
+#endif
+#ifdef CAP_GASNET
+    gex_Segment_t segment; // lost after creation
+    gex_Segment_Create(&segment, myclient, buffer, n * sizeof(T), memkind, 0);
+    gex_EP_BindSegment(myep, segment, 0);
+    gex_EP_PublishBoundSegment(myteam, &myep, 1, 0); // currently works only for symmetric allocation
 #endif
     memory += n * sizeof(T);
   };

@@ -13,13 +13,23 @@
  * limitations under the License.
  */
 
+void set_device(int device) {
+#ifdef PORT_CUDA
+  cudaSetDevice(device);
+#elif PORT_HIP
+  hipSetDevice(device);
+#endif
+  mydevice = device;
+}
+
 void setup_gpu() {
   static int init = false;
 #ifdef PORT_CUDA
   int deviceCount;
   cudaGetDeviceCount(&deviceCount);
   int device = myid % deviceCount;
-  cudaSetDevice(device);
+  // cudaSetDevice(device);
+  set_device(device);
   if(!init) {
     if(myid == printid)
       printf("CUDA PORT\n");
@@ -54,7 +64,8 @@ void setup_gpu() {
   int deviceCount;
   hipGetDeviceCount(&deviceCount);
   int device = myid % deviceCount;
-  hipSetDevice(device);
+  // hipSetDevice(device);
+  set_device(device);
   if(!init) {
     if(myid == printid)
       printf("HIP PORT\n");

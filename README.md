@@ -2,7 +2,7 @@
 
 CommBench is a portable micro-benchmarking software for high-performance computing (HPC) networks. The tool integrates: MPI, NCCL, RCCL, and OneCCL libraries; CUDA, HIP, and Level Zero IPC capabilities; and recently GASNet-EX RMA functions. CommBench provides a library- and machine-agnostic API for users to compose desired communication patterns, takes measurements, and offers ports for benchmarking on Nvidia, AMD, and Intel GPUs.
 
-For questions and support, please send an email to merth@stanford.edu
+Since this is an ongoing research project, the API specification evolves according to new needs. For questions and support, please send an email to merth@stanford.edu
 
 ## API
 
@@ -11,7 +11,7 @@ CommBench has a higher-level interface for implementing custom micro-benchmarks 
 
 #### Inclusion
 
-CommBench is programmed into a single header file ``comm.h`` that is included in applications as the following example. The GPU port is specified by one of ``PORT_CUDA``, ``PORT_HIP``, or ``PORT_SYCL`` for Nvidia, AMD, and Intel systems, respectively. When the GPU port is not specified, CommBench runs on CPUs.
+CommBench is programmed into a single header file ``comm.h`` that is included in applications as the following example. The GPU port is specified by one of ``PORT_CUDA``, ``PORT_HIP``, or ``PORT_OneAPI`` for Nvidia, AMD, and Intel systems, respectively. When the GPU port is not specified, CommBench runs on CPUs.
 
 ```cpp
 #define PORT_CUDA
@@ -45,7 +45,7 @@ The above code allocates data on GPUs, and then measures IPC bandwidth across tw
 
 #### Communicator
 
-The benchmarking pattern is registered into a persistent communicator. The data type must be provided at compile time with the template parameter ``T``. Communication library for the implementation must be specified at this stage because the communicator builds specific data structures accordingly. Current options are ``MPI``, ``XCCL``, and ``IPC``. The choice ``XCCL`` is to enable vendor-provided collective communication library, such as NCCL for the CUDA port, RCCL for the HIP port, or OneCCL for the SYCL port. The choice ``IPC`` is enables one-sided put protocol by default. For enabling get protocol, we included the ``IPC_get`` option.
+The benchmarking pattern is registered into a persistent communicator. The data type must be provided at compile time with the template parameter ``T``. Communication library for the implementation must be specified at this stage because the communicator builds specific data structures accordingly. Current options are ``MPI``, ``XCCL``, and ``IPC``. The choice ``XCCL`` is to enable vendor-provided collective communication library, such as NCCL for the CUDA port, RCCL for the HIP port, or OneCCL for the OneAPI port. The choice ``IPC`` is enables one-sided put protocol by default. For enabling get protocol, we included the ``IPC_get`` option.
 
 ```cpp
 template <typename T>

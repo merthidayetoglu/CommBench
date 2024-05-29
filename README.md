@@ -2,7 +2,9 @@
 
 CommBench is a portable micro-benchmarking software for high-performance computing (HPC) networks. The tool integrates: MPI, NCCL, RCCL, and OneCCL libraries; CUDA, HIP, and Level Zero IPC capabilities; and recently GASNet-EX RMA functions. CommBench provides a library- and machine-agnostic API for users to compose desired communication patterns, takes measurements, and offers ports for benchmarking on Nvidia, AMD, and Intel GPUs.
 
-Since this is an ongoing research project, the API specification evolves according to new needs. For questions and support, please send an email to merth@stanford.edu
+Since this is an ongoing research project, the API specification evolves according to new needs.
+
+For questions and support, please send an email to merth@stanford.edu
 
 ## API
 

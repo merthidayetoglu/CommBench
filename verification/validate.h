@@ -35,7 +35,7 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
 #endif
   memset(recvbuf, -1, count * numproc * sizeof(int));
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  barrier();
 
   coll.start();
   coll.wait();

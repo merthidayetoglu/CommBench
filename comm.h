@@ -166,7 +166,6 @@
 #ifdef CAP_GASNET
     static bool init_gasnet_ep = false;
     if(!init_gasnet_ep) {
-      printf("myid %d mydevice %d\n", myid, mydevice);
       init_gasnet_ep = true;
       // create device endpoint
       gex_EP_Create(&myep, myclient, GEX_EP_CAPABILITY_RMA, 0);

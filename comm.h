@@ -35,7 +35,7 @@
     std::vector<MPI_Request> sendrequest;
     std::vector<MPI_Request> recvrequest;
 
-    // XCCL
+    // NCCL
 #if defined CAP_NCCL && defined PORT_CUDA
     cudaStream_t stream_nccl;
 #elif defined CAP_NCCL && defined PORT_HIP
@@ -117,7 +117,7 @@
       print_lib(lib);
       printf("\n");
     }
-    if(lib == XCCL) {
+    if(lib == NCCL) {
 #ifdef CAP_NCCL
       static bool init_nccl_comm = false;
       if(!init_nccl_comm) {
@@ -166,6 +166,7 @@
 #ifdef CAP_GASNET
     static bool init_gasnet_ep = false;
     if(!init_gasnet_ep) {
+      printf("myid %d mydevice %d\n", myid, mydevice);
       init_gasnet_ep = true;
       // create device endpoint
       gex_EP_Create(&myep, myclient, GEX_EP_CAPABILITY_RMA, 0);
@@ -412,7 +413,7 @@
         case MPI:
           sendrequest.push_back(MPI_Request());
           break;
-        case XCCL:
+        case NCCL:
           break;
         case IPC:
           ack_sender.push_back(int());
@@ -496,7 +497,7 @@
           }
           break;
 #ifdef CAP_GASNET
-        case GASNET:
+        case GEX:
           ack_sender.push_back(int());
           remotebuf.push_back(recvbuf);
           remoteoffset.push_back(recvoffset);
@@ -506,7 +507,7 @@
             MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
           break;
-        case GASNET_get:
+        case GEX_get:
           ack_sender.push_back(int());
           if(sendid != recvid) {
             MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi);
@@ -536,7 +537,7 @@
         case MPI:
           recvrequest.push_back(MPI_Request());
           break;
-        case XCCL:
+        case NCCL:
           break;
         case IPC:
           ack_recver.push_back(int());
@@ -620,14 +621,14 @@
 #endif
           break;
 #ifdef CAP_GASNET
-        case GASNET:
+        case GEX:
           ack_recver.push_back(int());
           if(sendid != recvid) {
             MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi);
             MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
           }
           break;
-        case GASNET_get:
+        case GEX_get:
           ack_recver.push_back(int());
           remotebuf.push_back(sendbuf);
           remoteoffset.push_back(sendoffset);
@@ -788,7 +789,7 @@
         for (int recv = 0; recv < numrecv; recv++)
           MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, &recvrequest[recv]);
         break;
-      case XCCL:
+      case NCCL:
 #ifdef CAP_NCCL
         ncclGroupStart();
         for(int send = 0; send < numsend; send++)
@@ -866,17 +867,19 @@
 #endif
         break;
 #ifdef CAP_GASNET
-      case GASNET:
+      case GEX:
         for(int recv = 0; recv < numrecv; recv++)
           MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
+        // barrier();
         for(int send = 0; send < numsend; send++) {
           MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
           gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(CommBench::myep, 1), sendproc[send], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), GEX_EVENT_DEFER, 0);
         }
         break;
-      case GASNET_get:
+      case GEX_get:
         for(int send = 0; send < numsend; send++)
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
+        // barrier();
         for(int recv = 0; recv < numrecv; recv++) {
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
           gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(CommBench::myep, 1), recvbuf[recv] + recvoffset[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
@@ -897,7 +900,7 @@
         MPI_Waitall(numsend, sendrequest.data(), MPI_STATUSES_IGNORE);
         MPI_Waitall(numrecv, recvrequest.data(), MPI_STATUSES_IGNORE);
         break;
-      case XCCL:
+      case NCCL:
 #if defined CAP_NCCL && defined PORT_CUDA
         cudaStreamSynchronize(stream_nccl);
 #elif defined CAP_NCCL && defined PORT_HIP
@@ -943,21 +946,23 @@
           MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
 #ifdef CAP_GASNET
-      case GASNET:
+      case GEX:
         for(int send = 0; send < numsend; send++) {
           gex_Event_Wait(gex_event[send]);
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
         }
+        // barrier();
         for(int recv = 0; recv < numrecv; recv++)
           MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
-      case GASNET_get:
+      case GEX_get:
         for(int recv = 0; recv < numrecv; recv++) {
           gex_Event_Wait(gex_event[recv]);
           MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
         }
+        // barrier();
         for(int send = 0; send < numsend; send++)
-           MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
+          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
         break;
 #endif
       default:

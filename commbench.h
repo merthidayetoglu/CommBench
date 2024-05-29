@@ -78,7 +78,7 @@ namespace CommBench
 {
   static int printid = 0;
 
-  enum library {dummy, MPI, XCCL, IPC, IPC_get, GASNET, GASNET_get, numlib};
+  enum library {dummy, MPI, NCCL, IPC, IPC_get, GEX, GEX_get, numlib};
 
   static int mydevice = -1;
 
@@ -121,14 +121,15 @@ namespace CommBench
       case IPC        : printf("IPC (PUT)");    break;
       case IPC_get    : printf("IPC (GET)");    break;
       case MPI        : printf("MPI");          break;
-      case XCCL       : printf("XCCL");         break;
-      case GASNET     : printf("GASNET (PUT)"); break;
-      case GASNET_get : printf("GASNET (GET)"); break;
+      case NCCL       : printf("NCCL");         break;
+      case GEX        : printf("GASNET (PUT)"); break;
+      case GEX_get    : printf("GASNET (GET)"); break;
       case numlib     : printf("numlib");       break;
     }
   }
 
   // MEMORY MANAGEMENT
+  void barrier();
   template <typename T>
   void allocate(T *&buffer,size_t n);
   template <typename T>
@@ -241,7 +242,7 @@ namespace CommBench
   static void measure_async(std::vector<Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(comm_mpi);
+      barrier();
       double time = MPI_Wtime();
       for (auto &i : commlist) {
         i.start();
@@ -259,7 +260,7 @@ namespace CommBench
   static void measure_concur(std::vector<Comm<T>> commlist, int warmup, int numiter, size_t count) {
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(comm_mpi);
+      barrier();
       double time = MPI_Wtime();
       for (auto &i : commlist) {
         i.start();
@@ -308,7 +309,7 @@ namespace CommBench
 
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
-      MPI_Barrier(comm_mpi);
+      barrier();
       double time = MPI_Wtime();
       MPI_Alltoallv(sendbuf, &sendcount[0], &senddispl[0], MPI_BYTE, recvbuf, &recvcount[0], &recvdispl[0], MPI_BYTE, comm_mpi);
       time = MPI_Wtime() - time;
@@ -344,12 +345,13 @@ namespace CommBench
         // memset(comm.sendbuf[send], -1, comm.sendcount[send] * sizeof(T)); // NECESSARY FOR CPU TO PREVENT CACHING
 #endif
       }
-      MPI_Barrier(comm_mpi);
+      barrier();
       double time = MPI_Wtime();
       comm.start();
       double start = MPI_Wtime() - time;
       comm.wait();
       time = MPI_Wtime() - time;
+      barrier();
       MPI_Allreduce(MPI_IN_PLACE, &start, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
       if(iter < 0) {
@@ -411,7 +413,11 @@ namespace CommBench
   }
 
   void barrier() {
+#ifdef GASNET
+    gex_Event_Wait(gex_Coll_BarrierNB(myteam, 0));
+#else
     MPI_Barrier(comm_mpi);
+#endif
   }
 
   template <typename T>

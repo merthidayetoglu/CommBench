@@ -1,12 +1,12 @@
 ## CommBench
 
-CommBench is a portable micro-benchmarking software for high-performance computing (HPC) networks. The tool integrates MPI, NCCL, RCCL, OneCCL, and IPC put & get capabilities, provides an API for users to compose desired communication patterns, takes measurements, and offers ports for benchmarking on Nvidia, AMD, and Intel GPUs.
+CommBench is a portable micro-benchmarking software for high-performance computing (HPC) networks. The tool integrates: MPI, NCCL, RCCL, and OneCCL libraries; CUDA, HIP, and Level Zero IPC capabilities; and recently GASNet-EX RMA functions. CommBench provides a library- and machine-agnostic API for users to compose desired communication patterns, takes measurements, and offers ports for benchmarking on Nvidia, AMD, and Intel GPUs.
 
 For questions and support, please send an email to merth@stanford.edu
 
 ## API
 
-CommBench has a higher-level interface for implementing custom micro-benchmarks in a system-agnostic way. C++ API is used to program of a desired pattern by composition of point-to-point communications. A more straightforward Python scripting interface is available in [pyComm](https://github.com/merthidayetoglu/CommBench/tree/master/pyComm). With either API, when programming a microbenchmark, CommBench's API functions must be hit by all processes, where each process is bound to a GPU. See [mapping](#rank-assignment) of parallel processes to the GPUs in the physical system.
+CommBench has a higher-level interface for implementing custom micro-benchmarks in a system-agnostic way. C++ API is used to program a desired pattern by composition of point-to-point communication primitives. A more straightforward Python scripting interface is available in [pyComm](https://github.com/merthidayetoglu/CommBench/tree/master/pyComm). With either API, CommBench's API functions must be hit by all processes when programming a microbenchmark, where each process is bound to a single GPU. See [mapping](#rank-assignment) of parallel processes to the GPUs in the physical system.
 
 
 #### Inclusion
@@ -83,6 +83,8 @@ void CommBench::Comm<T>::start();
 void CommBench::Comm<T>::wait();
 ```
 
+#### Measurement
+
 The communication time can be measured with minimal overhead using the synchronization functions as below.
 
 ```cpp
@@ -93,8 +95,6 @@ comm.wait();
 time = MPI_Wtime() - time;
 MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
 ```
-
-#### Measurement
 
 It is tedious to take accurate measurements, mainly because it has to be repeated several times to find the peak performance. We provide a measurement functions that executes the communications multiple times and reports the statistics.
 ```cpp

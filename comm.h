@@ -80,7 +80,6 @@
     gex_AM_Index_t am_sender_index = GEX_AM_INDEX_BASE + 1;
     gex_AM_Index_t am_recver_index = GEX_AM_INDEX_BASE + 2;
     static void am_sender(gex_Token_t token, gex_AM_Arg_t send, gex_AM_Arg_t bench) {
-      // printf("sender AM send %d bench %d\n", send, bench);
       Comm<T> *ptr = (Comm<T>*)benchlist[bench];
       ptr->ack_sender[send] = 1;
       ptr->gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(CommBench::myep, 1),
@@ -91,7 +90,6 @@
                                            GEX_EVENT_DEFER, 0);
     };
     static void am_recver(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) {
-      // printf("recvr AM recv %d bench %d\n", recv, bench);
       Comm<T> *ptr = (Comm<T>*)benchlist[bench];
       ptr->ack_recver[recv] = 1;
     };
@@ -1005,8 +1003,8 @@
       {
         for (int send = 0; send < numsend; send++) {
           gex_Event_Wait(gex_event[send]);
-          gex_AM_RequestShort2(myteam, sendproc[send], am_recver_index, 0, remote_recvind[send], benchid);
           ack_sender[send] = 0;
+          gex_AM_RequestShort2(myteam, sendproc[send], am_recver_index, 0, remote_recvind[send], benchid);
         }
 	GASNET_BLOCKUNTIL(recv_complete()); // or while (!recv_complete()) gasnet_AMPoll();
         memset(ack_recver.data(), 0, numrecv * sizeof(int));

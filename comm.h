@@ -67,13 +67,13 @@
     std::vector<int> remote_recvind;
     bool send_complete() {
       for (int i = 0; i < numsend; i++)
-        if (!ack_sender[i])
+        if (ack_sender[i])
           return false;
       return true;
     };
     bool recv_complete() {
       for (int i = 0; i < numrecv; i++)
-        if (!ack_recver[i])
+        if (ack_recver[i])
           return false;
       return true;
     };
@@ -81,17 +81,25 @@
     gex_AM_Index_t am_recver_index = GEX_AM_INDEX_BASE + 2;
     static void am_sender(gex_Token_t token, gex_AM_Arg_t send, gex_AM_Arg_t bench) {
       Comm<T> *ptr = (Comm<T>*)benchlist[bench];
-      ptr->ack_sender[send] = 1;
+      GASNET_BLOCKUNTIL(ptr->ack_sender[send]);
+      /*ptr->ack_sender[send] = 1;
       ptr->gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(CommBench::myep, 1),
 		                           ptr->sendproc[send],
                                            ptr->remotebuf[send] + ptr->remoteoffset[send],
 	                                   ptr->sendbuf[send] + ptr->sendoffset[send],
                                            ptr->sendcount[send] * sizeof(T),
-                                           GEX_EVENT_DEFER, 0);
+                                           GEX_EVENT_DEFER, 0);*/
+      gex_RMA_PutBlocking(gex_TM_Pair(CommBench::myep, 1),
+                                      ptr->sendproc[send],
+                                      ptr->remotebuf[send] + ptr->remoteoffset[send],
+                                      ptr->sendbuf[send] + ptr->sendoffset[send],
+                                      ptr->sendcount[send] * sizeof(T), 0);
+      gex_AM_ReplyShort2(token, ptr->am_recver_index, 0, ptr->remote_recvind[send], bench);
+      ptr->ack_sender[send] = 0;
     };
     static void am_recver(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) {
       Comm<T> *ptr = (Comm<T>*)benchlist[bench];
-      ptr->ack_recver[recv] = 1;
+      ptr->ack_recver[recv] = 0;
     };
 #endif
 
@@ -918,9 +926,11 @@
         break;
 #ifdef CAP_GASNET
       case GEX:
+        memset(ack_sender.data(), 1, numsend * sizeof(int));
+        memset(ack_recver.data(), 1, numrecv * sizeof(int));
         for (int recv = 0; recv < numrecv; recv++)
           gex_AM_RequestShort2(myteam, recvproc[recv], am_sender_index, 0, remote_sendind[recv], benchid);
-        GASNET_BLOCKUNTIL(send_complete()); // or while (!send_complete()) gasnet_AMPoll();
+        // GASNET_BLOCKUNTIL(send_complete()); // or while (!send_complete()) gasnet_AMPoll();
         /*for(int recv = 0; recv < numrecv; recv++)
           MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
         // barrier();
@@ -1001,13 +1011,15 @@
 #ifdef CAP_GASNET
       case GEX:
       {
-        for (int send = 0; send < numsend; send++) {
+        GASNET_BLOCKUNTIL(send_complete());
+        GASNET_BLOCKUNTIL(recv_complete());
+        /*for (int send = 0; send < numsend; send++) {
           gex_Event_Wait(gex_event[send]);
           ack_sender[send] = 0;
           gex_AM_RequestShort2(myteam, sendproc[send], am_recver_index, 0, remote_recvind[send], benchid);
         }
 	GASNET_BLOCKUNTIL(recv_complete()); // or while (!recv_complete()) gasnet_AMPoll();
-        memset(ack_recver.data(), 0, numrecv * sizeof(int));
+        memset(ack_recver.data(), 0, numrecv * sizeof(int));*/
         /*for(int send = 0; send < numsend; send++) {
           gex_Event_Wait(gex_event[send]);
           MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);

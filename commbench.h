@@ -77,10 +77,11 @@
 namespace CommBench
 {
   static int printid = 0;
+  static int numbench = 0;
+  static std::vector<void*> benchlist;
+  static int mydevice = -1;
 
   enum library {dummy, MPI, NCCL, IPC, IPC_get, GEX, GEX_get, numlib};
-
-  static int mydevice = -1;
 
   static MPI_Comm comm_mpi;
   static int myid;
@@ -96,12 +97,11 @@ namespace CommBench
 #endif
 #ifdef CAP_GASNET
   static gex_Client_t myclient;
+  static gex_EP_t ep_primordial;
   static gex_EP_t myep;
   static gex_TM_t myteam;
   static gex_MK_t memkind;
 #endif
-
-  static int numbench = 0;
 
   static void print_data(size_t data) {
     if (data < 1e3)
@@ -145,7 +145,7 @@ namespace CommBench
 
   // MEASUREMENT
   template <typename C>
-  static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C comm);
+  static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C &comm);
 
   template <typename T>
   struct pyalloc {
@@ -188,8 +188,7 @@ namespace CommBench
     if(!init_gasnet) {
       init_gasnet = true;
       // initialize
-      gex_EP_t myep_premordial; // lost after creation
-      gex_Client_Init(&myclient, &myep_premordial, &myteam, "CommBench+GASNet-EX", NULL, NULL, 0);
+      gex_Client_Init(&myclient, &ep_primordial, &myteam, "CommBench+GASNet-EX", NULL, NULL, 0);
     }
     gex_Event_Wait(gex_Coll_BarrierNB(myteam, 0));
 #endif
@@ -326,7 +325,7 @@ namespace CommBench
   }
 
   template <typename C>
-  static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C comm) {
+  static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C &comm) {
 
     double times[numiter];
     double starts[numiter];
@@ -413,7 +412,7 @@ namespace CommBench
   }
 
   void barrier() {
-#ifdef GASNET
+#ifdef CAP_GASNET
     gex_Event_Wait(gex_Coll_BarrierNB(myteam, 0));
 #else
     MPI_Barrier(comm_mpi);

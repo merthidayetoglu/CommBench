@@ -62,7 +62,6 @@
 
     // GASNET
 #ifdef CAP_GASNET
-    std::vector<gex_Event_t> gex_event;
     std::vector<int> remote_sendind;
     std::vector<int> remote_recvind;
     bool send_complete() {
@@ -546,7 +545,6 @@
           ack_sender.push_back(int(0));
           remotebuf.push_back(recvbuf);
           remoteoffset.push_back(recvoffset);
-          gex_event.push_back(gex_Event_t());
           remote_recvind.push_back(numrecv);
           if(sendid != recvid) {
             MPI_Recv(&remotebuf[numsend], sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
@@ -556,10 +554,13 @@
           }
           break;
         case GEX_get:
-          ack_sender.push_back(int());
+          ack_sender.push_back(int(0));
+          // remote_sendind.push_back(numrecv);
           if(sendid != recvid) {
             MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi);
             MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi);
+            // MPI_Send(&numsend, 1, MPI_INT, recvid, 0, comm_mpi);
+            // MPI_Recv(&remote_sendind[numsend], 1, MPI_INT, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
           break;
 #endif
@@ -680,13 +681,15 @@
           }
           break;
         case GEX_get:
-          ack_recver.push_back(int());
+          ack_recver.push_back(int(0));
           remotebuf.push_back(sendbuf);
           remoteoffset.push_back(sendoffset);
-          gex_event.push_back(gex_Event_t());
+          // remote_recvind.push_back(numsend - 1);
           if(sendid != recvid) {
             MPI_Recv(&remotebuf[numrecv], sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
             MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            // MPI_Send(&numrecv, 1, MPI_INT, sendid, 0, comm_mpi);
+            // MPI_Recv(&remote_recvind[numrecv], 1, MPI_INT, sendid, 0, comm_mpi_MPI_STATUS_IGNORE);
           }
           break;
 #endif

@@ -77,29 +77,40 @@
           return false;
       return true;
     };
-    gex_AM_Index_t am_sender_index = GEX_AM_INDEX_BASE + 1;
-    gex_AM_Index_t am_recver_index = GEX_AM_INDEX_BASE + 2;
-    static void am_sender(gex_Token_t token, gex_AM_Arg_t send, gex_AM_Arg_t bench) {
+    gex_AM_Index_t am_sender_put_index = GEX_AM_INDEX_BASE + 1;
+    gex_AM_Index_t am_recver_put_index = GEX_AM_INDEX_BASE + 2;
+    gex_AM_Index_t am_sender_get_index = GEX_AM_INDEX_BASE + 3;
+    gex_AM_Index_t am_recver_get_index = GEX_AM_INDEX_BASE + 4;
+    static void am_sender_put(gex_Token_t token, gex_AM_Arg_t send, gex_AM_Arg_t bench) {
       Comm<T> *ptr = (Comm<T>*)benchlist[bench];
       GASNET_BLOCKUNTIL(ptr->ack_sender[send]);
-      /*ptr->ack_sender[send] = 1;
-      ptr->gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(CommBench::myep, 1),
-		                           ptr->sendproc[send],
-                                           ptr->remotebuf[send] + ptr->remoteoffset[send],
-	                                   ptr->sendbuf[send] + ptr->sendoffset[send],
-                                           ptr->sendcount[send] * sizeof(T),
-                                           GEX_EVENT_DEFER, 0);*/
       gex_RMA_PutBlocking(gex_TM_Pair(CommBench::myep, 1),
                                       ptr->sendproc[send],
                                       ptr->remotebuf[send] + ptr->remoteoffset[send],
                                       ptr->sendbuf[send] + ptr->sendoffset[send],
                                       ptr->sendcount[send] * sizeof(T), 0);
-      gex_AM_ReplyShort2(token, ptr->am_recver_index, 0, ptr->remote_recvind[send], bench);
+      gex_AM_ReplyShort2(token, ptr->am_recver_put_index, 0, ptr->remote_recvind[send], bench);
       ptr->ack_sender[send] = 0;
     };
-    static void am_recver(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) {
+    static void am_recver_put(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) {
       Comm<T> *ptr = (Comm<T>*)benchlist[bench];
       ptr->ack_recver[recv] = 0;
+    };
+    static void am_recver_get(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) {
+      Comm<T> *ptr = (Comm<T>*)benchlist[bench];
+      printf("myid %d recv from %d\n", myid, recv);
+      GASNET_BLOCKUNTIL(ptr->ack_recver[recv]);
+      gex_RMA_GetBlocking(gex_TM_Pair(CommBench::myep, 1),
+                          ptr->recvbuf[recv] + ptr->recvoffset[recv],
+                          ptr->recvproc[recv],
+                          ptr->remotebuf[recv] + ptr->remoteoffset[recv],
+                          ptr->recvcount[recv] * sizeof(T), 0);
+      gex_AM_ReplyShort2(token, ptr->am_sender_get_index, 0, ptr->remote_sendind[recv], bench);
+      ptr->ack_recver[recv] = 0;
+    };
+    static void am_sender_get(gex_Token_t token, gex_AM_Arg_t send, gex_AM_Arg_t bench) {
+      Comm<T> *ptr = (Comm<T>*)benchlist[bench];
+      ptr->ack_sender[send] = 0;
     };
 #endif
 
@@ -209,26 +220,6 @@
       init_gasnet_ep = true;
       // create device endpoint
       gex_EP_Create(&myep, myclient, GEX_EP_CAPABILITY_RMA, 0);
-#if defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI)
-      // create device memory kind
-      gex_MK_Create_args_t args;
-      args.gex_flags = 0;
-#ifdef PORT_CUDA
-      args.gex_class = GEX_MK_CLASS_CUDA_UVA;
-      args.gex_args.gex_class_cuda_uva.gex_CUdevice = mydevice;
-#elif defined PORT_HIP
-      args.gex_class = GEX_MK_CLASS_HIP;
-      args.gex_args.gex_class_hip.gex_hipDevice = mydevice;
-#elif defined PORT_ONEAPI
-      args.gex_class = GEX_MK_CLASS_ZE; // TODO: implement MK args for ZE
-      // args.gex_args.gex_class_ze.gex_zeDevice =
-      // args.gex_args.gex_class_ze.gex_zeContext =
-      // args.gex_args.gex_class_ze.gex_zeMemoryOrdinal =
-#endif
-      gex_MK_Create(&memkind, myclient, &args, 0);
-#else
-      memkind = GEX_MK_HOST;
-#endif
     }
 #endif
     if(lib == IPC || lib == IPC_get) {
@@ -294,8 +285,10 @@
   void Comm<T>::init() {
 #ifdef CAP_GASNET
     gex_AM_Entry_t handlers[] = {
-        {am_sender_index, (gex_AM_Fn_t)am_sender, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
-        {am_recver_index, (gex_AM_Fn_t)am_recver, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0}
+        {am_sender_put_index, (gex_AM_Fn_t)am_sender_put, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
+        {am_recver_put_index, (gex_AM_Fn_t)am_recver_put, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
+        {am_sender_get_index, (gex_AM_Fn_t)am_sender_get, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
+        {am_recver_get_index, (gex_AM_Fn_t)am_recver_get, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0}
         // Add more handlers if needed
     };
     gex_EP_RegisterHandlers(ep_primordial, handlers, sizeof(handlers) / sizeof(gex_AM_Entry_t));
@@ -926,27 +919,20 @@
         break;
 #ifdef CAP_GASNET
       case GEX:
+        // set send / recv buffers busy
         memset(ack_sender.data(), 1, numsend * sizeof(int));
         memset(ack_recver.data(), 1, numrecv * sizeof(int));
+        // ask sender to initiate put
         for (int recv = 0; recv < numrecv; recv++)
-          gex_AM_RequestShort2(myteam, recvproc[recv], am_sender_index, 0, remote_sendind[recv], benchid);
-        // GASNET_BLOCKUNTIL(send_complete()); // or while (!send_complete()) gasnet_AMPoll();
-        /*for(int recv = 0; recv < numrecv; recv++)
-          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
-        // barrier();
-        for(int send = 0; send < numsend; send++) {
-          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
-          gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(CommBench::myep, 1), sendproc[send], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), GEX_EVENT_DEFER, 0);
-        }*/
+          gex_AM_RequestShort2(myteam, recvproc[recv], am_sender_put_index, 0, remote_sendind[recv], benchid);
         break;
       case GEX_get:
-        for(int send = 0; send < numsend; send++)
-          MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
-        // barrier();
-        for(int recv = 0; recv < numrecv; recv++) {
-          MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
-          gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(CommBench::myep, 1), recvbuf[recv] + recvoffset[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
-        }
+        // set send / recv buffers busy
+        memset(ack_sender.data(), 1, numsend * sizeof(int));
+        memset(ack_recver.data(), 1, numrecv * sizeof(int));
+        // ask recver to initiate get
+	for (int send = 0; send < numsend; send++)
+          gex_AM_RequestShort2(myteam, sendproc[send], am_recver_get_index, 0, remote_recvind[send], benchid);
         break;
 #endif
       default:
@@ -1010,33 +996,14 @@
         break;
 #ifdef CAP_GASNET
       case GEX:
-      {
+        // wait until buffer are free
         GASNET_BLOCKUNTIL(send_complete());
         GASNET_BLOCKUNTIL(recv_complete());
-        /*for (int send = 0; send < numsend; send++) {
-          gex_Event_Wait(gex_event[send]);
-          ack_sender[send] = 0;
-          gex_AM_RequestShort2(myteam, sendproc[send], am_recver_index, 0, remote_recvind[send], benchid);
-        }
-	GASNET_BLOCKUNTIL(recv_complete()); // or while (!recv_complete()) gasnet_AMPoll();
-        memset(ack_recver.data(), 0, numrecv * sizeof(int));*/
-        /*for(int send = 0; send < numsend; send++) {
-          gex_Event_Wait(gex_event[send]);
-          MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
-        }
-        // barrier();
-        for(int recv = 0; recv < numrecv; recv++)
-          MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);*/
         break;
-      }
       case GEX_get:
-        for(int recv = 0; recv < numrecv; recv++) {
-          gex_Event_Wait(gex_event[recv]);
-          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
-        }
-        // barrier();
-        for(int send = 0; send < numsend; send++)
-          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
+        // wait until buffer are free
+        GASNET_BLOCKUNTIL(send_complete());
+        GASNET_BLOCKUNTIL(recv_complete());
         break;
 #endif
       default:

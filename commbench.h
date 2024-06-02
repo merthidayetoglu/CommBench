@@ -183,16 +183,37 @@ namespace CommBench
         printf("******************** MPI COMMUNICATOR IS CREATED\n");
       }
     }
+    setup_gpu();
 #ifdef CAP_GASNET
     static bool init_gasnet = false;
     if(!init_gasnet) {
       init_gasnet = true;
       // initialize
       gex_Client_Init(&myclient, &ep_primordial, &myteam, "CommBench+GASNet-EX", NULL, NULL, 0);
-    }
-    gex_Event_Wait(gex_Coll_BarrierNB(myteam, 0));
+#if defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI)
+      // create device memory kind
+      gex_MK_Create_args_t args;
+      args.gex_flags = 0;
+#ifdef PORT_CUDA
+      args.gex_class = GEX_MK_CLASS_CUDA_UVA;
+      args.gex_args.gex_class_cuda_uva.gex_CUdevice = mydevice;
+#elif defined PORT_HIP
+      args.gex_class = GEX_MK_CLASS_HIP;
+      args.gex_args.gex_class_hip.gex_hipDevice = mydevice;
+#elif defined PORT_ONEAPI
+      args.gex_class = GEX_MK_CLASS_ZE; // TODO: implement MK args for ZE
+      // args.gex_args.gex_class_ze.gex_zeDevice =
+      // args.gex_args.gex_class_ze.gex_zeContext =
+      // args.gex_args.gex_class_ze.gex_zeMemoryOrdinal =
 #endif
-    setup_gpu();
+      gex_MK_Create(&memkind, myclient, &args, 0);
+#else
+      memkind = GEX_MK_HOST;
+#endif
+    }
+    if(myid == printid)
+      printf("******************** GASNET CLIENT IS CREATED\n");
+#endif
   }
 
 #include "comm.h"

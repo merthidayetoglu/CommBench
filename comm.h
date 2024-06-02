@@ -97,7 +97,6 @@
     };
     static void am_recver_get(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) {
       Comm<T> *ptr = (Comm<T>*)benchlist[bench];
-      printf("myid %d recv from %d\n", myid, recv);
       GASNET_BLOCKUNTIL(ptr->ack_recver[recv]);
       gex_RMA_GetBlocking(gex_TM_Pair(CommBench::myep, 1),
                           ptr->recvbuf[recv] + ptr->recvoffset[recv],
@@ -555,12 +554,12 @@
           break;
         case GEX_get:
           ack_sender.push_back(int(0));
-          // remote_sendind.push_back(numrecv);
+          remote_recvind.push_back(numrecv);
           if(sendid != recvid) {
             MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi);
             MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi);
-            // MPI_Send(&numsend, 1, MPI_INT, recvid, 0, comm_mpi);
-            // MPI_Recv(&remote_sendind[numsend], 1, MPI_INT, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            MPI_Send(&numsend, 1, MPI_INT, recvid, 0, comm_mpi);
+            MPI_Recv(&remote_recvind[numsend], 1, MPI_INT, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
           break;
 #endif
@@ -684,12 +683,12 @@
           ack_recver.push_back(int(0));
           remotebuf.push_back(sendbuf);
           remoteoffset.push_back(sendoffset);
-          // remote_recvind.push_back(numsend - 1);
+          remote_sendind.push_back(numsend - 1);
           if(sendid != recvid) {
             MPI_Recv(&remotebuf[numrecv], sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
             MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            // MPI_Send(&numrecv, 1, MPI_INT, sendid, 0, comm_mpi);
-            // MPI_Recv(&remote_recvind[numrecv], 1, MPI_INT, sendid, 0, comm_mpi_MPI_STATUS_IGNORE);
+            MPI_Send(&numrecv, 1, MPI_INT, sendid, 0, comm_mpi);
+            MPI_Recv(&remote_sendind[numrecv], 1, MPI_INT, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
           }
           break;
 #endif

@@ -26,6 +26,13 @@
 // CAP_ONECCL
 // CAP_ZE
 // CAP_GASNET
+// 
+// MODES
+// USE_GASNET
+
+#ifdef USE_GASNET
+#define CAP_GASNET
+#endif
 
 #if defined PORT_CUDA || defined PORT_HIP
 // #define CAP_NCCL
@@ -64,6 +71,7 @@
 #define GASNET_PAR
 #include <gasnetex.h>
 #include <gasnet_mk.h>
+// #include <gasnet.h>
 #endif
 
 // CPP LIBRARIES
@@ -143,6 +151,98 @@ namespace CommBench
   template <typename T>
   void freeHost(T *buffer);
 
+  // PAIR COMMUNICATION
+#ifdef USE_GASNET
+  std::vector<bool> am_ready;
+  void* am_ptr;
+  bool am_busy = false;
+  gex_AM_Index_t am_recv_index = GEX_AM_INDEX_BASE + 5;
+  gex_AM_Index_t am_send_index = GEX_AM_INDEX_BASE + 6;
+  void am_recv(gex_Token_t token, gex_AM_Arg_t dst) {
+    am_ready[dst] = true;
+  };
+  void am_send(gex_Token_t token, void *buf, size_t nbytes) {
+    memcpy(am_ptr, buf, nbytes);
+    am_busy = false;
+  };
+#endif
+  template <typename T>
+  void send(T *sendbuf, int recvid) {
+#ifdef USE_GASNET
+    GASNET_BLOCKUNTIL(am_ready[recvid]);
+    gex_AM_RequestMedium0(myteam, recvid, am_send_index, sendbuf, sizeof(T), GEX_EVENT_NOW, 0);
+    am_ready[recvid] = false;
+#else
+    MPI_Ssend(sendbuf, sizeof(T), MPI_BYTE, recvid, 0, comm_mpi);
+#endif
+  };
+  template <typename T>
+  void recv(T *recvbuf, int sendid) {
+#ifdef USE_GASNET
+    am_ptr = recvbuf;
+    am_busy = true;
+    gex_AM_RequestShort1(myteam, sendid, am_recv_index, 0, myid);
+    GASNET_BLOCKUNTIL(!am_busy);
+#else
+    MPI_Recv(recvbuf, sizeof(T), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+#endif
+  };
+  template <typename T>
+  void pair(T *sendbuf, T *recvbuf, int sendid, int recvid) {
+    if(sendid == recvid) {
+      if(myid == sendid)
+        memcpy(recvbuf, sendbuf, sizeof(T));
+      return;
+    }
+    if(myid == sendid)
+      send(sendbuf, recvid);
+    if(myid == recvid)
+      recv(recvbuf, sendid);
+  }
+  template <typename T>
+  void broadcast(T *sendbuf, T *recvbuf, int root) {
+    T temp;
+    for(int i = 0; i < numproc; i++)
+      pair(sendbuf, &temp, root, i);
+    *recvbuf = temp;
+  }
+  template <typename T>
+  void broadcast(T *sendbuf) { broadcast(sendbuf, recvbuf, 0); };
+  template <typename T>
+  void allgather(T *sendval, T *recvbuf) {
+    for(int root = 0; root < numproc; root++)
+      broadcast(sendval, recvbuf + root, root);
+  }
+  template <typename T>
+  void allreduce_sum(T *sendbuf, T *recvbuf) {
+    std::vector<T> temp(numproc);
+    allgather(sendbuf, temp.data());
+    T sum = 0;
+    for(int i = 0; i < numproc; i++)
+      sum += temp[i];
+    *recvbuf = sum;
+  }
+  template <typename T>
+  void allreduce_max(T *sendbuf, T *recvbuf) {
+    std::vector<T> temp(numproc);
+    allgather(sendbuf, temp.data());
+    T max = *sendbuf;
+    for(int i = 0; i < numproc; i++)
+      if(temp[i] > max)
+        max = temp[i];
+    *recvbuf = max;
+  }
+  template <typename T>
+  void allreduce_min(T *sendbuf, T *recvbuf) {
+    std::vector<T> temp(numproc);
+    allgather(sendbuf, temp.data());
+    T min = *sendbuf;
+    for(int i = 0; i < numproc; i++)
+      if(temp[i] < min)
+        min = temp[i];
+    *recvbuf = min;
+  }
+
   // MEASUREMENT
   template <typename C>
   static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C &comm);
@@ -210,6 +310,17 @@ namespace CommBench
 #else
       memkind = GEX_MK_HOST;
 #endif
+#ifdef USE_GASNET
+      gex_AM_Entry_t handlers[] = {
+        {am_recv_index, (gex_AM_Fn_t)am_recv, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
+        {am_send_index, (gex_AM_Fn_t)am_send, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_MEDIUM, 0}
+        // Add more handlers if needed
+      };
+      gex_EP_RegisterHandlers(ep_primordial, handlers, sizeof(handlers) / sizeof(gex_AM_Entry_t));
+      for (int i = 0; i < numproc; i++)
+        am_ready.push_back(false);
+#endif
+
     }
     if(myid == printid)
       printf("******************** GASNET CLIENT IS CREATED\n");

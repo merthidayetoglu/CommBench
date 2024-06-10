@@ -1,10 +1,14 @@
 # ----- Make Macros -----
 
-CXX = CC
-CXXFLAGS = -std=c++14 -fopenmp -I${ROCM_PATH}/include -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90A__=1 -x hip
-OPTFLAGS = -O3 
+GASNET_DIR = /global/homes/m/merth/CommBench/gasnet/release
 
-LD_FLAGS = -fopenmp -L${ROCM_PATH}/lib -lamdhip64 -lrccl
+CC = CC -target-accel=nvidia80 -fopenmp -I${GASNET_DIR}/include -I${GASNET_DIR}/include/ofi-conduit/
+
+NVCC = nvcc
+NVCCFLAGS = -lineinfo -O3 -std=c++14 -gencode arch=compute_80,code=sm_80 -ccbin=CC -Xcompiler -fopenmp -Xptxas="-v"
+
+LD_FLAGS = -L${NCCL_DIR}/lib -lnccl -L${GASNET_DIR}/lib -lgasnet-ofi-par -L/opt/cray/libfabric/1.15.2.0/lib64 -lfabric -L/opt/cray/pe/pmi/default/lib/ -lpmi -lhwloc -lhugetlbfs
+# LD_FLAGS = -lnccl
 
 TARGETS = CommBench
 OBJECTS = main.o 
@@ -13,11 +17,14 @@ OBJECTS = main.o
 
 all:	$(TARGETS)
 
-%.o: %.cpp
-	${CXX} ${CXXFLAGS} ${OPTFLAGS} $< -c -o $@ -craype-verbose
+%.o : %.cpp
+	${CC} $< -c -o $@
+
+%.o : %.cu
+	${NVCC} ${NVCCFLAGS} $< -c -o $@
 
 CommBench: $(OBJECTS)
-	$(CXX) -o $@ $(OBJECTS) $(LD_FLAGS)
+	$(CC) -o $@ $(OBJECTS) $(LD_FLAGS)
 
 clean:
 	rm -f $(TARGETS) *.o *.o.* *.txt *.bin core *.html *.xml

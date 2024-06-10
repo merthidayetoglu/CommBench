@@ -163,8 +163,8 @@ namespace CommBench
   std::vector<bool> am_ready;
   void* am_ptr;
   bool am_busy = false;
-  gex_AM_Index_t am_recv_index = GEX_AM_INDEX_BASE + 5;
-  gex_AM_Index_t am_send_index = GEX_AM_INDEX_BASE + 6;
+  gex_AM_Index_t am_recv_index = GEX_AM_INDEX_BASE + 0;
+  gex_AM_Index_t am_send_index = GEX_AM_INDEX_BASE + 1;
   void am_recv(gex_Token_t token, gex_AM_Arg_t dst) {
     am_ready[dst] = true;
   };
@@ -241,6 +241,15 @@ namespace CommBench
   }
   template <typename T> void allreduce_max(T *sendbuf) { allreduce_max(sendbuf, sendbuf); }
 
+  char allreduce_land(char logic) {
+    std::vector<char> temp(numproc);
+    allgather(&logic, temp.data());
+    for(int i = 0; i < numproc; i++)
+      if(temp[i] == 0)
+        return 0;
+    return 1;
+  }
+
   // MEASUREMENT
   template <typename C>
   static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C &comm);
@@ -302,6 +311,7 @@ namespace CommBench
       gex_EP_RegisterHandlers(ep_primordial, handlers, sizeof(handlers) / sizeof(gex_AM_Entry_t));
       for (int i = 0; i < numproc; i++)
         am_ready.push_back(false);
+      barrier();
 #endif
     }
 #endif

@@ -1,10 +1,8 @@
 template <class Coll>
 void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &coll) {
 
-  int myid;
-  int numproc;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numproc);
+  int myid = CommBench::myid;
+  int numproc = CommBench::numproc;
 
   int *recvbuf;
   int *sendbuf;
@@ -35,7 +33,7 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
 #endif
   memset(recvbuf, -1, count * numproc * sizeof(int));
 
-  barrier();
+  CommBench::barrier();
 
   coll.start();
   coll.wait();
@@ -136,8 +134,7 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
       }
       break;
   }
-
-  MPI_Allreduce(MPI_IN_PLACE, &pass, 1, MPI_C_BOOL, MPI_LAND, MPI_COMM_WORLD);
+  pass = CommBench::allreduce_land(pass);
   if(myid == ROOT) {
     if(pass) 
       printf("PASSED!\n");

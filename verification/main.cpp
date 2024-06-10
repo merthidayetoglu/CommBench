@@ -14,17 +14,21 @@
  */
 
 // PORTS
-// #define PORT_CUDA
-#define PORT_HIP
+#define PORT_CUDA
+// #define PORT_HIP
 // #define PORT_SYCL
 
 // #define IPC_kernel
 // #define IPC_ze
 
+#define CAP_NCCL
+#define USE_GASNET
 #include "../commbench.h"
 
 #define ROOT 0
 #include "validate.h"
+
+#include <mpi.h>
 
 void print_args();
 
@@ -80,15 +84,18 @@ int main(int argc, char *argv[])
 
     // INITIALIZE
     init();
+    // CREATE COMMUNICATOR
+    Comm<Type> coll((CommBench::library) library);
 
     // ALLOCATE
     Type *sendbuf_d;
     Type *recvbuf_d;
-    allocate(sendbuf_d, count * numproc);
-    allocate(recvbuf_d, count * numproc);
-
-    // CREATE COMMUNICATOR
-    Comm<Type> coll((CommBench::library) library);
+    Type *buffer;
+    allocate(buffer, count * numproc * 2);
+    sendbuf_d = buffer;
+    recvbuf_d = buffer + count * numproc;
+    // allocate(sendbuf_d, count * numproc);
+    // allocate(recvbuf_d, count * numproc);
 
     // REGISTER PATTERN
     switch(pattern) {
@@ -145,6 +152,8 @@ int main(int argc, char *argv[])
         // CommBench does not offer computational kernels.
         break;
     }
+    // INIT
+    coll.init();
 
     // MEASURE 
     coll.measure(warmup, numiter, count * numproc);
@@ -154,8 +163,8 @@ int main(int argc, char *argv[])
       validate(sendbuf_d, recvbuf_d, count, pattern, coll);
 
     // DEALLOCATE
-    free(sendbuf_d);
-    free(recvbuf_d);
+    // free(sendbuf_d);
+    // free(recvbuf_d);
   }
 
   // FINALIZE
@@ -179,6 +188,8 @@ void print_args() {
     printf("      2 for NCCL/RCCL/OneCCL\n");
     printf("      3 for IPC (PUT)\n");
     printf("      4 for IPC (GET)\n");
+    printf("      5 for GEX (GET)\n");
+    printf("      6 for GEX (PUT)\n");
     printf("2. pattern:\n");
     printf("      1 for Gather\n");
     printf("      2 for Scatter\n");

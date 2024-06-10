@@ -28,8 +28,8 @@
     // SYNCRONIZATION
     std::vector<int> ack_sender;
     std::vector<int> ack_recver;
-    void notify_sender();
-    void notify_recver();
+    void block_sender();
+    void block_recver();
 
 
     // MEMORY TODO: implement memory management
@@ -72,52 +72,22 @@
     std::vector<gex_Event_t> gex_event;
     std::vector<int> remote_sendind;
     std::vector<int> remote_recvind;
-    bool send_complete() {
+    bool send_ready() {
       for (int i = 0; i < numsend; i++)
-        if (ack_sender[i])
+        if (!ack_sender[i])
           return false;
       return true;
     };
-    bool recv_complete() {
+    bool recv_ready() {
       for (int i = 0; i < numrecv; i++)
-        if (ack_recver[i])
+        if (!ack_recver[i])
           return false;
       return true;
     };
-    gex_AM_Index_t am_sender_put_index = GEX_AM_INDEX_BASE + 1;
-    gex_AM_Index_t am_recver_put_index = GEX_AM_INDEX_BASE + 2;
-    gex_AM_Index_t am_sender_get_index = GEX_AM_INDEX_BASE + 3;
-    gex_AM_Index_t am_recver_get_index = GEX_AM_INDEX_BASE + 4;
-    static void am_sender_put(gex_Token_t token, gex_AM_Arg_t send, gex_AM_Arg_t bench) {
-      Comm<T> *ptr = (Comm<T>*)benchlist[bench];
-      GASNET_BLOCKUNTIL(ptr->ack_sender[send]);
-      gex_RMA_PutBlocking(gex_TM_Pair(CommBench::myep, 1),
-                                      ptr->sendproc[send],
-                                      ptr->remotebuf[send] + ptr->remoteoffset[send],
-                                      ptr->sendbuf[send] + ptr->sendoffset[send],
-                                      ptr->sendcount[send] * sizeof(T), 0);
-      gex_AM_ReplyShort2(token, ptr->am_recver_put_index, 0, ptr->remote_recvind[send], bench);
-      ptr->ack_sender[send] = 0;
-    };
-    static void am_recver_put(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) {
-      Comm<T> *ptr = (Comm<T>*)benchlist[bench];
-      ptr->ack_recver[recv] = 0;
-    };
-    static void am_recver_get(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) {
-      Comm<T> *ptr = (Comm<T>*)benchlist[bench];
-      GASNET_BLOCKUNTIL(ptr->ack_recver[recv]);
-      gex_RMA_GetBlocking(gex_TM_Pair(CommBench::myep, 1),
-                          ptr->recvbuf[recv] + ptr->recvoffset[recv],
-                          ptr->recvproc[recv],
-                          ptr->remotebuf[recv] + ptr->remoteoffset[recv],
-                          ptr->recvcount[recv] * sizeof(T), 0);
-      gex_AM_ReplyShort2(token, ptr->am_sender_get_index, 0, ptr->remote_sendind[recv], bench);
-      ptr->ack_recver[recv] = 0;
-    };
-    static void am_sender_get(gex_Token_t token, gex_AM_Arg_t send, gex_AM_Arg_t bench) {
-      Comm<T> *ptr = (Comm<T>*)benchlist[bench];
-      ptr->ack_sender[send] = 0;
-    };
+    gex_AM_Index_t am_notify_sender_index = GEX_AM_INDEX_BASE + 2;
+    gex_AM_Index_t am_notify_recver_index = GEX_AM_INDEX_BASE + 3;
+    static void am_notify_sender(gex_Token_t token, gex_AM_Arg_t send, gex_AM_Arg_t bench) { ((Comm<T>*)benchlist[bench])->ack_sender[send] = 1; };
+    static void am_notify_recver(gex_Token_t token, gex_AM_Arg_t recv, gex_AM_Arg_t bench) { ((Comm<T>*)benchlist[bench])->ack_recver[recv] = 1; };
 #endif
 
     Comm(library lib);
@@ -291,15 +261,13 @@
   void Comm<T>::init() {
 #ifdef CAP_GASNET
     gex_AM_Entry_t handlers[] = {
-        {am_sender_put_index, (gex_AM_Fn_t)am_sender_put, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
-        {am_recver_put_index, (gex_AM_Fn_t)am_recver_put, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
-        {am_sender_get_index, (gex_AM_Fn_t)am_sender_get, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
-        {am_recver_get_index, (gex_AM_Fn_t)am_recver_get, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0}
+        {am_notify_sender_index, (gex_AM_Fn_t)am_notify_sender, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
+        {am_notify_recver_index, (gex_AM_Fn_t)am_notify_recver, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0}
         // Add more handlers if needed
     };
     gex_EP_RegisterHandlers(ep_primordial, handlers, sizeof(handlers) / sizeof(gex_AM_Entry_t));
-#endif
     barrier();
+#endif
   }
 
   /*template <typename T>
@@ -840,21 +808,33 @@
 #endif
 
   template <typename T>
-  void Comm<T>::notify_sender() {
+  void Comm<T>::block_sender() {
 #ifdef USE_MPI
     for(int recv = 0; recv < numrecv; recv++)
       MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
     for(int send = 0; send < numsend; send++)
       MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
 #endif
+#ifdef USE_GASNET
+    for(int recv = 0; recv < numrecv; recv++)
+      gex_AM_RequestShort2(myteam, recvproc[recv], am_notify_sender_index, 0, remote_sendind[recv], benchid);
+    GASNET_BLOCKUNTIL(send_ready());
+    memset(ack_sender.data(), 0, numsend * sizeof(int));
+#endif
   }
   template <typename T>
-  void Comm<T>::notify_recver() {
+  void Comm<T>::block_recver() {
 #ifdef USE_MPI
     for(int send = 0; send < numsend; send++)
       MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
     for(int recv = 0; recv < numrecv; recv++)
       MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
+#endif
+#ifdef USE_GASNET
+    for(int send = 0; send < numsend; send++)
+      gex_AM_RequestShort2(myteam, sendproc[send], am_notify_recver_index, 0, remote_recvind[send], benchid);
+    GASNET_BLOCKUNTIL(recv_ready());
+    memset(ack_recver.data(), 0, numrecv * sizeof(int));
 #endif
   }
 
@@ -885,7 +865,7 @@
 #endif
         break;
       case IPC:
-        notify_sender();
+        block_sender();
         for(int send = 0; send < numsend; send++) {
 #ifdef IPC_kernel
   #if defined(PORT_CUDA) || defined(PORT_HIP)
@@ -914,7 +894,7 @@
 #endif
         break;
       case IPC_get:
-        notify_recver();
+        block_recver();
         for(int recv = 0; recv < numrecv; recv++) {
 #ifdef IPC_kernel
   #if defined(PORT_CUDA) || defined(PORT_HIP)
@@ -944,12 +924,12 @@
         break;
 #ifdef CAP_GASNET
       case GEX:
-        notify_sender();
+        block_sender();
         for (int send = 0; send < numsend; send++)
           gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(myep, 1), sendproc[send], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), GEX_EVENT_NOW, 0);
         break;
       case GEX_get:
-        notify_recver();
+        block_recver();
         for (int recv = 0; recv < numrecv; recv++)
           gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(myep, 1), recvbuf[recv] + recvoffset[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
         break;
@@ -993,7 +973,7 @@
 	  q_ipc[send].wait();
 #endif
         }
-        notify_recver();
+        block_recver();
         break;
       case IPC_get:
 #ifdef IPC_ze
@@ -1009,18 +989,18 @@
           q_ipc[recv].wait();
 #endif
         }
-        notify_sender();
+        block_sender();
         break;
 #ifdef CAP_GASNET
       case GEX:
         for (int send = 0; send < numsend; send++)
           gex_Event_Wait(gex_event[send]);
-        notify_recver();
+        block_recver();
         break;
       case GEX_get:
         for (int recv = 0; recv < numrecv; recv++)
           gex_Event_Wait(gex_event[recv]);
-        notify_sender();
+        block_sender();
         break;
 #endif
       default:

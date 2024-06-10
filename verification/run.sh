@@ -1,32 +1,45 @@
 #!/bin/bash
-
-module -t list
+#SBATCH -A m4301
+#SBATCH -C gpu
+#SBATCH -q regular
+#SBATCH -t 00:30:00
+#SBATCH -N 2
+#SBATCH --ntasks-per-node=4
+#SBATCH -c 32
+#SBATCH --gpus-per-task=1
+#SBATCH --gpu-bind=none
 
 date
 
-export OMP_NUM_THREADS=7
+module -t list
 
-# export MPICH_OFI_NIC_VERBOSE=2
+#export MPICH_OFI_NIC_VERBOSE=2
 # export MPICH_ENV_DISPLAY=1
 
-# to make RCCL work
-export LD_LIBRARY_PATH=/ccs/home/merth/HiCCL/CommBench/aws-ofi-rccl/lib:$LD_LIBRARY_PATH
-export NCCL_NET_GDR_LEVEL=3
-#export NCCL_DEBUG=INFO
+export GASNET_OFI_DEVICE_TYPE=Node
+export GASNET_OFI_DEVICE_0=cxi0
+export GASNET_OFI_DEVICE_1=cxi1
+export GASNET_OFI_DEVICE_2=cxi2
+export GASNET_OFI_DEVICE_3=cxi3
+# export GASNET_OFI_LIST_DEVICES=1
+# export GASNET_SPAWN_VERBOSE=1
 
-# use SDMA by default
-# export HSA_ENABLE_SDMA=0
+export SLURM_CPU_BIND="cores"
+
+# export GASNET_BACKTRACE=1
 
 warmup=5
 numiter=10
 
-for library in 3 4
+for library in 2
 # 1: MPI
 # 2: XCCL
 # 3: IPC (PUT)
 # 4: IPC (GET)
+# 5: GEX (PUT)
+# 6: GEX (GET)
 do
-for pattern in 5
+for pattern in 1 2 3 5 6
 # 1: Gather
 # 2: Scatter
 # 3: Broadcast
@@ -39,7 +52,7 @@ do
 for size in 22
 do
   count=$((2**size))
-  srun -c7 ./CommBench $library $pattern $count $warmup $numiter
+  srun -N $SLURM_JOB_NUM_NODES --ntasks-per-node=4 -C gpu -c 32 --gpus-per-task=1  --gpu-bind=none ./CommBench $library $pattern $count $warmup $numiter
 done
 done
 done

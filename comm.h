@@ -24,16 +24,23 @@
     // REMOTE BUFFER
     std::vector<T*> remotebuf;
     std::vector<size_t> remoteoffset;
+
+    // SYNCRONIZATION
     std::vector<int> ack_sender;
     std::vector<int> ack_recver;
+    void notify_sender();
+    void notify_recver();
 
-    // MEMORY
-    std::vector<T*> buffer_list;
-    std::vector<size_t> buffer_count;
+
+    // MEMORY TODO: implement memory management
+    // std::vector<T*> buffer_list;
+    // std::vector<size_t> buffer_count;
 
     // MPI
+#ifdef USE_MPI
     std::vector<MPI_Request> sendrequest;
     std::vector<MPI_Request> recvrequest;
+#endif
 
     // NCCL
 #if defined CAP_NCCL && defined PORT_CUDA
@@ -62,6 +69,7 @@
 
     // GASNET
 #ifdef CAP_GASNET
+    std::vector<gex_Event_t> gex_event;
     std::vector<int> remote_sendind;
     std::vector<int> remote_recvind;
     bool send_complete() {
@@ -125,7 +133,7 @@
 
     void measure(int warmup, int numiter);
     void measure(int warmup, int numiter, size_t data);
-    void getMatrix(std::vector<size_t> &matrix);
+    std::vector<size_t> getMatrix();
     void report();
 
     void allocate(T *&buffer, size_t n);
@@ -174,7 +182,7 @@
         ncclUniqueId id;
         if(myid == 0)
           ncclGetUniqueId(&id);
-        MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comm_mpi);
+        broadcast(&id);
         ncclCommInitRank(&comm_nccl, numproc, id, myid);
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
@@ -196,10 +204,10 @@
         if (myid == 0) {
           kvs = ccl::create_main_kvs();
           main_addr = kvs->get_address();
-          MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, comm_mpi);
+          broadcast(&main_addr);
         }
         else {
-          MPI_Bcast((void *)main_addr.data(), main_addr.size(), MPI_BYTE, 0, comm_mpi);
+          broadcast(&main_addr);
           kvs = ccl::create_kvs(main_addr);
         }
         /* create communicator */
@@ -294,7 +302,7 @@
     barrier();
   }
 
-  template <typename T>
+  /*template <typename T>
   void Comm<T>::free() {
     for(T *ptr : buffer_list)
       CommBench::free(ptr);
@@ -311,26 +319,31 @@
   }
   template <typename T>
   void Comm<T>::allocate(T *&buffer, size_t count, int i) {
+	
     if(myid == i) {
-      MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
+      // MPI_Send(&count, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
+      send(&count, printid);
       if(count) {
         CommBench::allocate(buffer, count);
         buffer_list.push_back(buffer);
         buffer_count.push_back(count);
-        MPI_Send(&buffer, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        // MPI_Send(&buffer, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
+        send(&buffer, printid);
       }
     }
     if(myid == printid) {
-      MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+      // MPI_Recv(&count, sizeof(size_t), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+      recv(&count, printid);
       if(count) {
         T *ptr = nullptr;
-        MPI_Recv(&ptr, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        // MPI_Recv(&ptr, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
+        recv(&ptr, i);
         printf("Bench %d proc %d allocate %p count %ld (", benchid, i, ptr, count);
         print_data(count * sizeof(T));
         printf(")\n");
       }
     }
-  }
+  }*/
 
   template <typename T>
   void Comm<T>::add_lazy(size_t count, int sendid, int recvid) {
@@ -370,25 +383,17 @@
 
     // REPORT
     if(printid > -1) {
-      MPI_Barrier(comm_mpi); // THIS IS NECESSARY FOR AURORA
-      if(myid == sendid) {
-        MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
-      }
-      if(myid == recvid) {
-        MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, printid, 0, comm_mpi);
-        MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, printid, 0, comm_mpi);
-      }
+      barrier(); // THIS IS NECESSARY FOR AURORA
+      T* sendbuf_temp;
+      T* recvbuf_temp;
+      size_t sendoffset_temp;
+      size_t recvoffset_temp;
+      pair(&sendbuf, &sendbuf_temp, sendid, printid);
+      pair(&recvbuf, &recvbuf_temp, recvid, printid);
+      pair(&sendoffset, &sendoffset_temp, sendid, printid);
+      pair(&recvoffset, &recvoffset_temp, recvid, printid);
       if(myid == printid) {
-        T* sendbuf_sendid;
-        T* recvbuf_recvid;
-        size_t sendoffset_sendid;
-        size_t recvoffset_recvid;
-        MPI_Recv(&sendbuf_sendid, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&sendoffset_sendid, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvbuf_recvid, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-        MPI_Recv(&recvoffset_recvid, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-        printf("Bench %d comm %d (%d->%d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu (", benchid, numcomm, sendid, recvid, sendbuf_sendid, sendoffset_sendid, recvbuf_recvid, recvoffset_recvid, count);
+        printf("Bench %d comm %d (%d->%d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu (", benchid, numcomm, sendid, recvid, sendbuf_temp, sendoffset_temp, recvbuf_temp, recvoffset_temp, count);
         print_data(count * sizeof(T));
         printf(") ");
         print_lib(lib);
@@ -416,25 +421,18 @@
       }
       // REPORT QUEUE
       if(printid > -1) {
+        int queue_temp;
         if(lib == IPC) {
           // PUT (SENDER INITIALIZES)
-          if(myid == sendid)
-            MPI_Send(&queue, 1, MPI_INT, printid, 0, comm_mpi);
-          if(myid == printid) {
-            int queue_sender;
-            MPI_Recv(&queue_sender, 1, MPI_INT, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            printf("selected put queue: %d\n", queue_sender);
-          }
+          pair(&queue, queue_temp, sendid, printid);
+          if(myid == printid)
+            printf("selected put queue: %d\n", queue_temp);
         }
         if(lib == IPC_get) {
           // GET (RECVER INITIALIZES)
-          if(myid == recvid)
-            MPI_Send(&queue, 1, MPI_INT, printid, 0, comm_mpi);
-          if(myid == printid) {
-            int queue_recver;
-            MPI_Recv(&queue_recver, 1, MPI_INT, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            printf("selected get queue: %d\n", queue_recver);
-          }
+          pair(&queue, queue_temp, recvid, printid);
+          if(myid == printid)
+            printf("selected get queue: %d\n", queue_temp);
         }
       }
     }
@@ -453,9 +451,11 @@
       switch(lib) {
         case dummy:
           break;
+#ifdef USE_MPI
         case MPI:
           sendrequest.push_back(MPI_Request());
           break;
+#endif
         case NCCL:
           break;
         case IPC:
@@ -477,31 +477,31 @@
             int error = -1;
 #ifdef PORT_CUDA
             cudaIpcMemHandle_t memhandle;
-            MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            recv(&memhandle, recvid);
             error = cudaIpcOpenMemHandle((void**)&remotebuf[numsend], memhandle, cudaIpcMemLazyEnablePeerAccess);
 #elif defined PORT_HIP
             hipIpcMemHandle_t memhandle;
-            MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            recv(&memhandle, recvid);
             error = hipIpcOpenMemHandle((void**)&remotebuf[numsend], memhandle, hipIpcMemLazyEnablePeerAccess);
 #elif defined PORT_ONEAPI
             ze_ipc_mem_handle_t memhandle;
             {
               typedef struct { int fd; pid_t pid ; } clone_mem_t;
               clone_mem_t what_intel_should_have_done;
-              MPI_Recv(&what_intel_should_have_done, sizeof(clone_mem_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+              recv(&what_intel_should_have_done, recvid);
               int pidfd = syscall(SYS_pidfd_open,what_intel_should_have_done.pid,0);
               //      int myfd  = syscall(SYS_pidfd_getfd,pidfd,what_intel_should_have_done.fd,0);
               int myfd  = syscall(438,pidfd,what_intel_should_have_done.fd,0);
 	      memcpy((void *)&memhandle,(void *)&myfd,sizeof(int));
             }
-            // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            // recv(&memhandle, recvid);
 	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
 	    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
 	    error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numsend]);
 #endif
             if(error)
               printf("IpcOpenMemHandle error %d\n", error);
-            MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            recv(&remoteoffset[numsend], recvid);
           }
 #ifdef IPC_ze
           zeCommandListAppendMemoryCopy(command_list[queue], remotebuf[numsend] + remoteoffset[numsend], this->sendbuf[numsend] + this->sendoffset[numsend], this->sendcount[numsend], nullptr, 0, nullptr);
@@ -516,11 +516,11 @@
 #ifdef PORT_CUDA
             cudaIpcMemHandle_t memhandle;
             error = cudaIpcGetMemHandle(&memhandle, sendbuf);
-            MPI_Send(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi);
+            send(&memhandle, recvid);
 #elif defined PORT_HIP
             hipIpcMemHandle_t memhandle;
             error = hipIpcGetMemHandle(&memhandle, sendbuf);
-            MPI_Send(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, recvid, 0, comm_mpi);
+            send(&memhandle, recvid);
 #elif defined PORT_ONEAPI
             ze_ipc_mem_handle_t memhandle;
             auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
@@ -530,36 +530,37 @@
               clone_mem_t what_intel_should_have_done;
               memcpy((void *)&what_intel_should_have_done.fd,(void *)&memhandle,sizeof(int));
               what_intel_should_have_done.pid = getpid();
-              MPI_Send(&what_intel_should_have_done, sizeof(clone_mem_t), MPI_BYTE, recvid, 0, comm_mpi);
+              send(&what_intel_should_have_done, recvid);
             }
-            // MPI_Send(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi);
+            // send(&memhandle, sendid);
 #endif
             if(error)
               printf("IpcGetMemHandle error %d\n", error);
-            MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi);
+            send(&sendoffset, recvid);
           }
           break;
 #ifdef CAP_GASNET
         case GEX:
+          gex_event.push_back(gex_Event_t());
           ack_sender.push_back(int(0));
           remotebuf.push_back(recvbuf);
           remoteoffset.push_back(recvoffset);
           remote_recvind.push_back(numrecv);
           if(sendid != recvid) {
-            MPI_Recv(&remotebuf[numsend], sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            MPI_Recv(&remoteoffset[numsend], sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            MPI_Send(&numsend, 1, MPI_INT, recvid, 0, comm_mpi);
-            MPI_Recv(&remote_recvind[numsend], 1, MPI_INT, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            recv(&remotebuf[numsend], recvid);
+            recv(&remoteoffset[numsend], recvid);
+            recv(&remote_recvind[numsend], recvid);
+            send(&numsend, recvid);
           }
           break;
         case GEX_get:
           ack_sender.push_back(int(0));
           remote_recvind.push_back(numrecv);
           if(sendid != recvid) {
-            MPI_Send(&sendbuf, sizeof(T*), MPI_BYTE, recvid, 0, comm_mpi);
-            MPI_Send(&sendoffset, sizeof(size_t), MPI_BYTE, recvid, 0, comm_mpi);
-            MPI_Send(&numsend, 1, MPI_INT, recvid, 0, comm_mpi);
-            MPI_Recv(&remote_recvind[numsend], 1, MPI_INT, recvid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            send(&sendbuf, recvid);
+            send(&sendoffset, recvid);
+            send(&numsend, recvid);
+            recv(&remote_recvind[numsend], recvid);
           }
           break;
 #endif
@@ -582,9 +583,11 @@
       switch(lib) {
         case dummy:
           break;
+#ifdef USE_MPI
         case MPI:
           recvrequest.push_back(MPI_Request());
           break;
+#endif
         case NCCL:
           break;
         case IPC:
@@ -596,11 +599,11 @@
 #ifdef PORT_CUDA
             cudaIpcMemHandle_t memhandle;
             error = cudaIpcGetMemHandle(&memhandle, recvbuf);
-            MPI_Send(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
+	    send(&memhandle, sendid);
 #elif defined PORT_HIP
             hipIpcMemHandle_t memhandle;
             error = hipIpcGetMemHandle(&memhandle, recvbuf);
-            MPI_Send(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi);
+	    send(&memhandle, sendid);
 #elif defined PORT_ONEAPI
             ze_ipc_mem_handle_t memhandle;
 	    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
@@ -610,13 +613,13 @@
               clone_mem_t what_intel_should_have_done;
 	      memcpy((void *)&what_intel_should_have_done.fd,(void *)&memhandle,sizeof(int));
 	      what_intel_should_have_done.pid = getpid();
-              MPI_Send(&what_intel_should_have_done, sizeof(clone_mem_t), MPI_BYTE, sendid, 0, comm_mpi);
+              send(&what_intel_should_have_done, sendid);
             }
-            // MPI_Send(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi);
+            // send(&memhandle, sendid);
 #endif
             if(error)
               printf("IpcGetMemHandle error %d\n", error);
-            MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
+            send(&recvoffset, sendid);
           }
           break;
         case IPC_get:
@@ -638,31 +641,31 @@
             int error = -1;
 #ifdef PORT_CUDA
             cudaIpcMemHandle_t memhandle;
-            MPI_Recv(&memhandle, sizeof(cudaIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            recv(&memhandle, sendid);
             error = cudaIpcOpenMemHandle((void**)&remotebuf[numrecv], memhandle, cudaIpcMemLazyEnablePeerAccess);
 #elif defined PORT_HIP
             hipIpcMemHandle_t memhandle;
-            MPI_Recv(&memhandle, sizeof(hipIpcMemHandle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            recv(&memhandle, sendid);
             error = hipIpcOpenMemHandle((void**)&remotebuf[numrecv], memhandle, hipIpcMemLazyEnablePeerAccess);
 #elif defined PORT_ONEAPI
             ze_ipc_mem_handle_t memhandle;
             {
               typedef struct { int fd; pid_t pid ; } clone_mem_t;
               clone_mem_t what_intel_should_have_done;
-              MPI_Recv(&what_intel_should_have_done, sizeof(clone_mem_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+              recv(&what_intel_should_have_done, sendid);
               int pidfd = syscall(SYS_pidfd_open,what_intel_should_have_done.pid,0);
               //      int myfd  = syscall(SYS_pidfd_getfd,pidfd,what_intel_should_have_done.fd,0);
               int myfd  = syscall(438,pidfd,what_intel_should_have_done.fd,0);
               memcpy((void *)&memhandle,(void *)&myfd,sizeof(int));
             }
-            // MPI_Recv(&memhandle, sizeof(ze_ipc_mem_handle_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            // recv(&memhandle, sendid);
             auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
             auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_device());
             error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numrecv]);
 #endif
             if(error)
               printf("IpcOpenMemHandle error %d\n", error);
-            MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            recv(&remoteoffset[numrecv], sendid);
           }
 #ifdef IPC_ze
           zeCommandListAppendMemoryCopy(command_list[queue], this->recvbuf[numrecv] + this->recvoffset[numrecv], remotebuf[numrecv] + remoteoffset[numrecv], this->recvcount[numrecv], nullptr, 0, nullptr);
@@ -673,22 +676,23 @@
           ack_recver.push_back(int(0));
           remote_sendind.push_back(numsend - 1);
           if(sendid != recvid) {
-            MPI_Send(&recvbuf, sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi);
-            MPI_Send(&recvoffset, sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi);
-            MPI_Send(&numrecv, 1, MPI_INT, sendid, 0, comm_mpi);
-            MPI_Recv(&remote_sendind[numrecv], 1, MPI_INT, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            send(&recvbuf, sendid);
+	    send(&recvoffset, sendid);
+            send(&numrecv, sendid);
+            recv(&remote_sendind[numrecv], sendid);
           }
           break;
         case GEX_get:
+          gex_event.push_back(gex_Event_t());
           ack_recver.push_back(int(0));
           remotebuf.push_back(sendbuf);
           remoteoffset.push_back(sendoffset);
           remote_sendind.push_back(numsend - 1);
           if(sendid != recvid) {
-            MPI_Recv(&remotebuf[numrecv], sizeof(T*), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            MPI_Recv(&remoteoffset[numrecv], sizeof(size_t), MPI_BYTE, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
-            MPI_Send(&numrecv, 1, MPI_INT, sendid, 0, comm_mpi);
-            MPI_Recv(&remote_sendind[numrecv], 1, MPI_INT, sendid, 0, comm_mpi, MPI_STATUS_IGNORE);
+            recv(&remotebuf[numrecv], sendid);
+            recv(&remoteoffset[numrecv], sendid);
+            recv(&remote_sendind[numrecv], sendid);
+            send(&numrecv, sendid);
           }
           break;
 #endif
@@ -704,7 +708,7 @@
     long count_total = 0;
     for(int send = 0; send < numsend; send++)
        count_total += sendcount[send];
-    MPI_Allreduce(MPI_IN_PLACE, &count_total, 1, MPI_LONG, MPI_SUM, comm_mpi);
+    allreduce_sum(&count_total);
     measure(warmup, numiter, count_total);
   }
   template <typename T>
@@ -729,8 +733,7 @@
   template <typename T>
   void Comm<T>::report() {
 
-    std::vector<size_t> matrix;
-    getMatrix(matrix);
+    std::vector<size_t> matrix = getMatrix();
 
     if(myid == printid) {
       printf("\nCommBench %d: ", benchid);
@@ -738,7 +741,7 @@
       printf(" communication matrix (reciever x sender) nnz: %d\n", numcomm);
       for(int recver = 0; recver < numproc; recver++) {
         for(int sender = 0; sender < numproc; sender++) {
-          size_t count = matrix[sender * numproc + recver];
+          size_t count = matrix[recver * numproc + sender];
           if(count)
             printf("%ld ", count);
             // printf("1 ");
@@ -755,11 +758,11 @@
     for(int recv = 0; recv < numrecv; recv++)
        recvTotal += recvcount[recv];
 
-    MPI_Allreduce(MPI_IN_PLACE, &sendTotal, 1, MPI_LONG, MPI_SUM, comm_mpi);
-    MPI_Allreduce(MPI_IN_PLACE, &recvTotal, 1, MPI_LONG, MPI_SUM, comm_mpi);
+    allreduce_sum(&sendTotal);
+    allreduce_sum(&recvTotal);
 
-    int numbuf = buffer_list.size();
-    MPI_Allreduce(MPI_IN_PLACE, &numbuf, 1, MPI_INT, MPI_SUM, comm_mpi);
+    /*int numbuf = buffer_list.size();
+    allreduce_sum(&numbuf);
     if(numbuf) {
       int total_buff = buffer_list.size();
       std::vector<int> total_buffs(numproc);
@@ -781,7 +784,7 @@
         print_data(total_count * sizeof(T));
         printf("\n");
       }
-    }
+    }*/
 
     if(myid == printid) {
       printf("send footprint: %ld ", sendTotal);
@@ -794,7 +797,7 @@
     }
   }
   template <typename T>
-  void Comm<T>::getMatrix(std::vector<size_t> &matrix) {
+  std::vector<size_t> Comm<T>::getMatrix() {
 
     std::vector<size_t> sendcount_temp(numproc, 0);
     std::vector<size_t> recvcount_temp(numproc, 0);
@@ -804,9 +807,11 @@
       recvcount_temp[recvproc[recv]]++;// += recvcount[recv];
     std::vector<size_t> sendmatrix(numproc * numproc);
     std::vector<size_t> recvmatrix(numproc * numproc);
-    MPI_Allgather(sendcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, sendmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
-    MPI_Allgather(recvcount_temp.data(), numproc * sizeof(size_t), MPI_BYTE, recvmatrix.data(), numproc * sizeof(size_t), MPI_BYTE, comm_mpi);
-
+    for(int i = 0; i < numproc; i++) {
+      allgather(&sendcount_temp[i], &sendmatrix[i * numproc]);
+      allgather(&recvcount_temp[i], &recvmatrix[i * numproc]);
+    }
+    std::vector<size_t> matrix;
     for (int sender = 0; sender < numproc; sender++)
       for (int recver = 0; recver < numproc; recver++)
         matrix.push_back(sendmatrix[sender * numproc + recver]);
@@ -822,6 +827,7 @@
       }
       fclose(matfile);
     }*/
+    return matrix;
   }
 
 #ifdef IPC_kernel
@@ -834,14 +840,35 @@
 #endif
 
   template <typename T>
+  void Comm<T>::notify_sender() {
+#ifdef USE_MPI
+    for(int recv = 0; recv < numrecv; recv++)
+      MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
+    for(int send = 0; send < numsend; send++)
+      MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
+#endif
+  }
+  template <typename T>
+  void Comm<T>::notify_recver() {
+#ifdef USE_MPI
+    for(int send = 0; send < numsend; send++)
+      MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
+    for(int recv = 0; recv < numrecv; recv++)
+      MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
+#endif
+  }
+
+  template <typename T>
   void Comm<T>::start() {
     switch(lib) {
+#ifdef USE_MPI
       case MPI:
         for (int send = 0; send < numsend; send++)
           MPI_Isend(sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), MPI_BYTE, sendproc[send], 0, comm_mpi, &sendrequest[send]);
         for (int recv = 0; recv < numrecv; recv++)
           MPI_Irecv(recvbuf[recv] + recvoffset[recv], recvcount[recv] * sizeof(T), MPI_BYTE, recvproc[recv], 0, comm_mpi, &recvrequest[recv]);
         break;
+#endif
       case NCCL:
 #ifdef CAP_NCCL
         ncclGroupStart();
@@ -858,10 +885,8 @@
 #endif
         break;
       case IPC:
-        for(int recv = 0; recv < numrecv; recv++)
-          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
+        notify_sender();
         for(int send = 0; send < numsend; send++) {
-          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
 #ifdef IPC_kernel
   #if defined(PORT_CUDA) || defined(PORT_HIP)
           copy_kernel<T><<<(sendcount[send] + 255) / 256, 256, 0, stream_ipc[send]>>>(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send]);
@@ -889,10 +914,8 @@
 #endif
         break;
       case IPC_get:
-        for(int send = 0; send < numsend; send++)
-          MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
+        notify_recver();
         for(int recv = 0; recv < numrecv; recv++) {
-          MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
 #ifdef IPC_kernel
   #if defined(PORT_CUDA) || defined(PORT_HIP)
           copy_kernel<T><<<(recvcount[recv] + 255) / 256, 256, 0, stream_ipc[recv]>>>(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv]);
@@ -921,20 +944,14 @@
         break;
 #ifdef CAP_GASNET
       case GEX:
-        // set send / recv buffers busy
-        memset(ack_sender.data(), 1, numsend * sizeof(int));
-        memset(ack_recver.data(), 1, numrecv * sizeof(int));
-        // ask sender to initiate put
-        for (int recv = 0; recv < numrecv; recv++)
-          gex_AM_RequestShort2(myteam, recvproc[recv], am_sender_put_index, 0, remote_sendind[recv], benchid);
+        notify_sender();
+        for (int send = 0; send < numsend; send++)
+          gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(myep, 1), sendproc[send], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), GEX_EVENT_NOW, 0);
         break;
       case GEX_get:
-        // set send / recv buffers busy
-        memset(ack_sender.data(), 1, numsend * sizeof(int));
-        memset(ack_recver.data(), 1, numrecv * sizeof(int));
-        // ask recver to initiate get
-	for (int send = 0; send < numsend; send++)
-          gex_AM_RequestShort2(myteam, sendproc[send], am_recver_get_index, 0, remote_recvind[send], benchid);
+        notify_recver();
+        for (int recv = 0; recv < numrecv; recv++)
+          gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(myep, 1), recvbuf[recv] + recvoffset[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
         break;
 #endif
       default:
@@ -947,10 +964,12 @@
   template <typename T>
   void Comm<T>::wait() {
     switch(lib) {
+#ifdef USE_MPI
       case MPI:
         MPI_Waitall(numsend, sendrequest.data(), MPI_STATUSES_IGNORE);
         MPI_Waitall(numrecv, recvrequest.data(), MPI_STATUSES_IGNORE);
         break;
+#endif
       case NCCL:
 #if defined CAP_NCCL && defined PORT_CUDA
         cudaStreamSynchronize(stream_nccl);
@@ -973,10 +992,8 @@
 #elif defined PORT_ONEAPI && !defined IPC_ze
 	  q_ipc[send].wait();
 #endif
-          MPI_Send(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi);
         }
-        for(int recv = 0; recv < numrecv; recv++)
-          MPI_Recv(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
+        notify_recver();
         break;
       case IPC_get:
 #ifdef IPC_ze
@@ -991,21 +1008,19 @@
 #elif defined PORT_ONEAPI && !defined IPC_ze
           q_ipc[recv].wait();
 #endif
-          MPI_Send(&ack_recver[recv], 1, MPI_INT, recvproc[recv], 0, comm_mpi);
         }
-        for(int send = 0; send < numsend; send++)
-          MPI_Recv(&ack_sender[send], 1, MPI_INT, sendproc[send], 0, comm_mpi, MPI_STATUS_IGNORE);
+        notify_sender();
         break;
 #ifdef CAP_GASNET
       case GEX:
-        // wait until buffer are free
-        GASNET_BLOCKUNTIL(send_complete());
-        GASNET_BLOCKUNTIL(recv_complete());
+        for (int send = 0; send < numsend; send++)
+          gex_Event_Wait(gex_event[send]);
+        notify_recver();
         break;
       case GEX_get:
-        // wait until buffer are free
-        GASNET_BLOCKUNTIL(send_complete());
-        GASNET_BLOCKUNTIL(recv_complete());
+        for (int recv = 0; recv < numrecv; recv++)
+          gex_Event_Wait(gex_event[recv]);
+        notify_sender();
         break;
 #endif
       default:

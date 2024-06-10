@@ -28,10 +28,13 @@
 // CAP_GASNET
 // 
 // MODES
+// USE_MPI
 // USE_GASNET
 
 #ifdef USE_GASNET
 #define CAP_GASNET
+#else
+#define USE_MPI
 #endif
 
 #if defined PORT_CUDA || defined PORT_HIP
@@ -43,7 +46,9 @@
 #endif
 
 // DEPENDENCIES
+#ifdef USE_MPI
 #include <mpi.h>
+#endif
 #ifdef PORT_CUDA
 #ifdef CAP_NCCL
 #include <nccl.h>
@@ -66,7 +71,6 @@
 #include <ze_api.h>
 #endif
 #endif
-
 #ifdef CAP_GASNET
 #define GASNET_PAR
 #include <gasnetex.h>
@@ -79,6 +83,7 @@
 #include <string.h> // for memcpy
 #include <algorithm> // for std::sort
 #include <vector> // for std::vector
+#include <omp.h> // for omp_get_wtime()
 #include <unistd.h> // for fd
 #include <sys/syscall.h> // for syscall
 
@@ -91,7 +96,9 @@ namespace CommBench
 
   enum library {dummy, MPI, NCCL, IPC, IPC_get, GEX, GEX_get, numlib};
 
+#ifdef USE_MPI
   static MPI_Comm comm_mpi;
+#endif
   static int myid;
   static int numproc;
 #ifdef PORT_ONEAPI
@@ -170,8 +177,8 @@ namespace CommBench
   void send(T *sendbuf, int recvid) {
 #ifdef USE_GASNET
     GASNET_BLOCKUNTIL(am_ready[recvid]);
-    gex_AM_RequestMedium0(myteam, recvid, am_send_index, sendbuf, sizeof(T), GEX_EVENT_NOW, 0);
     am_ready[recvid] = false;
+    gex_AM_RequestMedium0(myteam, recvid, am_send_index, sendbuf, sizeof(T), GEX_EVENT_NOW, 0);
 #else
     MPI_Ssend(sendbuf, sizeof(T), MPI_BYTE, recvid, 0, comm_mpi);
 #endif
@@ -206,8 +213,7 @@ namespace CommBench
       pair(sendbuf, &temp, root, i);
     *recvbuf = temp;
   }
-  template <typename T>
-  void broadcast(T *sendbuf) { broadcast(sendbuf, recvbuf, 0); };
+  template <typename T> void broadcast(T *sendbuf) { broadcast(sendbuf, sendbuf, 0); };
   template <typename T>
   void allgather(T *sendval, T *recvbuf) {
     for(int root = 0; root < numproc; root++)
@@ -222,6 +228,7 @@ namespace CommBench
       sum += temp[i];
     *recvbuf = sum;
   }
+  template <typename T> void allreduce_sum(T *sendbuf) { allreduce_sum(sendbuf, sendbuf); }
   template <typename T>
   void allreduce_max(T *sendbuf, T *recvbuf) {
     std::vector<T> temp(numproc);
@@ -232,16 +239,7 @@ namespace CommBench
         max = temp[i];
     *recvbuf = max;
   }
-  template <typename T>
-  void allreduce_min(T *sendbuf, T *recvbuf) {
-    std::vector<T> temp(numproc);
-    allgather(sendbuf, temp.data());
-    T min = *sendbuf;
-    for(int i = 0; i < numproc; i++)
-      if(temp[i] < min)
-        min = temp[i];
-    *recvbuf = min;
-  }
+  template <typename T> void allreduce_max(T *sendbuf) { allreduce_max(sendbuf, sendbuf); }
 
   // MEASUREMENT
   template <typename C>
@@ -261,6 +259,7 @@ namespace CommBench
 #include "util.h"
 
   static void init() {
+#ifdef USE_MPI
     static bool init_mpi_comm = false;
     if(!init_mpi_comm) {
       init_mpi_comm = true;
@@ -283,33 +282,17 @@ namespace CommBench
         printf("******************** MPI COMMUNICATOR IS CREATED\n");
       }
     }
-    setup_gpu();
+#endif
 #ifdef CAP_GASNET
     static bool init_gasnet = false;
     if(!init_gasnet) {
       init_gasnet = true;
       // initialize
       gex_Client_Init(&myclient, &ep_primordial, &myteam, "CommBench+GASNet-EX", NULL, NULL, 0);
-#if defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI)
-      // create device memory kind
-      gex_MK_Create_args_t args;
-      args.gex_flags = 0;
-#ifdef PORT_CUDA
-      args.gex_class = GEX_MK_CLASS_CUDA_UVA;
-      args.gex_args.gex_class_cuda_uva.gex_CUdevice = mydevice;
-#elif defined PORT_HIP
-      args.gex_class = GEX_MK_CLASS_HIP;
-      args.gex_args.gex_class_hip.gex_hipDevice = mydevice;
-#elif defined PORT_ONEAPI
-      args.gex_class = GEX_MK_CLASS_ZE; // TODO: implement MK args for ZE
-      // args.gex_args.gex_class_ze.gex_zeDevice =
-      // args.gex_args.gex_class_ze.gex_zeContext =
-      // args.gex_args.gex_class_ze.gex_zeMemoryOrdinal =
-#endif
-      gex_MK_Create(&memkind, myclient, &args, 0);
-#else
-      memkind = GEX_MK_HOST;
-#endif
+      myid = gex_TM_QueryRank(myteam);
+      numproc = gex_TM_QuerySize(myteam);
+      if(myid == printid)
+        printf("******************** GASNET CLIENT IS CREATED\n");
 #ifdef USE_GASNET
       gex_AM_Entry_t handlers[] = {
         {am_recv_index, (gex_AM_Fn_t)am_recv, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
@@ -320,10 +303,32 @@ namespace CommBench
       for (int i = 0; i < numproc; i++)
         am_ready.push_back(false);
 #endif
-
     }
-    if(myid == printid)
-      printf("******************** GASNET CLIENT IS CREATED\n");
+#endif
+
+    setup_gpu();
+
+#ifdef CAP_GASNET
+#if defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI)
+    // create device memory kind
+    gex_MK_Create_args_t args;
+    args.gex_flags = 0;
+#ifdef PORT_CUDA
+    args.gex_class = GEX_MK_CLASS_CUDA_UVA;
+    args.gex_args.gex_class_cuda_uva.gex_CUdevice = mydevice;
+#elif defined PORT_HIP
+    args.gex_class = GEX_MK_CLASS_HIP;
+    args.gex_args.gex_class_hip.gex_hipDevice = mydevice;
+#elif defined PORT_ONEAPI
+    args.gex_class = GEX_MK_CLASS_ZE; // TODO: implement MK args for ZE
+    // args.gex_args.gex_class_ze.gex_zeDevice =
+    // args.gex_args.gex_class_ze.gex_zeContext =
+    // args.gex_args.gex_class_ze.gex_zeMemoryOrdinal =
+#endif
+    gex_MK_Create(&memkind, myclient, &args, 0);
+#else
+    memkind = GEX_MK_HOST;
+#endif
 #endif
   }
 
@@ -374,13 +379,13 @@ namespace CommBench
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       barrier();
-      double time = MPI_Wtime();
+      double time = omp_get_wtime();
       for (auto &i : commlist) {
         i.start();
         i.wait();
       }
-      time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
+      time = omp_get_wtime() - time;
+      allreduce_max(&time);
       if(iter >= 0)
         t.push_back(time);
     }
@@ -392,24 +397,24 @@ namespace CommBench
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       barrier();
-      double time = MPI_Wtime();
+      double time = omp_get_wtime();
       for (auto &i : commlist) {
         i.start();
       }
       for (auto &i : commlist) {      
         i.wait();
       }
-      time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
+      time = omp_get_wtime() - time;
+      allreduce_max(&time);
       if(iter >= 0)
         t.push_back(time);
     }
     print_stats(t, count * sizeof(T));
   }
 
+#ifdef USE_MPI
   template <typename T>
   static void measure_MPI_Alltoallv(std::vector<std::vector<int>> pattern, int warmup, int numiter) {
-
     std::vector<int> sendcount;
     std::vector<int> recvcount;
     for(int i = 0; i < numproc; i++) {
@@ -423,10 +428,8 @@ namespace CommBench
       recvdispl[i] = recvdispl[i-1] + recvcount[i-1];
 
     }
-
     //for(int i = 0; i < numproc; i++)
     //  printf("myid %d i: %d sendcount %d senddispl %d recvcount %d recvdispl %d\n", myid, i, sendcount[i], senddispl[i], recvcount[i], recvdispl[i]);
-
     T *sendbuf;
     T *recvbuf;
     allocate(sendbuf, senddispl[numproc]);
@@ -441,10 +444,10 @@ namespace CommBench
     std::vector<double> t;
     for(int iter = -warmup; iter < numiter; iter++) {
       barrier();
-      double time = MPI_Wtime();
+      double time = omp_get_wtime();
       MPI_Alltoallv(sendbuf, &sendcount[0], &senddispl[0], MPI_BYTE, recvbuf, &recvcount[0], &recvdispl[0], MPI_BYTE, comm_mpi);
-      time = MPI_Wtime() - time;
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
+      time = omp_get_wtime() - time;
+      allreduce_max(&time);
       if(iter >= 0)
         t.push_back(time);
     }
@@ -452,9 +455,10 @@ namespace CommBench
     free(sendbuf);
     free(recvbuf);
     int data;
-    MPI_Allreduce(&senddispl[numproc], &data, 1, MPI_INT, MPI_SUM, comm_mpi);
+    allreduce_sum(&senddispl[numproc], &data);
     print_stats(t, data * sizeof(T));
   }
+#endif
 
   template <typename C>
   static void measure(int warmup, int numiter, double &minTime, double &medTime, double &maxTime, double &avgTime, C &comm) {
@@ -477,14 +481,14 @@ namespace CommBench
 #endif
       }
       barrier();
-      double time = MPI_Wtime();
+      double time = omp_get_wtime();
       comm.start();
-      double start = MPI_Wtime() - time;
+      double start = omp_get_wtime() - time;
       comm.wait();
-      time = MPI_Wtime() - time;
+      time = omp_get_wtime() - time;
       barrier();
-      MPI_Allreduce(MPI_IN_PLACE, &start, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
-      MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, comm_mpi);
+      allreduce_max(&start);
+      allreduce_max(&time);
       if(iter < 0) {
         if(myid == printid)
           printf("startup %.2e warmup: %.2e\n", start * 1e6, time * 1e6);
@@ -525,7 +529,7 @@ namespace CommBench
   size_t memory = 0;
   void report_memory() {
     std::vector<size_t> memory_all(numproc);
-    MPI_Allgather(&memory, sizeof(size_t), MPI_BYTE, memory_all.data(), sizeof(size_t), MPI_BYTE, comm_mpi);
+    allgather(&memory, memory_all.data());
     if(myid == printid) {
       size_t memory_total = 0;
       printf("\n");

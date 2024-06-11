@@ -14,15 +14,15 @@
  */
 
 // PORTS
-#define PORT_CUDA
+// #define PORT_CUDA
 // #define PORT_HIP
 // #define PORT_SYCL
 
 // #define IPC_kernel
 // #define IPC_ze
 
-#define CAP_NCCL
-#define USE_GASNET
+// #define CAP_NCCL
+#define CAP_GASNET
 #include "../commbench.h"
 
 #define ROOT 0
@@ -83,19 +83,13 @@ int main(int argc, char *argv[])
     using namespace CommBench;
 
     // INITIALIZE
-    init();
-    // CREATE COMMUNICATOR
     Comm<Type> coll((CommBench::library) library);
 
     // ALLOCATE
     Type *sendbuf_d;
     Type *recvbuf_d;
-    Type *buffer;
-    allocate(buffer, count * numproc * 2);
-    sendbuf_d = buffer;
-    recvbuf_d = buffer + count * numproc;
-    // allocate(sendbuf_d, count * numproc);
-    // allocate(recvbuf_d, count * numproc);
+    allocate(sendbuf_d, count * numproc);
+    allocate(recvbuf_d, count * numproc);
 
     // REGISTER PATTERN
     switch(pattern) {
@@ -152,14 +146,15 @@ int main(int argc, char *argv[])
         // CommBench does not offer computational kernels.
         break;
     }
-    // INIT
-    coll.init();
 
     // MEASURE 
     coll.measure(warmup, numiter, count * numproc);
 
+   // MPI_Finalize();
+   // return 0;
+
     // VALIDATE
-    for(int iter = 0; iter < numiter; iter++)
+    // for(int iter = 0; iter < numiter; iter++)
       validate(sendbuf_d, recvbuf_d, count, pattern, coll);
 
     // DEALLOCATE

@@ -6,45 +6,21 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
 
   int *recvbuf;
   int *sendbuf;
-#ifdef PORT_CUDA
-  cudaMallocHost(&sendbuf, count * numproc * sizeof(int));
-  cudaMallocHost(&recvbuf, count * numproc * sizeof(int));
-#elif defined PORT_HIP
-  hipHostMalloc(&sendbuf, count * numproc * sizeof(int));
-  hipHostMalloc(&recvbuf, count * numproc * sizeof(int));
-#endif
-  
+  CommBench::allocateHost(sendbuf, count * numproc);
+  CommBench::allocateHost(recvbuf, count * numproc);
 
   for(int p = 0; p < numproc; p++)
     for(size_t i = p * count; i < (p + 1) * count; i++)
       sendbuf[i] = i;
-#ifdef PORT_CUDA
-  cudaMemcpy(sendbuf_d, sendbuf, count * sizeof(int) * numproc, cudaMemcpyHostToDevice);
-  cudaMemset(recvbuf_d, -1, count * numproc * sizeof(int));
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-  cudaDeviceSynchronize();
-#elif defined PORT_HIP
-  hipMemcpy(sendbuf_d, sendbuf, count * sizeof(int) * numproc, hipMemcpyHostToDevice);
-  hipMemset(recvbuf_d, -1, count * numproc * sizeof(int));
-  hipStream_t stream;
-  hipStreamCreate(&stream);
-  hipDeviceSynchronize();
-#endif
-  memset(recvbuf, -1, count * numproc * sizeof(int));
+
+  CommBench::memcpyH2D(sendbuf_d, sendbuf, count * numproc);
 
   CommBench::barrier();
 
   coll.start();
   coll.wait();
 
-#ifdef PORT_CUDA
-  cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int) * numproc, cudaMemcpyDeviceToHost, stream);
-  cudaStreamSynchronize(stream);
-#elif defined PORT_HIP
-  hipMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int) * numproc, hipMemcpyDeviceToHost, stream);
-  hipStreamSynchronize(stream);
-#endif
+  CommBench::memcpyD2H(recvbuf, recvbuf_d, count * numproc);
 
   bool pass = true;
   switch(pattern) {
@@ -142,11 +118,6 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
       printf("FAILED!!!\n");
   }
 
-#ifdef PORT_CUDA
-  cudaFreeHost(sendbuf);
-  cudaFreeHost(recvbuf);
-#elif defined PORT_HIP
-  hipHostFree(sendbuf);
-  hipHostFree(recvbuf);
-#endif
+  CommBench::freeHost(sendbuf);
+  CommBench::freeHost(recvbuf);
 };

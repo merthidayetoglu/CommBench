@@ -32,10 +32,6 @@
     void block_recver();
 
 
-    // MEMORY TODO: implement memory management
-    // std::vector<T*> buffer_list;
-    // std::vector<size_t> buffer_count;
-
     // MPI
 #ifdef USE_MPI
     std::vector<MPI_Request> sendrequest;
@@ -69,6 +65,14 @@
 
     // GASNET
 #ifdef CAP_GASNET
+    std::vector<int> my_ep;
+    std::vector<int> remote_ep;
+    int find_ep(void *buffer) {
+      for(int i = 0; i < myep.size(); i++)
+        if(myep_ptr[i] == buffer)
+          return i;
+      return -1;
+    }
     std::vector<gex_Event_t> gex_event;
     std::vector<int> remote_sendind;
     std::vector<int> remote_recvind;
@@ -112,6 +116,9 @@
 
   template <typename T>
   Comm<T>::Comm(library lib) : lib(lib) {
+
+    // initialize CommBench
+    CommBench::init();
 
     benchid = numbench;
     numbench++;
@@ -190,14 +197,6 @@
       }
 #endif
     }
-#ifdef CAP_GASNET
-    static bool init_gasnet_ep = false;
-    if(!init_gasnet_ep) {
-      init_gasnet_ep = true;
-      // create device endpoint
-      gex_EP_Create(&myep, myclient, GEX_EP_CAPABILITY_RMA, 0);
-    }
-#endif
     if(lib == IPC || lib == IPC_get) {
 #ifdef IPC_ze
       ze_context_handle_t hContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(q.get_context());
@@ -259,6 +258,9 @@
 
   template <typename T>
   void Comm<T>::init() {
+    static bool init = false;
+    if(init) return;
+    init = true;
 #ifdef CAP_GASNET
     gex_AM_Entry_t handlers[] = {
         {am_notify_sender_index, (gex_AM_Fn_t)am_notify_sender, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
@@ -266,7 +268,6 @@
         // Add more handlers if needed
     };
     gex_EP_RegisterHandlers(ep_primordial, handlers, sizeof(handlers) / sizeof(gex_AM_Entry_t));
-    barrier();
 #endif
   }
 
@@ -509,12 +510,15 @@
           break;
 #ifdef CAP_GASNET
         case GEX:
+	  my_ep.push_back(find_ep(sendbuf));
+	  remote_ep.push_back(find_ep(recvbuf));
           gex_event.push_back(gex_Event_t());
           ack_sender.push_back(int(0));
           remotebuf.push_back(recvbuf);
           remoteoffset.push_back(recvoffset);
           remote_recvind.push_back(numrecv);
           if(sendid != recvid) {
+            recv(&remote_ep[numsend], recvid);
             recv(&remotebuf[numsend], recvid);
             recv(&remoteoffset[numsend], recvid);
             recv(&remote_recvind[numsend], recvid);
@@ -525,6 +529,8 @@
           ack_sender.push_back(int(0));
           remote_recvind.push_back(numrecv);
           if(sendid != recvid) {
+            int temp_ep = find_ep(sendbuf);
+            send(&temp_ep, recvid);
             send(&sendbuf, recvid);
             send(&sendoffset, recvid);
             send(&numsend, recvid);
@@ -644,6 +650,8 @@
           ack_recver.push_back(int(0));
           remote_sendind.push_back(numsend - 1);
           if(sendid != recvid) {
+            int temp_ep = find_ep(recvbuf);
+            send(&temp_ep, sendid);
             send(&recvbuf, sendid);
 	    send(&recvoffset, sendid);
             send(&numrecv, sendid);
@@ -651,12 +659,15 @@
           }
           break;
         case GEX_get:
+	  my_ep.push_back(find_ep(recvbuf));
+	  remote_ep.push_back(find_ep(sendbuf));
           gex_event.push_back(gex_Event_t());
           ack_recver.push_back(int(0));
           remotebuf.push_back(sendbuf);
           remoteoffset.push_back(sendoffset);
           remote_sendind.push_back(numsend - 1);
           if(sendid != recvid) {
+            recv(&remote_ep[numrecv], sendid);
             recv(&remotebuf[numrecv], sendid);
             recv(&remoteoffset[numrecv], sendid);
             recv(&remote_sendind[numrecv], sendid);
@@ -840,6 +851,8 @@
 
   template <typename T>
   void Comm<T>::start() {
+    init();
+    finalize();
     switch(lib) {
 #ifdef USE_MPI
       case MPI:
@@ -926,12 +939,12 @@
       case GEX:
         block_sender();
         for (int send = 0; send < numsend; send++)
-          gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(myep, 1), sendproc[send], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), GEX_EVENT_NOW, 0);
+          gex_event[send] = gex_RMA_PutNB(gex_TM_Pair(myep[my_ep[send]], remote_ep[send]), sendproc[send], remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), GEX_EVENT_NOW, 0);
         break;
       case GEX_get:
         block_recver();
         for (int recv = 0; recv < numrecv; recv++)
-          gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(myep, 1), recvbuf[recv] + recvoffset[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
+          gex_event[recv] = gex_RMA_GetNB(gex_TM_Pair(myep[my_ep[recv]], remote_ep[recv]), recvbuf[recv] + recvoffset[recv], recvproc[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv] * sizeof(T), 0);
         break;
 #endif
       default:

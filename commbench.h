@@ -113,9 +113,10 @@ namespace CommBench
 #ifdef CAP_GASNET
   static gex_Client_t myclient;
   static gex_EP_t ep_primordial;
-  static gex_EP_t myep;
   static gex_TM_t myteam;
   static gex_MK_t memkind;
+  static std::vector<void*> myep_ptr;
+  static std::vector<gex_EP_t> myep;
 #endif
 
   static void print_data(size_t data) {
@@ -267,11 +268,13 @@ namespace CommBench
 
 #include "util.h"
 
+  // one-time initialization of CommBench
   static void init() {
+    static bool init = false;
+    if(init) return;
+    init = true;
 #ifdef USE_MPI
-    static bool init_mpi_comm = false;
-    if(!init_mpi_comm) {
-      init_mpi_comm = true;
+    {
       int init_mpi;
       MPI_Initialized(&init_mpi);
       if(!init_mpi) {
@@ -293,13 +296,13 @@ namespace CommBench
     }
 #endif
 #ifdef CAP_GASNET
-    static bool init_gasnet = false;
-    if(!init_gasnet) {
-      init_gasnet = true;
+    {
       // initialize
       gex_Client_Init(&myclient, &ep_primordial, &myteam, "CommBench+GASNet-EX", NULL, NULL, 0);
       myid = gex_TM_QueryRank(myteam);
       numproc = gex_TM_QuerySize(myteam);
+      myep.push_back(ep_primordial); // primordial is index 0
+      myep_ptr.push_back(nullptr); // primordial segment is 0
       if(myid == printid)
         printf("******************** GASNET CLIENT IS CREATED\n");
 #ifdef USE_GASNET
@@ -316,29 +319,41 @@ namespace CommBench
     }
 #endif
 
+    // grab a single GPU
     setup_gpu();
 
 #ifdef CAP_GASNET
+    {
 #if defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI)
-    // create device memory kind
-    gex_MK_Create_args_t args;
-    args.gex_flags = 0;
+      // create device memory kind
+      gex_MK_Create_args_t args;
+      args.gex_flags = 0;
 #ifdef PORT_CUDA
-    args.gex_class = GEX_MK_CLASS_CUDA_UVA;
-    args.gex_args.gex_class_cuda_uva.gex_CUdevice = mydevice;
+      args.gex_class = GEX_MK_CLASS_CUDA_UVA;
+      args.gex_args.gex_class_cuda_uva.gex_CUdevice = mydevice;
 #elif defined PORT_HIP
-    args.gex_class = GEX_MK_CLASS_HIP;
-    args.gex_args.gex_class_hip.gex_hipDevice = mydevice;
+      args.gex_class = GEX_MK_CLASS_HIP;
+      args.gex_args.gex_class_hip.gex_hipDevice = mydevice;
 #elif defined PORT_ONEAPI
-    args.gex_class = GEX_MK_CLASS_ZE; // TODO: implement MK args for ZE
-    // args.gex_args.gex_class_ze.gex_zeDevice =
-    // args.gex_args.gex_class_ze.gex_zeContext =
-    // args.gex_args.gex_class_ze.gex_zeMemoryOrdinal =
+      args.gex_class = GEX_MK_CLASS_ZE; // TODO: implement MK args for ZE
+      // args.gex_args.gex_class_ze.gex_zeDevice =
+      // args.gex_args.gex_class_ze.gex_zeContext =
+      // args.gex_args.gex_class_ze.gex_zeMemoryOrdinal =
 #endif
-    gex_MK_Create(&memkind, myclient, &args, 0);
+      gex_MK_Create(&memkind, myclient, &args, 0);
 #else
-    memkind = GEX_MK_HOST;
+      memkind = GEX_MK_HOST;
 #endif
+    }
+#endif
+  }
+
+  static void finalize() {
+   static bool finalize = false;
+   if(finalize) return;
+   finalize = true;
+#ifdef CAP_GASNET
+   gex_EP_PublishBoundSegment(myteam, myep.data(), myep.size(), 0); // register EP's all-at-once
 #endif
   }
 
@@ -577,10 +592,15 @@ namespace CommBench
     allocateHost(buffer, n);
 #endif
 #ifdef CAP_GASNET
-    gex_Segment_t segment; // lost after creation
+    // save ep/segment pair for later publication
+    gex_Segment_t segment; // lose it
+    gex_EP_t ep; // save it
     gex_Segment_Create(&segment, myclient, buffer, n * sizeof(T), memkind, 0);
-    gex_EP_BindSegment(myep, segment, 0);
-    gex_EP_PublishBoundSegment(myteam, &myep, 1, 0); // currently works only for symmetric allocation
+    gex_EP_Create(&ep, myclient, GEX_EP_CAPABILITY_RMA, 0);
+    gex_EP_BindSegment(ep, segment, 0);
+    myep.push_back(ep);
+    myep_ptr.push_back(buffer);
+    // gex_EP_PublishBoundSegment(myteam, &myep, 1, 0); // currently works only for symmetric allocation
 #endif
     memory += n * sizeof(T);
   };

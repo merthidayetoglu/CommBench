@@ -16,7 +16,7 @@
 void set_device(int device) {
 #ifdef PORT_CUDA
   cudaSetDevice(device);
-#elif PORT_HIP
+#elif defined PORT_HIP
   hipSetDevice(device);
 #endif
   mydevice = device;

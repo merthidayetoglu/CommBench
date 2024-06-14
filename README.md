@@ -142,6 +142,8 @@ As an example, the above shows striping of point-to-point communications across 
 
 For questions and support, please send an email to merth@stanford.edu
 
+Presentation: [CommBench: ICS 2024](https://merthidayetoglu.github.io/samples/CommBench_ICS24.pdf)
+
 Paper: [CommBench: Micro-Benchmarking Hierarchical Networks with Multi-GPU, Multi-NIC Nodes](https://merthidayetoglu.github.io/samples/ics24-1.pdf)
 
 Citation:

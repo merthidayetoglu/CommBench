@@ -36,6 +36,7 @@ int main() {
 
   // compose microbenchmarking pattern by registering buffers
   test.add(sendbuf, recvbuf, numbytes, 0, 1);
+  test.add(sendbuf, recvbuf, numbytes, 1, 0);
 
   // take measurement with 5 warmup and 10 measurement iterations
   test.measure(5, 10);
@@ -47,7 +48,7 @@ int main() {
 }
 ```
 
-The above code allocates data on GPUs, and then measures IPC bandwidth across two GPUs within the same node with a message of 1 GB. The direction of data movement is from GPU 0 to GPU 1. An explanation of the CommBench functions is provided below.
+The above code allocates data on GPUs, and then measures bidirectional IPC bandwidth across two GPUs within the same node with a message of 1 GB. The direction of data movement is from GPU 0 to GPU 1. An explanation of the CommBench functions is provided below.
 
 
 #### Communicator

@@ -29,10 +29,12 @@ int main() {
 
   // initialize communicator with a chosen implementation library
   Comm test<char>(IPC);
+
+  // allocate device memory
   allocate(sendbuf, numbytes);
   allocate(recvbuf, numbytes);
 
-  // compose microbenchmarking pattern
+  // compose microbenchmarking pattern by registering buffers
   test.add(sendbuf, recvbuf, numbytes, 0, 1);
 
   // take measurement with 5 warmup and 10 measurement iterations

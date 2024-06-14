@@ -35,7 +35,7 @@ int main() {
   // compose microbenchmarking pattern
   test.add(sendbuf, recvbuf, numbytes, 0, 1);
 
-  // take measurement
+  // take measurement with 5 warmup and 10 measurement iterations
   test.measure(5, 10);
 
   free(sendbuf);

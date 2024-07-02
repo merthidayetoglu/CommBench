@@ -127,15 +127,13 @@ Systems have different ways of scheduling the jobs for this assignment, which ar
 
 On the other hand, the SYCL port uses Level Zero backend and the device selection is made by setting ``ZE_SET_DEVICE`` to a single single device. This requires IPC implementation to make systems calls that work only on Aurora, which is an Intel system. Therefore IPC with the SYCL port does not work on Sunspot, which is a testbed of Aurora with an older OS. Run scripts for Aurora, and other systems are provided in the [/scripts](https://github.com/merthidayetoglu/CommBench/tree/master/scripts) folder.
 
-MPI rank 0 and rank 4 can chosen for measuring bandwidth across nodes. When there are multiple NICs, measuring with one process per node results in utilization of a single NIC. The following micro-benchmark utilizes all NICs by striping point-to-point data across nodes.
+## Micro-benchmarking Communication Sequences
 
-## Multi-Step Patterns
-
-For benchmarking multiple steps of communication patterns where each step depends on the previous, CommBench provides the following function:
+For micro-benchmarking a chain of communications, the chain must be divided into steps (each step depends on the subsequent) and each step must be registered into a separate CommBench communicator. For running the chain of communications, CommBench provides the following function:
 ```cpp
 void CommBench::measure_async(std::vector<Comm<T>> sequence, int warmup, int numiter, size_t count);
 ```
-In this case, the sequence of communications are given in a vector, e.g., ``sequence = {comm_1, comm_2, comm_3}``. CommBench internally figures out the data dependencies across steps and executes them asynchronously while preserving the dependencies across point-to-point functions.
+In this case, the sequence of communications are given in a vector, e.g., ``sequence = {comm_1, comm_2, comm_3}``. CommBench internally runs these steps back-to-back asynchronously while preserving the dependencies across point-to-point functions.
 
 ![Striping](examples/striping/images/striping_figure.png)
 

@@ -112,7 +112,7 @@ For "warming up", communications are executed ``warmup`` times. Then the measure
 
 ## Rank Assignment
 CommBench is implemented with a single-process-per-GPU paradigm. For example, on a partition with two-nodes with four GPUs per node, there are eight processes assigned as:
-| Proc. Rank | Node    | Device |
+| Process | Node    | Device |
 | ---------- | ------- | ----- |
 | Process 0  | node 0  | GPU 0 |
 | Process 1  | node 0  | GPU 1 |

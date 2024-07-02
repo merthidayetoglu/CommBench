@@ -111,17 +111,17 @@ void CommBench::Comm<T>::measure(int warmup, int numiter);
 For "warming up", communications are executed ``warmup`` times. Then the measurement is taken over ``numiter`` times, where the latency in each round is recorded for calculating the statistics.
 
 ## Rank Assignment
-CommBench is implemented with a single-process-per-GPU paradigm. For example, on a partition with two-nodes with four GPUs per node, there are eight MPI processes assigned as:
-| MPI Rank    | Node    | Device |
-| ----------- | ------- | ----- |
-| MPI rank 0  | node 0  | GPU 0 |
-| MPI rank 1  | node 0  | GPU 1 |
-| MPI rank 2  | node 0  | GPU 2 |
-| MPI rank 3  | node 0  | GPU 3 |
-| MPI rank 4  | node 1  | GPU 0 |
-| MPI rank 5  | node 1  | GPU 1 |
-| MPI rank 6  | node 1  | GPU 2 |
-| MPI rank 7  | node 1  | GPU 3 |
+CommBench is implemented with a single-process-per-GPU paradigm. For example, on a partition with two-nodes with four GPUs per node, there are eight processes assigned as:
+| Proc. Rank | Node    | Device |
+| ---------- | ------- | ----- |
+| Process 0  | node 0  | GPU 0 |
+| Process 1  | node 0  | GPU 1 |
+| Process 2  | node 0  | GPU 2 |
+| Process 3  | node 0  | GPU 3 |
+| Process 4  | node 1  | GPU 0 |
+| Process 5  | node 1  | GPU 1 |
+| Process 6  | node 1  | GPU 2 |
+| Process 7  | node 1  | GPU 3 |
 
 Systems have different ways for scheduling the jobs for this assignment, which are described in their user guide, e.g. [Perlmutter](https://docs.nersc.gov/systems/perlmutter/running-jobs/#4-nodes-16-tasks-16-gpus-all-gpus-visible-to-all-tasks). In CommBench, the GPU selection is made in ``util.h`` for a specific port. For CUDA and HIP ports, all devices in the node must be seen by an MPI process. The device for each process is selected as ``myid % numdevice``, where ``myid`` is the MPI rank and ``numdevice`` is the number of GPUs seen by a process.
 

@@ -1,4 +1,3 @@
-#define PORT_HIP
 #include "commbench.h"
 
 using namespace CommBench;
@@ -13,8 +12,8 @@ int main() {
   allocate(sendbuf, numbytes);
   allocate(recvbuf, numbytes);
 
-  Comm<char> test(MPI);
-  test.add(sendbuf, recvbuf, numbytes, 0, 8);
+  Comm<char> test(NCCL);
+  test.add(sendbuf, recvbuf, numbytes, 0, 0);
 
   test.measure(5, 10);
 

@@ -12,10 +12,21 @@ int main() {
   allocate(sendbuf, numbytes);
   allocate(recvbuf, numbytes);
 
-  Comm<char> test(NCCL);
-  test.add(sendbuf, recvbuf, numbytes, 0, 0);
+  Comm<char> test1(MPI);
+  test1.add(sendbuf, recvbuf, numbytes, 0, 0);
 
-  test.measure(5, 10);
+  test1.measure(5, 10);
+
+  Comm<char> test2(IPC);
+  test2.add(sendbuf, recvbuf, numbytes, 0, 0);
+
+  test2.measure(5, 10);
+
+
+  Comm<char> test3(NCCL);
+  test3.add(sendbuf, recvbuf, numbytes, 0, 0);
+
+  test3.measure(5, 10);
 
   free(sendbuf);
   free(recvbuf);

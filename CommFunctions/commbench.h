@@ -57,7 +57,7 @@
 #endif
 #elif defined PORT_HIP
 #ifdef CAP_NCCL
-#include <rccl.h>
+#include <rccl/rccl.h>
 #else
 #include <hip_runtime.h>
 #endif

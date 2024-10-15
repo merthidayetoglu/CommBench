@@ -13,13 +13,32 @@ set(HIP_PATH "" CACHE PATH "Path to the HIP installation")
 # Option for specifying HIP architecture
 set(HIP_ARCHITECTURE "gfx942;gfx90A" CACHE STRING "Specify the HIP architecture (e.g., gfx942;gfx90A)")
 
+# Option for specifying CUDA architecture
+set(CUDA_ARCHITECTURE "80" CACHE STRING "Specify the CUDA architecture (e.g., 80 meaning arch=compute_80,code=sm_80)")
+
 if (USE_CUDA)
     find_package(CUDA REQUIRED)
     target_compile_definitions(CommFunctions PRIVATE "PORT_CUDA")
 
     # Include CUDA directories
     target_include_directories(CommFunctions PRIVATE ${CUDA_INCLUDE_DIRS})
+    
+    # Set CUDA architecture flags
+    if (NOT CUDA_ARCHITECTURE STREQUAL "")
+        set_property(TARGET CommFunctions PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCHITECTURE})
+    
+    else()
+	if (DEFINED CMAKE_CUDA_PLATFORM)
+		message(STATUS "CMAKE_CUDA_PLATFORM: ${CMAKE_CUDA_PLATFORM}")
+		set_property(TARGET CommFunctions PROPERTY CUDA_ARCHITECTURES CMAKE_CUDA_PLATFORM)
+        else()
+		message(WARNING "CMAKE_CUDA_PLATFORM is not defined. Defaulting to compute_80,code=sm_80")
+		set_property(TARGET CommFunctions PROPERTY CUDA_ARCHITECTURES "80")
+        endif()
 
+
+    endif()
+    
     # Check if USE_XCCL is enabled
     if (USE_XCCL)
         # Add NCCL to the linker flags

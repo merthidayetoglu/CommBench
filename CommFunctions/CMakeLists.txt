@@ -1,10 +1,12 @@
 # create the CommFunctions library
-add_library(CommFunctions commbench.cpp commbench.h comm.h util.h)
+add_library(CommFunctions commbench.cpp commbench.h comm.h util.h validate.h)
 
 # Create a variables using option and set default to OFF
 option(USE_CUDA "Use CUDA implementation" OFF)
 option(USE_HIP "Use CUDA implementation" OFF)
-option(USE_XCCL "Use Vendor-provided collective communication library")
+option(USE_XCCL "Use Vendor-provided collective communication library" OFF)
+option(USE_BLIT_KERNEL "Use Blit/Copy Kernel for IPC communication" OFF)
+
 
 # Create a variable for NCCL path
 set(XCCL_PATH "" CACHE PATH "Path to the XCCL installation")
@@ -19,6 +21,10 @@ set(CUDA_ARCHITECTURE "80" CACHE STRING "Specify the CUDA architecture (e.g., 80
 if (USE_CUDA)
     find_package(CUDA REQUIRED)
     target_compile_definitions(CommFunctions PRIVATE "PORT_CUDA")
+
+    if(USE_BLIT_KERNEL)
+	    target_compile_definitions(CommFunctions PRIVATE "IPC_kernel")
+    endif()
 
     # Include CUDA directories
     target_include_directories(CommFunctions PRIVATE ${CUDA_INCLUDE_DIRS})
@@ -69,6 +75,10 @@ if (USE_HIP)
 
     message(STATUS "HIP found: ${HIP_VERSION}")  # Print message if HIP is found
     target_compile_definitions(CommFunctions PRIVATE "PORT_HIP")
+    
+    if(USE_BLIT_KERNEL)
+	    target_compile_definitions(CommFunctions PRIVATE "IPC_kernel")
+    endif()
 
     # Include HIP directories
     target_include_directories(CommFunctions PRIVATE ${HIP_INCLUDE_DIRS})

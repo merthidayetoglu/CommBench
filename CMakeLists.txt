@@ -73,3 +73,136 @@ if (USE_XPMEM)
     target_link_libraries(${PROJECT_NAME} PRIVATE xpmem)
     message(STATUS "Linking with XPMEM library: -lxpmem")
 endif()
+
+# Add the MPI/IPC_PUT/IPC_GET/IPC_BLIT/XCCL test executable
+add_executable(mpi_p2p_test tests/mpi_p2p_test.cpp)
+target_link_libraries(mpi_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+add_executable(mpi_gather_test tests/mpi_gather_test.cpp)
+target_link_libraries(mpi_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+add_executable(mpi_scatter_test tests/mpi_scatter_test.cpp)
+target_link_libraries(mpi_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+add_executable(mpi_bcast_test tests/mpi_bcast_test.cpp)
+target_link_libraries(mpi_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+add_executable(mpi_alltoall_test tests/mpi_alltoall_test.cpp)
+target_link_libraries(mpi_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+add_executable(mpi_allgather_test tests/mpi_allgather_test.cpp)
+target_link_libraries(mpi_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+
+if (USE_CUDA OR USE_HIP)
+add_executable(ipc_put_test tests/ipc_put_test.cpp)
+target_link_libraries(ipc_put_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+add_executable(ipc_get_test tests/ipc_get_test.cpp)
+target_link_libraries(ipc_get_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+if (USE_XCCL)
+   add_executable(xccl_test tests/xccl_test.cpp)
+   target_link_libraries(xccl_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+endif()
+endif()
+
+
+# Check if USE_GTL is enabled for the ALL test and add the linking flag
+if (USE_GTL)
+    target_link_libraries(mpi_p2p_test PRIVATE mpi_gtl_hsa)
+    target_link_libraries(mpi_gather_test PRIVATE mpi_gtl_hsa)
+    target_link_libraries(mpi_scatter_test PRIVATE mpi_gtl_hsa)
+    target_link_libraries(mpi_bcast_test PRIVATE mpi_gtl_hsa)
+    target_link_libraries(mpi_alltoall_test PRIVATE mpi_gtl_hsa)
+    target_link_libraries(mpi_allgather_test PRIVATE mpi_gtl_hsa)
+    if (USE_CUDA OR USE_HIP)
+       target_link_libraries(ipc_put_test PRIVATE mpi_gtl_hsa)
+       target_link_libraries(ipc_get_test PRIVATE mpi_gtl_hsa)
+       if (USE_XCCL)
+       target_link_libraries(xccl_test PRIVATE mpi_gtl_hsa)
+       endif()
+    endif()    
+    message(STATUS "Linking Tests with GTL library: -lmpi_gtl_hsa")
+
+    # Check if GTL_PATH is specified
+    if (GTL_PATH)
+        target_link_directories(mpi_p2p_test PRIVATE ${GTL_PATH}/lib)
+        target_link_directories(mpi_gather_test PRIVATE ${GTL_PATH}/lib)
+        target_link_directories(mpi_scatter_test PRIVATE ${GTL_PATH}/lib)
+        target_link_directories(mpi_bcast_test PRIVATE ${GTL_PATH}/lib)
+        target_link_directories(mpi_alltoall_test PRIVATE ${GTL_PATH}/lib)
+        target_link_directories(mpi_allgather_test PRIVATE ${GTL_PATH}/lib)
+	if (USE_CUDA OR USE_HIP)
+        	target_link_directories(ipc_put_test PRIVATE ${GTL_PATH}/lib)
+		target_link_directories(ipc_get_test PRIVATE ${GTL_PATH}/lib)
+       		if (USE_XCCL)
+		   target_link_directories(xccl_test PRIVATE ${GTL_PATH}/lib)
+       		endif()
+	endif()
+	message(STATUS "Adding GTL path to Test linker: ${GTL_PATH}/lib")
+    else()
+        message(WARNING "GTL_PATH is not specified for Test. Default library path will be used.")
+    endif()
+endif()
+
+# Check if USE_XPMEM is enabled for the ALL test and add the linking flag
+if (USE_XPMEM)
+    target_link_libraries(mpi_p2p_test PRIVATE xpmem)
+    target_link_libraries(mpi_gather_test PRIVATE xpmem)
+    target_link_libraries(mpi_scatter_test PRIVATE xpmem)
+    target_link_libraries(mpi_bcast_test PRIVATE xpmem)
+    target_link_libraries(mpi_alltoall_test PRIVATE xpmem)
+    target_link_libraries(mpi_allgather_test PRIVATE xpmem)
+    if (USE_CUDA OR USE_HIP)
+       target_link_libraries(ipc_put_test PRIVATE xpmem)
+       target_link_libraries(ipc_get_test PRIVATE xpmem)
+       	if (USE_XCCL)
+           target_link_libraries(xccl_test PRIVATE xpmem)
+       	endif()
+    endif()
+    message(STATUS "Linking MPI test with XPMEM library: -lxpmem")
+endif()
+
+# Enable testing
+enable_testing()
+
+# Add a test for the MPI program
+add_test(NAME MPI_P2P_Test
+         COMMAND ${MPIEXEC} -n 2 $<TARGET_FILE:mpi_p2p_test>
+         )
+set_tests_properties(MPI_P2P_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
+
+add_test(NAME MPI_GATHER_Test
+         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_gather_test>
+         )
+set_tests_properties(MPI_GATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
+
+add_test(NAME MPI_SCATTER_Test
+         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_scatter_test>
+         )
+set_tests_properties(MPI_SCATTER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
+
+add_test(NAME MPI_BCAST_Test
+         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_bcast_test>
+         )
+set_tests_properties(MPI_BCAST_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
+
+add_test(NAME MPI_ALLTOALL_Test
+         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_alltoall_test>
+         )
+set_tests_properties(MPI_ALLTOALL_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
+
+add_test(NAME MPI_ALLGATHER_Test
+         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_allgather_test>
+         )
+set_tests_properties(MPI_ALLGATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
+
+
+if (USE_CUDA OR USE_HIP)
+ add_test(NAME IPC_PUT_Test
+         COMMAND ${MPIEXEC} -n 2 $<TARGET_FILE:ipc_put_test>
+         )
+ add_test(NAME IPC_GET_Test
+	COMMAND ${MPIEXEC} -n 2 $<TARGET_FILE:ipc_get_test>
+         )
+
+ if (USE_XCCL)
+	 add_test(NAME XCCL_Test
+		COMMAND ${MPIEXEC} -n 2 $<TARGET_FILE:xccl_test>
+         )
+ endif()
+ 
+endif()

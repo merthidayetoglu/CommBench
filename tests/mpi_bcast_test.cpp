@@ -23,7 +23,7 @@ int main() {
   	test1.add(sendbuf, 0, recvbuf, 0, numbytes, ROOT, p);
   }
 
-  test1.measure(5, 10, numbytes * numproc);
+  //test1.measure(5, 10, numbytes * numproc);
 
   validate(sendbuf, recvbuf, numbytes, 3 /*BCAST*/, test1);
 

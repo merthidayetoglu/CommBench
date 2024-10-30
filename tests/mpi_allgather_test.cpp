@@ -25,7 +25,7 @@ int main() {
      }
   }
 
-  test1.measure(5, 10, numbytes * numproc);
+  //test1.measure(5, 10, numbytes * numproc);
 
   validate(sendbuf, recvbuf, numbytes, 6 /*ALLGATHER*/, test1);
 

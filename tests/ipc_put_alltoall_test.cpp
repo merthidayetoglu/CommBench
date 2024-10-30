@@ -18,14 +18,16 @@ int main() {
   allocate(sendbuf, numbytes * numproc);
   allocate(recvbuf, numbytes * numproc);
 
-  Comm<int> test1(MPI);
-  for(int p = 0; p < numproc; p++){
-  	test1.add(sendbuf, 0, recvbuf, p * numbytes, numbytes, p, ROOT);
+  Comm<int> test1(IPC);
+  for(int sender = 0; sender < numproc; sender++){
+     for(int recver = 0; recver < numproc; recver++){
+  	test1.add(sendbuf, recver * numbytes, recvbuf, sender * numbytes, numbytes, sender, recver);
+     }
   }
 
   //test1.measure(5, 10, numbytes * numproc);
 
-  validate(sendbuf, recvbuf, numbytes, 1 /*GATHER*/, test1);
+  validate(sendbuf, recvbuf, numbytes, 5 /*ALLTOALL*/, test1);
 
   free(sendbuf);
   free(recvbuf);

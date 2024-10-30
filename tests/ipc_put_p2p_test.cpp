@@ -13,19 +13,16 @@ int main() {
 
   init();
   int numproc = CommBench::numproc;
-  int myid = CommBench::myid;
+ 
+  allocate(sendbuf, numbytes);
+  allocate(recvbuf, numbytes);
 
-  allocate(sendbuf, numbytes * numproc);
-  allocate(recvbuf, numbytes * numproc);
-
-  Comm<int> test1(MPI);
-  for(int p = 0; p < numproc; p++){
-  	test1.add(sendbuf, 0, recvbuf, p * numbytes, numbytes, p, ROOT);
-  }
+  Comm<int> test1(IPC);
+  test1.add(sendbuf, recvbuf, numbytes, 0, 1);
 
   //test1.measure(5, 10, numbytes * numproc);
 
-  validate(sendbuf, recvbuf, numbytes, 1 /*GATHER*/, test1);
+  validate(sendbuf, recvbuf, numbytes, 0 /*P2P*/, test1);
 
   free(sendbuf);
   free(recvbuf);

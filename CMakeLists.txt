@@ -53,6 +53,7 @@ endif()
 add_executable(${PROJECT_NAME} main.cpp)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
 # Check if USE_GTL is enabled and add the linking flag
 if (USE_GTL)

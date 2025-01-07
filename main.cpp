@@ -13,20 +13,24 @@ int main() {
   allocate(recvbuf, numbytes);
 
   Comm<size_t> test1(MPI);
-  test1.add(sendbuf, recvbuf, numbytes, 0, 0);
+  test1.add(sendbuf, recvbuf, numbytes, 0, 1);
 
   test1.measure(5, 10);
 
+#if defined(PORT_CUDA) || defined(PORT_HIP)
   Comm<size_t> test2(IPC);
-  test2.add(sendbuf, recvbuf, numbytes, 0, 0);
+  test2.add(sendbuf, recvbuf, numbytes, 0, 1);
 
   test2.measure(5, 10);
+#endif
 
 
+#ifdef CAP_NCCL
   Comm<size_t> test3(NCCL);
-  test3.add(sendbuf, recvbuf, numbytes, 0, 0);
+  test3.add(sendbuf, recvbuf, numbytes, 0, 1);
 
   test3.measure(5, 10);
+#endif
 
   free(sendbuf);
   free(recvbuf);

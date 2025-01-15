@@ -59,7 +59,7 @@
 #ifdef CAP_NCCL
 #include <rccl/rccl.h>
 #else
-#include <hip_runtime.h>
+#include <hip/hip_runtime.h>
 #endif
 #elif defined PORT_ONEAPI
 #ifdef CAP_ONECCL

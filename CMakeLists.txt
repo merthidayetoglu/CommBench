@@ -37,7 +37,7 @@ if (MPI_FOUND)
             "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-fopenmp>>"
     )
 
-    add_subdirectory(CommFunctions)
+    # add_subdirectory(CommFunctions)
 
 
 else()
@@ -49,11 +49,47 @@ else()
     endif()
 endif()
 
+# Create a variables using option and set default to OFF
+option(USE_CUDA "Use CUDA implementation" OFF)
+option(USE_HIP "Use CUDA implementation" OFF)
+option(USE_XCCL "Use Vendor-provided collective communication library" OFF)
+option(USE_BLIT_KERNEL "Use Blit/Copy Kernel for IPC communication" OFF)
+
+
+# Create a variable for NCCL path
+set(XCCL_PATH "" CACHE PATH "Path to the XCCL installation")
+set(HIP_PATH "" CACHE PATH "Path to the HIP installation")
+
+if (USE_CUDA)
+    find_package(CUDA REQUIRED)
+    enable_language(CUDA)
+
+    # Option for specifying CUDA architecture
+    set(CUDA_ARCHITECTURE "80" CACHE STRING "Specify the CUDA architecture (e.g., 80 meaning arch=compute_80,code=sm_80)")
+    # target_compile_options(commbench_compiler_flags INTERFACE "-ccbin=mpicxx")
+    # target_link_directories(commbench_compiler_flags INTERFACE "/projects/x86-64-icelake-rocky8/tpls/cuda/11.8.0/gcc/11.3.0/base/xg4ixk6/lib64/stubs")
+    # set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+elseif (USE_HIP)
+    find_package(HIP REQUIRED)
+    enable_language(HIP)
+
+    message(STATUS "HIP found: ${HIP_VERSION}")  # Print message if HIP is found
+    set(HIP_ARCHITECTURE "gfx942;gfx90A" CACHE STRING "Specify the HIP architecture (e.g., gfx942;gfx90A)")
+endif()
+
+add_subdirectory(CommFunctions) # add subdirectory after all configuration, may need to be moved down further
+
 # Add your source files and executable here
 add_executable(${PROJECT_NAME} main.cpp)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+
+if (USE_CUDA)
+    set_source_files_properties(main.cpp PROPERTIES LANGUAGE CUDA)
+elseif (USE_HIP)
+    set_source_files_properties(main.cpp PROPERTIES LANGUAGE HIP)
+endif()
 
 # Check if USE_GTL is enabled and add the linking flag
 if (USE_GTL)
@@ -75,16 +111,13 @@ if (USE_XPMEM)
     message(STATUS "Linking with XPMEM library: -lxpmem")
 endif()
 
+add_subdirectory(tests)  
 
 
 
-
+#[=[
 # UNIT TEST SECTION
 # Create the tests/bin directory if it doesn't exist
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/unit_tests)
-
-# Set the output directory for the test executables
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/unit_tests)
 
 # Add the MPI/IPC_PUT/IPC_GET/IPC_BLIT/XCCL test executable
 add_executable(mpi_p2p_test tests/mpi_p2p_test.cpp)
@@ -102,33 +135,36 @@ target_link_libraries(mpi_allgather_test PUBLIC CommFunctions commbench_compiler
 
 if (USE_CUDA OR USE_HIP)
 add_executable(ipc_put_p2p_test tests/ipc_put_p2p_test.cpp)
-target_link_libraries(ipc_put_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_put_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_put_gather_test tests/ipc_put_gather_test.cpp)
-target_link_libraries(ipc_put_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_put_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_put_scatter_test tests/ipc_put_scatter_test.cpp)
-target_link_libraries(ipc_put_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_put_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_put_bcast_test tests/ipc_put_bcast_test.cpp)
-target_link_libraries(ipc_put_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_put_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_put_alltoall_test tests/ipc_put_alltoall_test.cpp)
-target_link_libraries(ipc_put_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_put_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_put_allgather_test tests/ipc_put_allgather_test.cpp)
-target_link_libraries(ipc_put_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_put_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 
 
 add_executable(ipc_get_p2p_test tests/ipc_get_p2p_test.cpp)
-target_link_libraries(ipc_get_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_get_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_get_gather_test tests/ipc_get_gather_test.cpp)
-target_link_libraries(ipc_get_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_get_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_get_scatter_test tests/ipc_get_scatter_test.cpp)
-target_link_libraries(ipc_get_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_get_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_get_bcast_test tests/ipc_get_bcast_test.cpp)
-target_link_libraries(ipc_get_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_get_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_get_alltoall_test tests/ipc_get_alltoall_test.cpp)
-target_link_libraries(ipc_get_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_get_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 add_executable(ipc_get_allgather_test tests/ipc_get_allgather_test.cpp)
-target_link_libraries(ipc_get_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
+target_link_libraries(ipc_get_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX MPI::MPI_CXX)
 
-
+if (USE_CUDA)
+set_source_files_properties(tests/ipc_put_p2p_test.cpp tests/ipc_put_gather_test.cpp tests/ipc_put_scatter_test.cpp tests/ipc_put_bcast_test.cpp tests/ipc_put_alltoall_test.cpp tests/ipc_put_allgather_test.cpp tests/ipc_get_p2p_test.cpp tests/ipc_get_gather_test.cpp tests/ipc_get_scatter_test.cpp tests/ipc_get_bcast_test.cpp tests/ipc_get_alltoall_test.cpp tests/ipc_get_allgather_test.cpp PROPERTIES LANGUAGE CUDA)
+target_compile_definitions(ipc_put_gather_test PRIVATE "PORT_CUDA")
+endif()
 
 if (USE_XCCL)
    add_executable(xccl_p2p_test tests/xccl_p2p_test.cpp)
@@ -386,3 +422,4 @@ add_test(NAME IPC_PUT_P2P_Test
  endif()
  
 endif()
+]=]

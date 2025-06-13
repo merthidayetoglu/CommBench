@@ -445,6 +445,7 @@
           if(sendid != recvid) {
             int error = -1;
 #ifdef PORT_CUDA
+            printf("trying ipc \n");
             cudaIpcMemHandle_t memhandle;
             recv(&memhandle, recvid);
             error = cudaIpcOpenMemHandle((void**)&remotebuf[numsend], memhandle, cudaIpcMemLazyEnablePeerAccess);

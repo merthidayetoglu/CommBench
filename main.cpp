@@ -12,22 +12,22 @@ using namespace CommBench;
 enum pattern { p2p, gather, scatter, broadcast, reduce, alltoall, allgather };
 int myid_loc;
 
-template<typename... Args> void FATAL_ERROR(const char* fmt, Args ... args) {
+template <typename... Args> void FATAL_ERROR(const char *fmt, Args... args) {
   if (myid_loc == printid) {
     fprintf(stderr, "FATAL ERROR: ");
     fprintf(stderr, fmt, args...);
-    std::abort();                     
+    std::abort();
   }
 }
 
-template<typename... Args> void ERROR(const char* fmt, Args ... args) {
+template <typename... Args> void ERROR(const char *fmt, Args... args) {
   if (myid_loc == printid) {
     fprintf(stderr, "ERROR: ");
     fprintf(stderr, fmt, args...);
   }
 }
 
-template<typename... Args> void WARNING(const char* fmt, Args ... args) {
+template <typename... Args> void WARNING(const char *fmt, Args... args) {
   if (myid_loc == printid) {
     fprintf(stderr, "WARNING: ");
     fprintf(stderr, fmt, args...);
@@ -36,7 +36,7 @@ template<typename... Args> void WARNING(const char* fmt, Args ... args) {
 
 std::unordered_map<std::string, std::vector<std::string>>
 parseArgs(int argc, char *argv[]) {
-  static const std::string valid_args[] = {"use", "pattern"};
+  static const std::string valid_args[] = {"use", "pattern", "validate"};
   int i = 1;
   std::unordered_map<std::string, std::vector<std::string>> args;
   std::string prev = "";
@@ -47,7 +47,7 @@ parseArgs(int argc, char *argv[]) {
       std::string arg = cur.substr(2);
       // check for valid args or maybe do that elsewhere
       bool valid = false;
-      for (int j = 0; j < 2; j++)
+      for (int j = 0; j < 3; j++)
         if (valid_args[j] == arg) {
           valid = true;
           break;
@@ -55,6 +55,8 @@ parseArgs(int argc, char *argv[]) {
       if (!valid) {
         FATAL_ERROR("unknown argument \"%s\"\n", argv[i]);
       }
+      if (args.find(arg) == args.end())
+        args.insert({arg, {}});
       prev = arg;
     } else if (prev != "") {
       // validate input
@@ -103,14 +105,12 @@ int main(int argc, char *argv[]) {
 #endif
       lib = library::NCCL;
     } else {
-        FATAL_ERROR(
-          "Unknown communication library option \"%s\". Please "
-          "specify one of: mpi, ipc_put, ipc_get, or xccl.\n",
-          libStr.c_str());
+      FATAL_ERROR("Unknown communication library option \"%s\". Please "
+                  "specify one of: mpi, ipc_put, ipc_get, or xccl.\n",
+                  libStr.c_str());
     }
   } else {
-    WARNING(
-        "No communication library specified, using MPI by default\n");
+    WARNING("No communication library specified, using MPI by default\n");
   }
 
   std::vector<pattern> patterns;
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
     else if (patStr == "allgather")
       patterns.push_back(pattern::allgather);
     else {
-        FATAL_ERROR(
+      FATAL_ERROR(
           "Unknown communication pattern \"%s\". Please use one "
           "of: p2p, broadcast, gather, scatter, alltoall, or allgather.\n",
           patStr.c_str());
@@ -137,10 +137,13 @@ int main(int argc, char *argv[]) {
   }
 
   if (patterns.size() == 0) {
-    WARNING(
-        "No communication pattern specified, using P2P by default\n");
+    WARNING("No communication pattern specified, using P2P by default\n");
     patterns.push_back(p2p);
   }
+
+  bool run_validate = false;
+  if (args.find("validate") != args.end())
+    run_validate = true;
 
   int *sendbuf;
   int *recvbuf;
@@ -181,8 +184,10 @@ int main(int argc, char *argv[]) {
       break;
     default:; // error?
     }
-    validate(sendbuf, recvbuf, numbytes, patterns[i], test);
-    // test.measure(5, 10, numbytes * numproc);
+    if (run_validate)
+      validate(sendbuf, recvbuf, numbytes, patterns[i], test);
+    else
+      test.measure(5, 10, numbytes * numproc);
   }
 
   free(sendbuf);

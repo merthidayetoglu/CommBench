@@ -1,6 +1,9 @@
 #include "commbench.h"
 #include <string>
 #include <vector>
+#include <json/json.h>
+#include <fstream>
+#include <iostream>
 
 using namespace CommBench;
 
@@ -14,40 +17,66 @@ bool flagPresent(int argc, char* argv[], const std::string& flag) {
     return false;
 }
 
+
+
 int main(int argc, char* argv[]) {
 
-    size_t *sendbuf;
-    size_t *recvbuf;
-    size_t numbytes = 1e9;
-
-    init();
-    allocate(sendbuf, numbytes);
-    allocate(recvbuf, numbytes);
-
-    // Always execute MPI test
-    Comm<size_t> test1(MPI);
-    test1.add(sendbuf, recvbuf, numbytes, 0, 1);
-    test1.measure(5, 10);
-
-    // Check if IPC should be used
-    if (flagPresent(argc, argv, "--use-ipc")) {
-        Comm<size_t> test2(IPC);
-        test2.add(sendbuf, recvbuf, numbytes, 0, 1);
-        test2.measure(5, 10);
+    std::ifstream file("config_doc.json", std::ifstream::binary);
+    if(!file.is_open()) {
+	    std::cerr << "Could not open file!" << std::endl;
     }
 
-    // Check if NCCL should be used
-    if (flagPresent(argc, argv, "--use-nccl")) {
-        Comm<size_t> test3(NCCL);
-        test3.add(sendbuf, recvbuf, numbytes, 0, 1);
-        test3.measure(5, 10);
+    Json::Value root;
+    Json::CharReaderBuilder builder;
+    std::string errs;
+    std::string library = "";
+    std::vector<std::string> patterns;
+    int step = 1;
+
+    if(!Json::parseFromStream(builder, file, &root, &errs)) {
+	    std::cerr << "Failed to parse Json" << std::endl;
     }
-
-    free(sendbuf);
-    free(recvbuf);
-
-    MPI_Finalize();
-
-    return 0;
+    if (root.isMember("tests") && root["tests"].isArray()) {
+            Json::Value& testsArray = root["tests"];
+            for (const auto& test : testsArray) {
+		std::cout << "STEP " << step << std::endl;
+	        step = step + 1;	
+	    	std::string library = test["library"].asString();
+		Json::Value patternsArray = test["patterns"];
+               	if (library == "mpi" || library == "xccl" || library == "ipc_put" || library == "ipc_get") {
+                   std::cout << "entered mpi for loop" << std::endl;
+                   for (const auto& pattern : patternsArray) {
+                       if (pattern.asString() == "gather") {
+                          std::cout << "running gather_test" << std::endl;
+                          std::string command = "mpirun -n 2 unit_tests/" + library + "_gather_test";
+                          int result = system(command.c_str());
+                       } else if (pattern.asString() == "p2p") {
+                                 std::cout << "running p2p_test" << std::endl;
+                                 std::string command = "mpirun -n 2 unit_tests/" + library + "_p2p_test";
+                                 int result = system(command.c_str());
+                       } else if (pattern.asString() == "scatter") {
+                                 std::string command = "mpirun -n 2 unit_tests/" + library + "_scatter_test";
+                                 std::cout << "running scatter_test" << std::endl;
+                                 int result = system(command.c_str());
+                       } else if (pattern.asString() == "allgather") {
+                                 std::string command = "mpirun -n 2 unit_tests/" + library + "_allgather_test";
+                                 std::cout << "running allgather_test" << std::endl;
+                                 int result = system(command.c_str());
+                       } else if (pattern.asString() == "alltoall") {
+                                 std::cout << "running alltoall_test" << std::endl;
+                                 std::string command = "mpirun -n 2 unit_tests/" + library + "_alltoall_test";
+                                 int result = system(command.c_str());
+                       } else if (pattern.asString() == "bcast") {
+                                 std::cout << "running bcast_test" << std::endl;
+                                 std::string command = "mpirun -n 2 unit_tests/" + library + "_bcast_test";
+                                 int result = system(command.c_str());
+                       } else if (pattern.asString() == "xccl" || pattern.asString() == "ipc_put" || pattern.asString() == "ipc_get") {
+                                 std::cout << "running default test" << std::endl;
+				 std::string command = "mpirun -n 2 unit_tests/" + library + "_test";
+                                 int result = system(command.c_str());
+                       }
+                   }
+		}
+            }
+    }
 }
-

@@ -36,7 +36,7 @@ template <typename... Args> void WARNING(const char *fmt, Args... args) {
 
 std::unordered_map<std::string, std::vector<std::string>>
 parseArgs(int argc, char *argv[]) {
-  static const std::string valid_args[] = {"use", "pattern", "validate"};
+  static const std::string valid_args[] = {"use", "pattern", "validate", "nbytes"};
   int i = 1;
   std::unordered_map<std::string, std::vector<std::string>> args;
   std::string prev = "";
@@ -47,7 +47,7 @@ parseArgs(int argc, char *argv[]) {
       std::string arg = cur.substr(2);
       // check for valid args or maybe do that elsewhere
       bool valid = false;
-      for (int j = 0; j < 3; j++)
+      for (int j = 0; j < 4; j++)
         if (valid_args[j] == arg) {
           valid = true;
           break;
@@ -148,6 +148,15 @@ int main(int argc, char *argv[]) {
   int *sendbuf;
   int *recvbuf;
   size_t numbytes = 1e8;
+  if (args.find("nbytes") != args.end()) {
+    if (args["nbytes"].size() == 0)
+        FATAL_ERROR("Missing number of bytes argument for --nbytes");
+    try {
+        numbytes = std::stoull(args["nbytes"][0]);
+    } catch (...) {
+        FATAL_ERROR("Invalid input \"%s\" to --nbytes.", args["nbytes"][0]);
+    }
+  }
 
   allocate(sendbuf, numbytes * numproc);
   allocate(recvbuf, numbytes * numproc);

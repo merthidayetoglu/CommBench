@@ -153,6 +153,9 @@ int main(int argc, char *argv[]) {
   std::vector<step> steps;
 
   if (args.find("file") != args.end()) {
+    #ifndef CONFIG_FILE 
+      FATAL_ERROR("Cannot use the --file flag unless compiled with jsoncpp support.\n");
+    #else
     std::ifstream file(args["file"][0], std::ifstream::binary);
     if (!file.is_open()) {
       FATAL_ERROR("Could not open file \"%s\"\n", args["file"][0]);
@@ -179,6 +182,7 @@ int main(int argc, char *argv[]) {
           steps.push_back({patterns, lib});
         }
       }
+      #endif
     } else {
       std::vector<pattern> patterns;
       for (int i = 0; i < args["pattern"].size(); i++) {

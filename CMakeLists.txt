@@ -52,6 +52,7 @@ option(USE_XCCL "Use Vendor-provided collective communication library" OFF)
 option(USE_BLIT_KERNEL "Use Blit/Copy Kernel for IPC communication" OFF)
 
 option(USE_CALIPER "Enable Caliper benchmarking support" OFF)
+option(USE_JSONCPP "Enable support for passing a config file" OFF)
 
 
 # Create a variable for NCCL path
@@ -111,6 +112,10 @@ endif()
 if (USE_XPMEM)
     target_link_libraries(${PROJECT_NAME} PRIVATE xpmem)
     message(STATUS "Linking with XPMEM library: -lxpmem")
+endif()
+
+if (USE_JSONCPP)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE "CONFIG_FILE")
 endif()
 
 enable_testing()

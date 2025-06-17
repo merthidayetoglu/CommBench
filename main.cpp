@@ -45,7 +45,7 @@ template <typename... Args> void WARNING(const char *fmt, Args... args) {
 std::unordered_map<std::string, std::vector<std::string>>
 parseArgs(int argc, char *argv[]) {
   static const std::string valid_args[] = {"use", "pattern", "validate",
-                                           "nbytes"};
+                                           "nbytes", "file"};
   int i = 1;
   std::unordered_map<std::string, std::vector<std::string>> args;
   std::string prev = "";
@@ -56,7 +56,7 @@ parseArgs(int argc, char *argv[]) {
       std::string arg = cur.substr(2);
       // check for valid args or maybe do that elsewhere
       bool valid = false;
-      for (int j = 0; j < 4; j++)
+      for (int j = 0; j < 5; j++)
         if (valid_args[j] == arg) {
           valid = true;
           break;
@@ -79,7 +79,7 @@ parseArgs(int argc, char *argv[]) {
   return args;
 }
 
-library parseLib(std::string &libStr) {
+library parseLib(const std::string &libStr) {
   if (libStr == "mpi")
     return library::MPI;
   else if (libStr == "ipc_put") {
@@ -110,7 +110,7 @@ library parseLib(std::string &libStr) {
   }
 }
 
-pattern parsePattern(std::string &patStr) {
+pattern parsePattern(const std::string &patStr) {
   if (patStr == "p2p")
     return pattern::p2p;
   else if (patStr == "broadcast")
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
 
   library lib_def = library::MPI;
   if (args["use"].size() != 0) {
-    lib_def = parseLib(args["use"][0])
+    lib_def = parseLib(args["use"][0]);
   } else {
     WARNING("No communication library specified, using MPI by default\n");
   }
@@ -157,12 +157,13 @@ int main(int argc, char *argv[]) {
       FATAL_ERROR("Cannot use the --file flag unless compiled with jsoncpp support.\n");
     #else
     std::ifstream file(args["file"][0], std::ifstream::binary);
-    if (!file.is_open()) {
+    if (!file.is_open()g
       FATAL_ERROR("Could not open file \"%s\"\n", args["file"][0]);
 
       Json::Value root;
       Json::CharReaderBuilder builder;
-      std::string errsg int step = 1;
+      std::string errs;
+      int step = 1;
 
       if (!Json::parseFromStream(builder, file, &root, &errs))
         FATAL_ERROR("Failed to parse JSON\n");

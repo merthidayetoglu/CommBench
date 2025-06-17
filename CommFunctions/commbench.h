@@ -77,6 +77,9 @@
 #include <gasnet_mk.h>
 // #include <gasnet.h>
 #endif
+#ifdef BENCH_CALIPER
+#include <caliper/cali.h>
+#endif
 
 // CPP LIBRARIES
 #include <stdio.h> // for printf

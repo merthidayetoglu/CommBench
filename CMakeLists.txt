@@ -51,6 +51,8 @@ option(USE_HIP "Use CUDA implementation" OFF)
 option(USE_XCCL "Use Vendor-provided collective communication library" OFF)
 option(USE_BLIT_KERNEL "Use Blit/Copy Kernel for IPC communication" OFF)
 
+option(USE_CALIPER "Enable Caliper benchmarking support" OFF)
+
 
 # Create a variable for NCCL path
 set(XCCL_PATH "" CACHE PATH "Path to the XCCL installation")
@@ -61,7 +63,8 @@ if (USE_CUDA)
     enable_language(CUDA)
 
     # Option for specifying CUDA architecture
-    set(CUDA_ARCHITECTURE "80" CACHE STRING "Specify the CUDA architecture (e.g., 80 meaning arch=compute_80,code=sm_80)")
+    # set(CUDA_ARCHITECTURE "80" CACHE STRING "Specify the CUDA architecture (e.g., 80 meaning arch=compute_80,code=sm_80)")
+    set(CMAKE_CUDA_ARCHITECTURES "80")
     # target_compile_options(commbench_compiler_flags INTERFACE "-ccbin=mpicxx")
 elseif (USE_HIP)
     find_package(HIP REQUIRED)

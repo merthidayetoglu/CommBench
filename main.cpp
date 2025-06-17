@@ -195,8 +195,13 @@ int main(int argc, char *argv[]) {
     }
     if (run_validate)
       validate(sendbuf, recvbuf, numbytes, patterns[i], test);
-    else
+    else {
+#ifndef BENCH_CALIPER
       test.measure(5, 10, numbytes * numproc);
+#else
+      test.measure_caliper(5, 10);
+#endif
+    }
   }
 
   free(sendbuf);

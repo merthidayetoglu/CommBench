@@ -87,6 +87,8 @@ endif()
 
 if (USE_CALIPER)
     target_compile_definitions(CommFunctions INTERFACE "BENCH_CALIPER")
+    target_link_libraries(CommFunctions INTERFACE caliper)
+    target_include_directories(CommFunctions INTERFACE ${caliper_INCLUDE_DIR})
 endif()
 
 target_include_directories(CommFunctions

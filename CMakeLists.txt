@@ -74,6 +74,10 @@ elseif (USE_HIP)
     set(HIP_ARCHITECTURE "gfx942;gfx90A" CACHE STRING "Specify the HIP architecture (e.g., gfx942;gfx90A)")
 endif()
 
+if (USE_CALIPER)
+    find_package(caliper)
+endif()
+
 add_subdirectory(CommFunctions) # add subdirectory after all configuration, may need to be moved down further
 
 # Add your source files and executable here

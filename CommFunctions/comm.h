@@ -718,12 +718,12 @@
   void Comm<T>::measure_caliper(int warmup, int numiter) {
     for (int iter = -warmup; iter < numiter; iter++) {
       barrier();
-      CALI_MARK_BEGIN("Comm")
-      CALI_MARK_BEGIN("Comm Start")
-      comm.start();
-      CALI_MARK_END("Comm Start")
-      comm.wait();
-      CALI_MARK_END("Comm")
+      CALI_MARK_BEGIN("Comm");
+      CALI_MARK_BEGIN("Comm Start");
+      this->start();
+      CALI_MARK_END("Comm Start");
+      this->wait();
+      CALI_MARK_END("Comm");
       barrier();
     }
   }

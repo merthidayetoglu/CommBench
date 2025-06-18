@@ -1,11 +1,11 @@
 #include "commbench.h"
 #define ROOT 0
 #include "validate.h"
-#include <algorithm>
+#include <array>
 #include <cstdio>
-#include <fstream>
-#include <iostream>
+#ifdef CONFIG_FILE
 #include <json/json.h>
+#endif
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -44,7 +44,7 @@ template <typename... Args> void WARNING(const char *fmt, Args... args) {
 
 std::unordered_map<std::string, std::vector<std::string>>
 parseArgs(int argc, char *argv[]) {
-  static const std::string valid_args[] = {"use", "pattern", "validate",
+  static const std::array<std::string, 5> valid_args = {"use", "pattern", "validate",
                                            "nbytes", "file"};
   int i = 1;
   std::unordered_map<std::string, std::vector<std::string>> args;
@@ -56,7 +56,7 @@ parseArgs(int argc, char *argv[]) {
       std::string arg = cur.substr(2);
       // check for valid args or maybe do that elsewhere
       bool valid = false;
-      for (int j = 0; j < 5; j++)
+      for (int j = 0; j < valid_args.size(); j++)
         if (valid_args[j] == arg) {
           valid = true;
           break;

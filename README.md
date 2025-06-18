@@ -13,7 +13,7 @@ CommBench has a higher-level interface for implementing custom micro-benchmarks 
 
 #### Inclusion
 
-CommBench is programmed into a single header file ``comm.h`` that is included in applications as the following example. The GPU port is specified by one of ``PORT_CUDA``, ``PORT_HIP``, or ``PORT_OneAPI`` for Nvidia, AMD, and Intel systems, respectively. When the GPU port is not specified, CommBench runs on CPUs.
+CommBench is programmed into a single header file ``commbench.h`` that is included in applications as the following example. The GPU port is specified by one of ``PORT_CUDA``, ``PORT_HIP``, or ``PORT_OneAPI`` for Nvidia, AMD, and Intel systems, respectively. When the GPU port is not specified, CommBench runs on CPUs.
 
 ```cpp
 #define PORT_CUDA
@@ -137,6 +137,14 @@ In this case, the sequence of communications are given in a vector, e.g., ``sequ
 ![Striping](examples/striping/images/striping_figure.png)
 
 As an example, the above shows striping of point-to-point communications across nodes. The asynchronous execution of this pattern finds opportunites to overlap communications within and across nodes using all GPUs, and utilizes the overall hierarchical network (intra-node, extra-node) efficiently towards measuring the peak bandwidth across nodes. See [examples/striping](https://github.com/merthidayetoglu/CommBench/tree/master/examples/striping) for an implementation with CommBench. The measurement will report the end-to-end latency ($t$) and throughput ($d/t$), where $d$ is the data movement across nodes and calculated based on ``count`` and the size of data type ``T``.
+
+## Build
+
+Building CommBench requires CMake 3.24 and up. By default, it builds with only CPU support. Supply the CMake flag ``-DUSE_CUDA=ON`` or ``-DUSE_HIP=ON`` to enable the respective GPU features. In order to build with XCCL support (to use NCCL and RCCL respectively), supply the option ``-DUSE_XCCL=ON``. Then, build with the command ``cmake -S . -B build <options>``. This will create the unit tests which can be run in the build directory with ctest. It also creates the executable ``CommBench`` which can be used to test various communication patters.
+
+## Usage
+
+Run the executable with ``mpirun -n <process count> ./build/CommBench [--use mpi|ipc_put|ipc_get|xccl] [--pattern p2p|gather|scatter|broadcast|alltoall|allgather] [--nbytes <num>] [--validate]`` where if no flags are specified, CommBench will benchmark P2P communications with MPI. The ``--use`` option specifies which communication library to use and the ``--pattern`` option selects the communication pattern. You may enter multiple space separated patterns to run them all. The ``--nbytes`` option selects the size of the message to be sent and the ``--validate`` flag will check if the communication was successful rather than benchmarking it. If the library is built with ``-DUSE_JSONCPP=ON``, then rather than specifying a pattern, you can use the ``--file <file path>`` option to give a config file to describe the communication patterns. A sample format is availabe in ``config_doc.json``.
 
 ## Remarks
 

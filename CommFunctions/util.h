@@ -29,8 +29,7 @@ void setup_gpu() {
   cudaGetDeviceCount(&deviceCount);
   #ifdef CAP_NCCL
     if (numproc > deviceCount) {
-      printf("Error: Using the same device for different ranks of a communicator is not supported\n");
-      std::abort();
+      printf("Warning: Using the same device for different ranks of a communicator for NCCL is not supported\n");
     }
   #endif
   int device = myid % deviceCount;

@@ -36,10 +36,6 @@ if (MPI_FOUND)
     target_compile_options(commbench_compiler_flags INTERFACE
             "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-fopenmp>>"
     )
-
-    add_subdirectory(CommFunctions)
-
-
 else()
     # Check if the user enabled GASNET
     if (USE_GASNET)
@@ -49,11 +45,54 @@ else()
     endif()
 endif()
 
+# Create a variables using option and set default to OFF
+option(USE_CUDA "Use CUDA implementation" OFF)
+option(USE_HIP "Use CUDA implementation" OFF)
+option(USE_XCCL "Use Vendor-provided collective communication library" OFF)
+option(USE_BLIT_KERNEL "Use Blit/Copy Kernel for IPC communication" OFF)
+
+option(USE_CALIPER "Enable Caliper benchmarking support" OFF)
+option(USE_JSONCPP "Enable support for passing a config file" OFF)
+
+
+# Create a variable for NCCL path
+set(XCCL_PATH "" CACHE PATH "Path to the XCCL installation")
+set(HIP_PATH "" CACHE PATH "Path to the HIP installation")
+
+if (USE_CUDA)
+    find_package(CUDA REQUIRED)
+    enable_language(CUDA)
+
+    # Option for specifying CUDA architecture
+    # set(CUDA_ARCHITECTURE "80" CACHE STRING "Specify the CUDA architecture (e.g., 80 meaning arch=compute_80,code=sm_80)")
+    set(CMAKE_CUDA_ARCHITECTURES "80")
+    # target_compile_options(commbench_compiler_flags INTERFACE "-ccbin=mpicxx")
+elseif (USE_HIP)
+    find_package(HIP REQUIRED)
+    enable_language(HIP)
+
+    message(STATUS "HIP found: ${HIP_VERSION}")  # Print message if HIP is found
+    set(HIP_ARCHITECTURE "gfx942;gfx90A" CACHE STRING "Specify the HIP architecture (e.g., gfx942;gfx90A)")
+endif()
+
+if (USE_CALIPER)
+    find_package(caliper)
+endif()
+
+add_subdirectory(CommFunctions) # add subdirectory after all configuration, may need to be moved down further
+
 # Add your source files and executable here
 add_executable(${PROJECT_NAME} main.cpp)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/CommFunctions DESTINATION include FILES_MATCHING PATTERN "*.h")
+
+if (USE_CUDA)
+    set_source_files_properties(main.cpp PROPERTIES LANGUAGE CUDA)
+elseif (USE_HIP)
+    set_source_files_properties(main.cpp PROPERTIES LANGUAGE HIP)
+endif()
 
 # Check if USE_GTL is enabled and add the linking flag
 if (USE_GTL)
@@ -75,314 +114,10 @@ if (USE_XPMEM)
     message(STATUS "Linking with XPMEM library: -lxpmem")
 endif()
 
-
-
-
-
-# UNIT TEST SECTION
-# Create the tests/bin directory if it doesn't exist
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/unit_tests)
-
-# Set the output directory for the test executables
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/unit_tests)
-
-# Add the MPI/IPC_PUT/IPC_GET/IPC_BLIT/XCCL test executable
-add_executable(mpi_p2p_test tests/mpi_p2p_test.cpp)
-target_link_libraries(mpi_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(mpi_gather_test tests/mpi_gather_test.cpp)
-target_link_libraries(mpi_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(mpi_scatter_test tests/mpi_scatter_test.cpp)
-target_link_libraries(mpi_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(mpi_bcast_test tests/mpi_bcast_test.cpp)
-target_link_libraries(mpi_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(mpi_alltoall_test tests/mpi_alltoall_test.cpp)
-target_link_libraries(mpi_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(mpi_allgather_test tests/mpi_allgather_test.cpp)
-target_link_libraries(mpi_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-
-if (USE_CUDA OR USE_HIP)
-add_executable(ipc_put_p2p_test tests/ipc_put_p2p_test.cpp)
-target_link_libraries(ipc_put_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_put_gather_test tests/ipc_put_gather_test.cpp)
-target_link_libraries(ipc_put_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_put_scatter_test tests/ipc_put_scatter_test.cpp)
-target_link_libraries(ipc_put_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_put_bcast_test tests/ipc_put_bcast_test.cpp)
-target_link_libraries(ipc_put_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_put_alltoall_test tests/ipc_put_alltoall_test.cpp)
-target_link_libraries(ipc_put_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_put_allgather_test tests/ipc_put_allgather_test.cpp)
-target_link_libraries(ipc_put_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-
-
-add_executable(ipc_get_p2p_test tests/ipc_get_p2p_test.cpp)
-target_link_libraries(ipc_get_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_get_gather_test tests/ipc_get_gather_test.cpp)
-target_link_libraries(ipc_get_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_get_scatter_test tests/ipc_get_scatter_test.cpp)
-target_link_libraries(ipc_get_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_get_bcast_test tests/ipc_get_bcast_test.cpp)
-target_link_libraries(ipc_get_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_get_alltoall_test tests/ipc_get_alltoall_test.cpp)
-target_link_libraries(ipc_get_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-add_executable(ipc_get_allgather_test tests/ipc_get_allgather_test.cpp)
-target_link_libraries(ipc_get_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-
-
-
-if (USE_XCCL)
-   add_executable(xccl_p2p_test tests/xccl_p2p_test.cpp)
-   target_link_libraries(xccl_p2p_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-   add_executable(xccl_gather_test tests/xccl_gather_test.cpp)
-   target_link_libraries(xccl_gather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-   add_executable(xccl_scatter_test tests/xccl_scatter_test.cpp)
-   target_link_libraries(xccl_scatter_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-   add_executable(xccl_bcast_test tests/xccl_bcast_test.cpp)
-   target_link_libraries(xccl_bcast_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-   add_executable(xccl_alltoall_test tests/xccl_alltoall_test.cpp)
-   target_link_libraries(xccl_alltoall_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-   add_executable(xccl_allgather_test tests/xccl_allgather_test.cpp)
-   target_link_libraries(xccl_allgather_test PUBLIC CommFunctions commbench_compiler_flags OpenMP::OpenMP_CXX)
-
-endif()
+if (USE_JSONCPP)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE "CONFIG_FILE")
 endif()
 
-
-# Check if USE_GTL is enabled for the ALL test and add the linking flag
-if (USE_GTL)
-    target_link_libraries(tests/bin/mpi_p2p_test PRIVATE mpi_gtl_hsa)
-    target_link_libraries(mpi_gather_test PRIVATE mpi_gtl_hsa)
-    target_link_libraries(mpi_scatter_test PRIVATE mpi_gtl_hsa)
-    target_link_libraries(mpi_bcast_test PRIVATE mpi_gtl_hsa)
-    target_link_libraries(mpi_alltoall_test PRIVATE mpi_gtl_hsa)
-    target_link_libraries(mpi_allgather_test PRIVATE mpi_gtl_hsa)
-    if (USE_CUDA OR USE_HIP)
-       target_link_libraries(ipc_put_p2p_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_put_gather_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_put_scatter_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_put_bcast_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_put_alltoall_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_put_allgather_test PRIVATE mpi_gtl_hsa)
-
-       target_link_libraries(ipc_get_p2p_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_get_gather_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_get_scatter_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_get_bcast_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_get_alltoall_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(ipc_get_allgather_test PRIVATE mpi_gtl_hsa)
-       
-       if (USE_XCCL)
-       target_link_libraries(xccl_p2p_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(xccl_gather_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(xccl_scatter_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(xccl_bcast_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(xccl_alltoall_test PRIVATE mpi_gtl_hsa)
-       target_link_libraries(xccl_allgather_test PRIVATE mpi_gtl_hsa)
-       endif()
-    endif()    
-    message(STATUS "Linking Tests with GTL library: -lmpi_gtl_hsa")
-
-    # Check if GTL_PATH is specified
-    if (GTL_PATH)
-        target_link_directories(tests/bin/mpi_p2p_test PRIVATE ${GTL_PATH}/lib)
-        target_link_directories(mpi_gather_test PRIVATE ${GTL_PATH}/lib)
-        target_link_directories(mpi_scatter_test PRIVATE ${GTL_PATH}/lib)
-        target_link_directories(mpi_bcast_test PRIVATE ${GTL_PATH}/lib)
-        target_link_directories(mpi_alltoall_test PRIVATE ${GTL_PATH}/lib)
-        target_link_directories(mpi_allgather_test PRIVATE ${GTL_PATH}/lib)
-	if (USE_CUDA OR USE_HIP)
-        	target_link_directories(ipc_put_p2p_test PRIVATE ${GTL_PATH}/lib)
-		target_link_directories(ipc_put_gather_test PRIVATE ${GTL_PATH}/lib)
-                target_link_directories(ipc_put_scatter_test PRIVATE ${GTL_PATH}/lib)
-                target_link_directories(ipc_put_bcast_test PRIVATE ${GTL_PATH}/lib)
-                target_link_directories(ipc_put_alltoall_test PRIVATE ${GTL_PATH}/lib)
-                target_link_directories(ipc_put_allgather_test PRIVATE ${GTL_PATH}/lib)
-
-		target_link_directories(ipc_get_p2p_test PRIVATE ${GTL_PATH}/lib)	
-		target_link_directories(ipc_get_gather_test PRIVATE ${GTL_PATH}/lib)
-                target_link_directories(ipc_get_scatter_test PRIVATE ${GTL_PATH}/lib)
-                target_link_directories(ipc_get_bcast_test PRIVATE ${GTL_PATH}/lib)
-                target_link_directories(ipc_get_alltoall_test PRIVATE ${GTL_PATH}/lib)
-                target_link_directories(ipc_get_allgather_test PRIVATE ${GTL_PATH}/lib)
-		if (USE_XCCL)
-		   target_link_directories(xccl_p2p_test PRIVATE ${GTL_PATH}/lib)
-		   target_link_directories(xccl_gather_test PRIVATE ${GTL_PATH}/lib)
-                   target_link_directories(xccl_scatter_test PRIVATE ${GTL_PATH}/lib)
-                   target_link_directories(xccl_bcast_test PRIVATE ${GTL_PATH}/lib)
-                   target_link_directories(xccl_alltoall_test PRIVATE ${GTL_PATH}/lib)
-                   target_link_directories(xccl_allgather_test PRIVATE ${GTL_PATH}/lib)
-       		endif()
-	endif()
-	message(STATUS "Adding GTL path to Test linker: ${GTL_PATH}/lib")
-    else()
-        message(WARNING "GTL_PATH is not specified for Test. Default library path will be used.")
-    endif()
-endif()
-
-# Check if USE_XPMEM is enabled for the ALL test and add the linking flag
-if (USE_XPMEM)
-    target_link_libraries(tests/bin/mpi_p2p_test PRIVATE xpmem)
-    target_link_libraries(mpi_gather_test PRIVATE xpmem)
-    target_link_libraries(mpi_scatter_test PRIVATE xpmem)
-    target_link_libraries(mpi_bcast_test PRIVATE xpmem)
-    target_link_libraries(mpi_alltoall_test PRIVATE xpmem)
-    target_link_libraries(mpi_allgather_test PRIVATE xpmem)
-    if (USE_CUDA OR USE_HIP)
-       target_link_libraries(ipc_put_p2p_test PRIVATE xpmem)
-       target_link_libraries(ipc_put_gather_test PRIVATE xpmem)
-       target_link_libraries(ipc_put_scatter_test PRIVATE xpmem)
-       target_link_libraries(ipc_put_bcast_test PRIVATE xpmem)
-       target_link_libraries(ipc_put_alltoall_test PRIVATE xpmem)
-       target_link_libraries(ipc_put_allgather_test PRIVATE xpmem)
-       
-       target_link_libraries(ipc_get_p2p_test PRIVATE xpmem)  
-       target_link_libraries(ipc_get_gather_test PRIVATE xpmem)
-       target_link_libraries(ipc_get_scatter_test PRIVATE xpmem)
-       target_link_libraries(ipc_get_bcast_test PRIVATE xpmem)
-       target_link_libraries(ipc_get_alltoall_test PRIVATE xpmem)
-       target_link_libraries(ipc_get_allgather_test PRIVATE xpmem)
-       if (USE_XCCL)
-           target_link_libraries(xccl_p2p_test PRIVATE xpmem)
-           target_link_libraries(xccl_gather_test PRIVATE xpmem)
-           target_link_libraries(xccl_scatter_test PRIVATE xpmem)
-           target_link_libraries(xccl_bcast_test PRIVATE xpmem)
-           target_link_libraries(xccl_alltoall_test PRIVATE xpmem)
-           target_link_libraries(xccl_allgather_test PRIVATE xpmem)
-       	endif()
-    endif()
-    message(STATUS "Linking MPI test with XPMEM library: -lxpmem")
-endif()
-
-# Enable testing
 enable_testing()
 
-# Add a test for the MPI program
-add_test(NAME MPI_P2P_Test
-         COMMAND ${MPIEXEC} -n 2 $<TARGET_FILE:mpi_p2p_test>
-         )
-set_tests_properties(MPI_P2P_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-add_test(NAME MPI_GATHER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_gather_test>
-         )
-set_tests_properties(MPI_GATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-add_test(NAME MPI_SCATTER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_scatter_test>
-         )
-set_tests_properties(MPI_SCATTER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-add_test(NAME MPI_BCAST_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_bcast_test>
-         )
-set_tests_properties(MPI_BCAST_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-add_test(NAME MPI_ALLTOALL_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_alltoall_test>
-         )
-set_tests_properties(MPI_ALLTOALL_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-add_test(NAME MPI_ALLGATHER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:mpi_allgather_test>
-         )
-set_tests_properties(MPI_ALLGATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-
-if (USE_CUDA OR USE_HIP)
-add_test(NAME IPC_PUT_P2P_Test
-         COMMAND ${MPIEXEC} -n 2 $<TARGET_FILE:ipc_put_p2p_test>
-         )
- set_tests_properties(IPC_PUT_P2P_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_PUT_GATHER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_put_gather_test>
-         )
- set_tests_properties(IPC_PUT_GATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_PUT_SCATTER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_put_scatter_test>
-         )
- set_tests_properties(IPC_PUT_SCATTER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_PUT_BCAST_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_put_bcast_test>
-         )
- set_tests_properties(IPC_PUT_BCAST_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_PUT_ALLTOALL_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_put_alltoall_test>
-         )
- set_tests_properties(IPC_PUT_ALLTOALL_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_PUT_ALLGATHER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_put_allgather_test>
-         )
- set_tests_properties(IPC_PUT_ALLGATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-
-
- add_test(NAME IPC_GET_P2P_Test
-	COMMAND ${MPIEXEC} -n 2 $<TARGET_FILE:ipc_get_p2p_test>
-         )
- set_tests_properties(IPC_GET_P2P_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_GET_GATHER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_get_gather_test>
-         )
- set_tests_properties(IPC_GET_GATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_GET_SCATTER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_get_scatter_test>
-         )
- set_tests_properties(IPC_GET_SCATTER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_GET_BCAST_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_get_bcast_test>
-         )
- set_tests_properties(IPC_GET_BCAST_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_GET_ALLTOALL_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_get_alltoall_test>
-         )
- set_tests_properties(IPC_GET_ALLTOALL_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- add_test(NAME IPC_GET_ALLGATHER_Test
-         COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:ipc_get_allgather_test>
-         )
- set_tests_properties(IPC_GET_ALLGATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-
-
- if (USE_XCCL)
-	 add_test(NAME XCCL_P2P_Test
-		COMMAND ${MPIEXEC} -n 2 $<TARGET_FILE:xccl_p2p_test>
-         )
- 	set_tests_properties(XCCL_P2P_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- 	add_test(NAME XCCL_GATHER_Test
-         	COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:xccl_gather_test>
-         )
-	 set_tests_properties(XCCL_GATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
-	 add_test(NAME XCCL_SCATTER_Test
-	 COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:xccl_scatter_test>
-         )
- 	set_tests_properties(XCCL_SCATTER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- 	add_test(NAME XCCL_BCAST_Test
-         	COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:xccl_bcast_test>
-         )
- 	set_tests_properties(XCCL_BCAST_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- 	add_test(NAME XCCL_ALLTOALL_Test
-         	COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:xccl_alltoall_test>
-         )
- 	set_tests_properties(XCCL_ALLTOALL_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
-
- 	add_test(NAME XCCL_ALLGATHER_Test
-         	COMMAND ${MPIEXEC} -n 3 $<TARGET_FILE:xccl_allgather_test>
-         )
- 	set_tests_properties(XCCL_ALLGATHER_Test PROPERTIES PASS_REGULAR_EXPRESSION "PASSED!")
- endif()
- 
-endif()
+add_subdirectory(tests)  

@@ -14,10 +14,10 @@ int main() {
   init();
   int numproc = CommBench::numproc;
  
-  allocate(sendbuf, numbytes);
-  allocate(recvbuf, numbytes);
+  allocate(sendbuf, numbytes * numproc);
+  allocate(recvbuf, numbytes * numproc);
 
-  Comm<int> test1(IPC_get);
+  Comm<int> test1(IPC);
   test1.add(sendbuf, recvbuf, numbytes, 0, 1);
 
   //test1.measure(5, 10, numbytes * numproc);

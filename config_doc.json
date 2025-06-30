@@ -1,0 +1,15 @@
+{
+        "steps":[
+                {
+                        "library":"ipc_put",
+                        "patterns":["p2p", "allgather"]
+                },
+                {
+                        "library":"mpi",
+                        "patterns":["gather", "bcast"]
+                }
+        ]
+}
+
+
+

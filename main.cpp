@@ -1,53 +1,270 @@
 #include "commbench.h"
+#define ROOT 0
+#include "validate.h"
+#include <array>
+#include <cstdio>
+#ifdef CONFIG_FILE
+#include <json/json.h>
+#endif
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 using namespace CommBench;
 
-// Function to check if a given flag is present in the command-line arguments
-bool flagPresent(int argc, char* argv[], const std::string& flag) {
-    for (int i = 1; i < argc; ++i) {
-        if (std::string(argv[i]) == flag) {
-            return true;
-        }
-    }
-    return false;
+enum pattern { p2p, gather, scatter, broadcast, reduce, alltoall, allgather };
+int myid_loc;
+
+struct step {
+  std::vector<pattern> patterns;
+  library lib;
+};
+
+template <typename... Args> void FATAL_ERROR(const char *fmt, Args... args) {
+  if (myid_loc == printid) {
+    fprintf(stderr, "FATAL ERROR: ");
+    fprintf(stderr, fmt, args...);
+    std::abort();
+  }
 }
 
-int main(int argc, char* argv[]) {
+template <typename... Args> void ERROR(const char *fmt, Args... args) {
+  if (myid_loc == printid) {
+    fprintf(stderr, "ERROR: ");
+    fprintf(stderr, fmt, args...);
+  }
+}
 
-    size_t *sendbuf;
-    size_t *recvbuf;
-    size_t numbytes = 1e9;
+template <typename... Args> void WARNING(const char *fmt, Args... args) {
+  if (myid_loc == printid) {
+    fprintf(stderr, "WARNING: ");
+    fprintf(stderr, fmt, args...);
+  }
+}
 
-    init();
-    allocate(sendbuf, numbytes);
-    allocate(recvbuf, numbytes);
+std::unordered_map<std::string, std::vector<std::string>>
+parseArgs(int argc, char *argv[]) {
+  static const std::array<std::string, 5> valid_args = {"use", "pattern", "validate",
+                                           "nbytes", "file"};
+  int i = 1;
+  std::unordered_map<std::string, std::vector<std::string>> args;
+  std::string prev = "";
+  while (i < argc) {
+    std::string cur(argv[i]);
+    // potentially expand aliases for args
+    if (cur.substr(0, 2) == "--") {
+      std::string arg = cur.substr(2);
+      // check for valid args or maybe do that elsewhere
+      bool valid = false;
+      for (int j = 0; j < valid_args.size(); j++)
+        if (valid_args[j] == arg) {
+          valid = true;
+          break;
+        }
+      if (!valid) {
+        FATAL_ERROR("unknown argument \"%s\"\n", argv[i]);
+      }
+      if (args.find(arg) == args.end())
+        args.insert({arg, {}});
+      prev = arg;
+    } else if (prev != "") {
+      // validate input
 
-    // Always execute MPI test
-    Comm<size_t> test1(MPI);
-    test1.add(sendbuf, recvbuf, numbytes, 0, 1);
-    test1.measure(5, 10);
+      args[prev].push_back(cur);
+    } else {
+      FATAL_ERROR("unknown argument \"%s\"\n", argv[i]);
+    }
+    i++;
+  }
+  return args;
+}
 
-    // Check if IPC should be used
-    if (flagPresent(argc, argv, "--use-ipc")) {
-        Comm<size_t> test2(IPC);
-        test2.add(sendbuf, recvbuf, numbytes, 0, 1);
-        test2.measure(5, 10);
+library parseLib(const std::string &libStr) {
+  if (libStr == "mpi")
+    return library::MPI;
+  else if (libStr == "ipc_put") {
+#if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
+    FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
+                "ROCm, or OneAPI\n");
+#endif
+    return library::IPC;
+  } else if (libStr == "ipc_get") {
+#if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
+    FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
+                "ROCm, or OneAPI\n");
+#endif
+    return library::IPC_get;
+  } else if (libStr == "xccl") {
+#if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
+    FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
+                "ROCm, or OneAPI\n");
+#endif
+#ifndef CAP_NCCL
+    FATAL_ERROR("Not compiled for using XCCL\n");
+#endif
+    return library::NCCL;
+  } else {
+    FATAL_ERROR("Unknown communication library option \"%s\". Please "
+                "specify one of: mpi, ipc_put, ipc_get, or xccl.\n",
+                libStr.c_str());
+  }
+}
+
+pattern parsePattern(const std::string &patStr) {
+  if (patStr == "p2p")
+    return pattern::p2p;
+  else if (patStr == "broadcast")
+    return pattern::broadcast;
+  else if (patStr == "gather")
+    return pattern::gather;
+  else if (patStr == "scatter")
+    return pattern::scatter;
+  else if (patStr == "alltoall")
+    return pattern::alltoall;
+  else if (patStr == "allgather")
+    return pattern::allgather;
+  else {
+    FATAL_ERROR(
+        "Unknown communication pattern \"%s\". Please use one "
+        "of: p2p, broadcast, gather, scatter, alltoall, or allgather.\n",
+        patStr.c_str());
+  }
+}
+
+int main(int argc, char *argv[]) {
+  init();
+
+  int numproc = CommBench::numproc;
+  myid_loc = CommBench::myid;
+
+  std::unordered_map<std::string, std::vector<std::string>> args =
+      parseArgs(argc, argv);
+
+  if (args.find("pattern") != args.end() && args.find("file") != args.end())
+    FATAL_ERROR("Cannot use both the --file and --pattern options.\n");
+
+  library lib_def = library::MPI;
+  if (args["use"].size() != 0) {
+    lib_def = parseLib(args["use"][0]);
+  } else {
+    WARNING("No communication library specified, using MPI by default\n");
+  }
+
+  std::vector<step> steps;
+
+  if (args.find("file") != args.end()) {
+    #ifndef CONFIG_FILE 
+      FATAL_ERROR("Cannot use the --file flag unless compiled with jsoncpp support.\n");
+    #else
+    std::ifstream file(args["file"][0], std::ifstream::binary);
+    if (!file.is_open()g
+      FATAL_ERROR("Could not open file \"%s\"\n", args["file"][0]);
+
+      Json::Value root;
+      Json::CharReaderBuilder builder;
+      std::string errs;
+      int step = 1;
+
+      if (!Json::parseFromStream(builder, file, &root, &errs))
+        FATAL_ERROR("Failed to parse JSON\n");
+
+      if (root.isMember("steps") && root["steps"].isArray()) {
+        Json::Value &stepsArray = root["steps"];
+        for (const auto &stepNumber : stepsArray) {
+          std::cout << "STEP " << step << std::endl;
+          step = step + 1;
+          library lib = lib_def;
+          if (stepNumber.isMember("library"))
+            lib = parseLib(stepNumber["library"].asString());
+          std::vector<pattern> patterns;
+          Json::Value patternsArray = stepNumber["patterns"];
+          for (const auto &testType : patternsArray)
+            patterns.push_back(parsePattern(testType.asString()));
+          steps.push_back({patterns, lib});
+        }
+      }
+      #endif
+    } else {
+      std::vector<pattern> patterns;
+      for (int i = 0; i < args["pattern"].size(); i++) {
+        patterns.push_back(parsePattern(args["pattern"][i]));
+      }
+
+      if (patterns.size() == 0) {
+        WARNING("No communication pattern specified, using P2P by default\n");
+        patterns.push_back(p2p);
+      }
+      steps.push_back({patterns, lib_def});
     }
 
-    // Check if NCCL should be used
-    if (flagPresent(argc, argv, "--use-nccl")) {
-        Comm<size_t> test3(NCCL);
-        test3.add(sendbuf, recvbuf, numbytes, 0, 1);
-        test3.measure(5, 10);
+    bool run_validate = false;
+    if (args.find("validate") != args.end())
+      run_validate = true;
+
+    int *sendbuf;
+    int *recvbuf;
+    size_t numbytes = 1e8;
+    if (args.find("nbytes") != args.end()) {
+      if (args["nbytes"].size() == 0)
+        FATAL_ERROR("Missing number of bytes argument for --nbytes");
+      try {
+        numbytes = std::stoull(args["nbytes"][0]);
+      } catch (...) {
+        FATAL_ERROR("Invalid input \"%s\" to --nbytes.", args["nbytes"][0]);
+      }
     }
 
+    allocate(sendbuf, numbytes * numproc);
+    allocate(recvbuf, numbytes * numproc);
+    for (int j = 0; j < steps.size(); j++) {
+      const auto &patterns = steps[j].patterns;
+      for (int i = 0; i < patterns.size(); i++) {
+        Comm<int> test(steps[j].lib);
+        switch (patterns[i]) {
+        case pattern::p2p:
+          test.add(sendbuf, recvbuf, numbytes, 0, 1);
+          break;
+        case pattern::broadcast:
+          for (int p = 0; p < numproc; p++)
+            test.add(sendbuf, 0, recvbuf, 0, numbytes, ROOT, p);
+          break;
+        case pattern::gather:
+          for (int p = 0; p < numproc; p++)
+            test.add(sendbuf, 0, recvbuf, p * numbytes, numbytes, p, ROOT);
+          break;
+        case pattern::scatter:
+          for (int p = 0; p < numproc; p++)
+            test.add(sendbuf, p * numbytes, recvbuf, 0, numbytes, ROOT, p);
+          break;
+        case pattern::alltoall:
+          for (int sender = 0; sender < numproc; sender++)
+            for (int recver = 0; recver < numproc; recver++)
+              test.add(sendbuf, recver * numbytes, recvbuf, sender * numbytes,
+                       numbytes, sender, recver);
+          break;
+        case pattern::allgather:
+          for (int sender = 0; sender < numproc; sender++)
+            for (int recver = 0; recver < numproc; recver++)
+              test.add(sendbuf, 0, recvbuf, sender * numbytes, numbytes, sender,
+                       recver);
+          break;
+        default:; // error?
+        }
+        if (run_validate)
+          validate(sendbuf, recvbuf, numbytes, patterns[i], test);
+        else {
+#ifndef BENCH_CALIPER
+          test.measure(5, 10, numbytes * numproc);
+#else
+          test.measure_caliper(5, 10);
+#endif
+        }
+      }
+    }
     free(sendbuf);
     free(recvbuf);
 
     MPI_Finalize();
 
     return 0;
-}
-
+  }

@@ -14,8 +14,8 @@ int main() {
   init();
   int numproc = CommBench::numproc;
  
-  allocate(sendbuf, numbytes);
-  allocate(recvbuf, numbytes);
+  allocate(sendbuf, numbytes * numproc);
+  allocate(recvbuf, numbytes * numproc);
 
   Comm<int> test1(NCCL);
   test1.add(sendbuf, recvbuf, numbytes, 0, 1);

@@ -27,6 +27,11 @@ void setup_gpu() {
 #ifdef PORT_CUDA
   int deviceCount;
   cudaGetDeviceCount(&deviceCount);
+  #ifdef CAP_NCCL
+    if (numproc > deviceCount) {
+      printf("Warning: Using the same device for different ranks of a communicator for NCCL is not supported\n");
+    }
+  #endif
   int device = myid % deviceCount;
   // cudaSetDevice(device);
   set_device(device);

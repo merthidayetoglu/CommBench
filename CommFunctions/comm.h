@@ -107,6 +107,9 @@
 
     void measure(int warmup, int numiter);
     void measure(int warmup, int numiter, size_t data);
+#ifdef BENCH_CALIPER
+    void measure_caliper(int warmup, int numiter);
+#endif
     std::vector<size_t> getMatrix();
     void report();
 
@@ -160,7 +163,7 @@
         if(myid == 0)
           ncclGetUniqueId(&id);
         broadcast(&id);
-        ncclCommInitRank(&comm_nccl, numproc, id, myid);
+        ncclCommInitRank(&comm_nccl, numproc, id, myid); // this is where it the third gpu hangs
         if(myid == printid)
           printf("******************** NCCL COMMUNICATOR IS CREATED\n");
       }
@@ -445,6 +448,7 @@
           if(sendid != recvid) {
             int error = -1;
 #ifdef PORT_CUDA
+            printf("trying ipc \n");
             cudaIpcMemHandle_t memhandle;
             recv(&memhandle, recvid);
             error = cudaIpcOpenMemHandle((void**)&remotebuf[numsend], memhandle, cudaIpcMemLazyEnablePeerAccess);
@@ -708,6 +712,22 @@
       printf("\n");
     }
   };
+
+#ifdef BENCH_CALIPER
+  template <typename T>
+  void Comm<T>::measure_caliper(int warmup, int numiter) {
+    for (int iter = -warmup; iter < numiter; iter++) {
+      barrier();
+      CALI_MARK_BEGIN("Comm");
+      CALI_MARK_BEGIN("Comm Start");
+      this->start();
+      CALI_MARK_END("Comm Start");
+      this->wait();
+      CALI_MARK_END("Comm");
+      barrier();
+    }
+  }
+#endif
 
   template <typename T>
   void Comm<T>::report() {

@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 using namespace CommBench;
 
@@ -20,7 +21,7 @@ struct step {
   library lib;
 };
 
-template <typename... Args> void FATAL_ERROR(const char *fmt, Args... args) {
+/*template <typename... Args> void FATAL_ERROR(const char *fmt, Args... args) {
   if (myid_loc == printid) {
     fprintf(stderr, "FATAL ERROR: ");
     fprintf(stderr, fmt, args...);
@@ -40,7 +41,7 @@ template <typename... Args> void WARNING(const char *fmt, Args... args) {
     fprintf(stderr, "WARNING: ");
     fprintf(stderr, fmt, args...);
   }
-}
+}*/
 
 std::unordered_map<std::string, std::vector<std::string>>
 parseArgs(int argc, char *argv[]) {
@@ -62,7 +63,9 @@ parseArgs(int argc, char *argv[]) {
           break;
         }
       if (!valid) {
-        FATAL_ERROR("unknown argument \"%s\"\n", argv[i]);
+//FATAL_ERROR("unknown argument \"%s\"\n", argv[i]);
+	std::cerr << "unknown argument \"%s\"\n" << std::endl;
+	std::exit(EXIT_FAILURE);
       }
       if (args.find(arg) == args.end())
         args.insert({arg, {}});
@@ -72,7 +75,9 @@ parseArgs(int argc, char *argv[]) {
 
       args[prev].push_back(cur);
     } else {
-      FATAL_ERROR("unknown argument \"%s\"\n", argv[i]);
+//FATAL_ERROR("unknown argument", argv[i]);
+      std::cerr << "unknown argument" << std::endl;
+      std::exit(EXIT_FAILURE);
     }
     i++;
   }
@@ -84,29 +89,39 @@ library parseLib(const std::string &libStr) {
     return library::MPI;
   else if (libStr == "ipc_put") {
 #if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
-    FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
-                "ROCm, or OneAPI\n");
+    //FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
+      //          "ROCm, or OneAPI\n");
+    std::cerr << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
+    std::exit(EXIT_FAILURE);
 #endif
     return library::IPC;
   } else if (libStr == "ipc_get") {
 #if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
-    FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
-                "ROCm, or OneAPI\n");
+    //FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
+      //          "ROCm, or OneAPI\n");
+    std::cerr << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
+    std::exit(EXIT_FAILURE);
 #endif
     return library::IPC_get;
   } else if (libStr == "xccl") {
 #if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
-    FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
-                "ROCm, or OneAPI\n");
+    //FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
+    //            "ROCm, or OneAPI\n");
+    std::cerr << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
+    std::exit(EXIT_FAILURE);
 #endif
 #ifndef CAP_NCCL
-    FATAL_ERROR("Not compiled for using XCCL\n");
+    //FATAL_ERROR("Not compiled for using XCCL\n");
+    std::cerr << "Not compiled for using XCCL" << std::endl;
+    std::exit(EXIT_FAILURE);
 #endif
     return library::NCCL;
   } else {
-    FATAL_ERROR("Unknown communication library option \"%s\". Please "
-                "specify one of: mpi, ipc_put, ipc_get, or xccl.\n",
-                libStr.c_str());
+    //FATAL_ERROR("Unknown communication library option \"%s\". Please "
+    //            "specify one of: mpi, ipc_put, ipc_get, or xccl.\n",
+    //            libStr.c_str());
+    std::cerr << "Unknown communication library option. Please specify one of: mpi, ipc_get, or xccl." << std::endl;
+    std::exit(EXIT_FAILURE);
   }
 }
 
@@ -124,10 +139,12 @@ pattern parsePattern(const std::string &patStr) {
   else if (patStr == "allgather")
     return pattern::allgather;
   else {
-    FATAL_ERROR(
-        "Unknown communication pattern \"%s\". Please use one "
-        "of: p2p, broadcast, gather, scatter, alltoall, or allgather.\n",
-        patStr.c_str());
+    std::cerr << "Unknown communication pattern. Please use one of: p2p, broadcast, gather, scatter, alltoall, or allgather." << std::endl;
+    std::exit(EXIT_FAILURE);
+    //FATAL_ERROR(
+    //    "Unknown communication pattern \"%s\". Please use one "
+    //    "of: p2p, broadcast, gather, scatter, alltoall, or allgather.\n",
+    //    patStr.c_str());
   }
 }
 
@@ -141,24 +158,31 @@ int main(int argc, char *argv[]) {
       parseArgs(argc, argv);
 
   if (args.find("pattern") != args.end() && args.find("file") != args.end())
-    FATAL_ERROR("Cannot use both the --file and --pattern options.\n");
+    std::cerr << "Cannot use both the --file and --pattern options." << std::endl;
+    std::exit(EXIT_FAILURE);
+    //FATAL_ERROR("Cannot use both the --file and --pattern options.\n");
 
   library lib_def = library::MPI;
   if (args["use"].size() != 0) {
     lib_def = parseLib(args["use"][0]);
   } else {
-    WARNING("No communication library specified, using MPI by default\n");
+    std::cerr << "No communication library specified, using MPI by default" << std::endl;
+    //WARNING("No communication library specified, using MPI by default\n");
   }
 
   std::vector<step> steps;
 
   if (args.find("file") != args.end()) {
     #ifndef CONFIG_FILE 
-      FATAL_ERROR("Cannot use the --file flag unless compiled with jsoncpp support.\n");
+      std::cerr << "Cannot use the --file flag unless compiled with jsoncpp support." << std::endl;
+      std::exit(EXIT_FAILURE);
+      //FATAL_ERROR("Cannot use the --file flag unless compiled with jsoncpp support.\n");
     #else
     std::ifstream file(args["file"][0], std::ifstream::binary);
-    if (!file.is_open()g
-      FATAL_ERROR("Could not open file \"%s\"\n", args["file"][0]);
+    if (!file.is_open())
+      std::cerr << "Could not open file." << std::endl;
+      std::exit(EXIT_FAILURE);
+      //FATAL_ERROR("Could not open file \"%s\"\n", args["file"][0]);
 
       Json::Value root;
       Json::CharReaderBuilder builder;
@@ -166,7 +190,9 @@ int main(int argc, char *argv[]) {
       int step = 1;
 
       if (!Json::parseFromStream(builder, file, &root, &errs))
-        FATAL_ERROR("Failed to parse JSON\n");
+	std::cerr << "Failed to parse JSON" << std::endl;
+	std::exit(EXIT_FAILURE);
+        //FATAL_ERROR("Failed to parse JSON\n");
 
       if (root.isMember("steps") && root["steps"].isArray()) {
         Json::Value &stepsArray = root["steps"];
@@ -191,7 +217,8 @@ int main(int argc, char *argv[]) {
       }
 
       if (patterns.size() == 0) {
-        WARNING("No communication pattern specified, using P2P by default\n");
+	std::cerr << "No communication pattern specified, using P2P by default." << std::endl;
+        //WARNING("No communication pattern specified, using P2P by default\n");
         patterns.push_back(p2p);
       }
       steps.push_back({patterns, lib_def});
@@ -206,11 +233,15 @@ int main(int argc, char *argv[]) {
     size_t numbytes = 1e8;
     if (args.find("nbytes") != args.end()) {
       if (args["nbytes"].size() == 0)
-        FATAL_ERROR("Missing number of bytes argument for --nbytes");
+	std::cerr << "Missing number of bytes argument for --nbytes" << std::endl;
+        std::exit(EXIT_FAILURE);
+      	//FATAL_ERROR("Missing number of bytes argument for --nbytes");
       try {
         numbytes = std::stoull(args["nbytes"][0]);
       } catch (...) {
-        FATAL_ERROR("Invalid input \"%s\" to --nbytes.", args["nbytes"][0]);
+	std::cerr << "Invalid input to --nbytes" << std::endl;
+	std::exit(EXIT_FAILURE);
+        //FATAL_ERROR("Invalid input \"%s\" to --nbytes.", args["nbytes"][0]);
       }
     }
 

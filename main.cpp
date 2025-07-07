@@ -64,7 +64,7 @@ parseArgs(int argc, char *argv[]) {
         }
       if (!valid) {
 //FATAL_ERROR("unknown argument \"%s\"\n", argv[i]);
-	std::cerr << "unknown argument \"%s\"\n" << std::endl;
+	std::cout << "unknown argument \"%s\"\n" << std::endl;
 	std::exit(EXIT_FAILURE);
       }
       if (args.find(arg) == args.end())
@@ -76,7 +76,7 @@ parseArgs(int argc, char *argv[]) {
       args[prev].push_back(cur);
     } else {
 //FATAL_ERROR("unknown argument", argv[i]);
-      std::cerr << "unknown argument" << std::endl;
+      std::cout << "unknown argument" << std::endl;
       std::exit(EXIT_FAILURE);
     }
     i++;
@@ -91,7 +91,7 @@ library parseLib(const std::string &libStr) {
 #if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
     //FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
       //          "ROCm, or OneAPI\n");
-    std::cerr << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
+    std::cout << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
     std::exit(EXIT_FAILURE);
 #endif
     return library::IPC;
@@ -99,7 +99,7 @@ library parseLib(const std::string &libStr) {
 #if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
     //FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
       //          "ROCm, or OneAPI\n");
-    std::cerr << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
+    std::cout << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
     std::exit(EXIT_FAILURE);
 #endif
     return library::IPC_get;
@@ -107,12 +107,12 @@ library parseLib(const std::string &libStr) {
 #if !(defined(PORT_CUDA) || defined(PORT_HIP) || defined(PORT_ONEAPI))
     //FATAL_ERROR("Cannot use IPC without compiling for CUDA, "
     //            "ROCm, or OneAPI\n");
-    std::cerr << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
+    std::cout << "Cannot use IPC without compiling for CUDA, ROCm, or OneAPI" << std::endl;
     std::exit(EXIT_FAILURE);
 #endif
 #ifndef CAP_NCCL
     //FATAL_ERROR("Not compiled for using XCCL\n");
-    std::cerr << "Not compiled for using XCCL" << std::endl;
+    std::cout << "Not compiled for using XCCL" << std::endl;
     std::exit(EXIT_FAILURE);
 #endif
     return library::NCCL;
@@ -120,7 +120,7 @@ library parseLib(const std::string &libStr) {
     //FATAL_ERROR("Unknown communication library option \"%s\". Please "
     //            "specify one of: mpi, ipc_put, ipc_get, or xccl.\n",
     //            libStr.c_str());
-    std::cerr << "Unknown communication library option. Please specify one of: mpi, ipc_get, or xccl." << std::endl;
+    std::cout << "Unknown communication library option. Please specify one of: mpi, ipc_get, or xccl." << std::endl;
     std::exit(EXIT_FAILURE);
   }
 }
@@ -139,7 +139,7 @@ pattern parsePattern(const std::string &patStr) {
   else if (patStr == "allgather")
     return pattern::allgather;
   else {
-    std::cerr << "Unknown communication pattern. Please use one of: p2p, broadcast, gather, scatter, alltoall, or allgather." << std::endl;
+    std::cout << "Unknown communication pattern. Please use one of: p2p, broadcast, gather, scatter, alltoall, or allgather." << std::endl;
     std::exit(EXIT_FAILURE);
     //FATAL_ERROR(
     //    "Unknown communication pattern \"%s\". Please use one "
@@ -157,30 +157,30 @@ int main(int argc, char *argv[]) {
   std::unordered_map<std::string, std::vector<std::string>> args =
       parseArgs(argc, argv);
 
-  if (args.find("pattern") != args.end() && args.find("file") != args.end())
-    std::cerr << "Cannot use both the --file and --pattern options." << std::endl;
+  if (args.find("pattern") != args.end() && args.find("file") != args.end()) {
+    std::cout << "Cannot use both the --file and --pattern options." << std::endl;
     std::exit(EXIT_FAILURE);
+  }
     //FATAL_ERROR("Cannot use both the --file and --pattern options.\n");
 
   library lib_def = library::MPI;
   if (args["use"].size() != 0) {
     lib_def = parseLib(args["use"][0]);
   } else {
-    std::cerr << "No communication library specified, using MPI by default" << std::endl;
+    std::cout << "No communication library specified, using MPI by default" << std::endl;
     //WARNING("No communication library specified, using MPI by default\n");
   }
 
   std::vector<step> steps;
-
   if (args.find("file") != args.end()) {
     #ifndef CONFIG_FILE 
-      std::cerr << "Cannot use the --file flag unless compiled with jsoncpp support." << std::endl;
+      std::cout << "Cannot use the --file flag unless compiled with jsoncpp support." << std::endl;
       std::exit(EXIT_FAILURE);
       //FATAL_ERROR("Cannot use the --file flag unless compiled with jsoncpp support.\n");
     #else
     std::ifstream file(args["file"][0], std::ifstream::binary);
     if (!file.is_open())
-      std::cerr << "Could not open file." << std::endl;
+      std::cout << "Could not open file." << std::endl;
       std::exit(EXIT_FAILURE);
       //FATAL_ERROR("Could not open file \"%s\"\n", args["file"][0]);
 
@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
       int step = 1;
 
       if (!Json::parseFromStream(builder, file, &root, &errs))
-	std::cerr << "Failed to parse JSON" << std::endl;
+	std::cout << "Failed to parse JSON" << std::endl;
 	std::exit(EXIT_FAILURE);
         //FATAL_ERROR("Failed to parse JSON\n");
 
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
       }
 
       if (patterns.size() == 0) {
-	std::cerr << "No communication pattern specified, using P2P by default." << std::endl;
+	std::cout << "No communication pattern specified, using P2P by default." << std::endl;
         //WARNING("No communication pattern specified, using P2P by default\n");
         patterns.push_back(p2p);
       }
@@ -233,13 +233,13 @@ int main(int argc, char *argv[]) {
     size_t numbytes = 1e8;
     if (args.find("nbytes") != args.end()) {
       if (args["nbytes"].size() == 0)
-	std::cerr << "Missing number of bytes argument for --nbytes" << std::endl;
+	std::cout << "Missing number of bytes argument for --nbytes" << std::endl;
         std::exit(EXIT_FAILURE);
       	//FATAL_ERROR("Missing number of bytes argument for --nbytes");
       try {
         numbytes = std::stoull(args["nbytes"][0]);
       } catch (...) {
-	std::cerr << "Invalid input to --nbytes" << std::endl;
+	std::cout << "Invalid input to --nbytes" << std::endl;
 	std::exit(EXIT_FAILURE);
         //FATAL_ERROR("Invalid input \"%s\" to --nbytes.", args["nbytes"][0]);
       }

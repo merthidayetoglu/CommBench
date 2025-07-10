@@ -36,6 +36,9 @@ if (MPI_FOUND)
     target_compile_options(commbench_compiler_flags INTERFACE
             "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-fopenmp>>"
     )
+
+    # target_include_directories(commbench_compiler_flags INTERFACE ${MPI_CXX_COMPILER_INCLUDE_DIRS})
+    # target_link_libraries(commbench_compiler_flags INTERFACE MPI::MPI_CXX)
 else()
     # Check if the user enabled GASNET
     if (USE_GASNET)
@@ -94,25 +97,25 @@ elseif (USE_HIP)
     set_source_files_properties(main.cpp PROPERTIES LANGUAGE HIP)
 endif()
 
-# Check if USE_GTL is enabled and add the linking flag
-if (USE_GTL)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mpi_gtl_hsa)
-    message(STATUS "Linking with GTL library: -lmpi_gtl_hsa")
-
-    # Check if GTL_PATH is specified
-    if (GTL_PATH)
-        target_link_directories(${PROJECT_NAME} PRIVATE ${GTL_PATH}/lib)
-        message(STATUS "Adding GTL path to linker: ${GTL_PATH}/lib")
-    else()
-        message(WARNING "GTL_PATH is not specified. Default library path will be used.")
-    endif()
-endif()
-
-# Check if USE_XPMEM is enabled and add the linking flag
-if (USE_XPMEM)
-    target_link_libraries(${PROJECT_NAME} PRIVATE xpmem)
-    message(STATUS "Linking with XPMEM library: -lxpmem")
-endif()
+# # Check if USE_GTL is enabled and add the linking flag
+# if (USE_GTL)
+#     target_link_libraries(${PROJECT_NAME} PRIVATE mpi_gtl_hsa)
+#     message(STATUS "Linking with GTL library: -lmpi_gtl_hsa")
+# 
+#     # Check if GTL_PATH is specified
+#     if (GTL_PATH)
+#         target_link_directories(${PROJECT_NAME} PRIVATE ${GTL_PATH}/lib)
+#         message(STATUS "Adding GTL path to linker: ${GTL_PATH}/lib")
+#     else()
+#         message(WARNING "GTL_PATH is not specified. Default library path will be used.")
+#     endif()
+# endif()
+# 
+# # Check if USE_XPMEM is enabled and add the linking flag
+# if (USE_XPMEM)
+#     target_link_libraries(${PROJECT_NAME} PRIVATE xpmem)
+#     message(STATUS "Linking with XPMEM library: -lxpmem")
+# endif()
 
 if (USE_JSONCPP)
     target_compile_definitions(${PROJECT_NAME} PRIVATE "CONFIG_FILE")

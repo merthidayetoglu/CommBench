@@ -1,6 +1,23 @@
 # create the CommFunctions library
 add_library(CommFunctions INTERFACE commbench.h validate.h comm.h util.h)
+# target_include_directories(commbench_compiler_flags INTERFACE ${MPI_CXX_COMPILER_INCLUDE_DIRS})
 target_link_libraries(CommFunctions INTERFACE MPI::MPI_CXX)
+
+if (USE_GTL)
+    target_link_libraries(CommFunctions INTERFACE mpi_gtl_hsa)
+
+    if (GTL_PATH)
+        target_link_directories(CommFunctions INTERFACE ${GTL_PATH}/lib)
+        message(STATUS "Adding GTL path to Test linker: ${GTL_PATH}/lib")
+    else()
+        message(WARNING "GTL_PATH is not specified for Test. Default library path will be used.")
+    endif()
+endif()
+
+if (USE_XPMEM)
+    target_link_libraries(CommFunctions INTERFACE xpmem)
+    message(STATUS "Linking MPI test with XPMEM library: -lxpmem")
+endif()
 
 if (USE_CUDA)
     set_source_files_properties(commbench.h PROPERTIES LANGUAGE CUDA)

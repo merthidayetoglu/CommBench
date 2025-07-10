@@ -120,7 +120,7 @@ library parseLib(const std::string &libStr) {
     //FATAL_ERROR("Unknown communication library option \"%s\". Please "
     //            "specify one of: mpi, ipc_put, ipc_get, or xccl.\n",
     //            libStr.c_str());
-    std::cout << "Unknown communication library option. Please specify one of: mpi, ipc_get, or xccl." << std::endl;
+    std::cout << "Unknown communication library option. Please specify one of: mpi, ipc_put, ipc_get, or xccl." << std::endl;
     std::exit(EXIT_FAILURE);
   }
 }

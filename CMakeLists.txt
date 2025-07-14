@@ -4,7 +4,9 @@ cmake_minimum_required(VERSION 3.24)
 project(CommBench VERSION 1.0)
 
 # Find MPI package
+set(CMAKE_FIND_DEBUG_MODE TRUE)
 find_package(MPI REQUIRED)
+set(CMAKE_FIND_DEBUG_MODE FALSE)
 
 # Find OpenMP package
 find_package(OpenMP REQUIRED)

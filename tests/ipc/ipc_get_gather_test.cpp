@@ -18,7 +18,7 @@ int main() {
   allocate(sendbuf, numbytes * numproc);
   allocate(recvbuf, numbytes * numproc);
 
-  Comm<int> test1(IPC);
+  Comm<int> test1(IPC_get);
   for(int p = 0; p < numproc; p++){
   	test1.add(sendbuf, 0, recvbuf, p * numbytes, numbytes, p, ROOT);
   }

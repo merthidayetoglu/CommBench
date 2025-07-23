@@ -2,6 +2,11 @@
 add_library(CommFunctions INTERFACE commbench.h validate.h comm.h util.h)
 target_include_directories(CommFunctions INTERFACE ${MPI_CXX_COMPILER_INCLUDE_DIRS})
 target_link_libraries(CommFunctions INTERFACE MPI::MPI_CXX OpenMP::OpenMP_CXX)
+if (NOT USE_GASNET)
+    target_compile_definitions(CommFunctions INTERFACE "USE_MPI")
+else()
+    target_compile_definitions(CommFunctions INTERFACE "USE_GASNET")
+endif()
 
 if (USE_GTL)
     target_link_libraries(CommFunctions INTERFACE mpi_gtl_hsa)

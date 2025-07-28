@@ -83,19 +83,19 @@ add_subdirectory(CommFunctions) # add subdirectory after all configuration, may 
 
 # Add your source files and executable here
 add_executable(${PROJECT_NAME} main.cpp)
-add_executable(scratch scratch.cpp)
+add_executable(bench bench.cpp)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC CommFunctions commbench_compiler_flags)
-target_link_libraries(scratch PUBLIC CommFunctions commbench_compiler_flags)
+target_link_libraries(bench PUBLIC CommFunctions commbench_compiler_flags)
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/CommFunctions DESTINATION include FILES_MATCHING PATTERN "*.h")
 
 if (USE_CUDA)
     set_source_files_properties(main.cpp PROPERTIES LANGUAGE CUDA)
-    set_source_files_properties(scratch.cpp PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(bench.cpp PROPERTIES LANGUAGE CUDA)
 elseif (USE_HIP)
     set_source_files_properties(main.cpp PROPERTIES LANGUAGE HIP)
-    set_source_files_properties(scratch.cpp PROPERTIES LANGUAGE HIP)
+    set_source_files_properties(bench.cpp PROPERTIES LANGUAGE HIP)
 endif()
 
 if (USE_JSONCPP)

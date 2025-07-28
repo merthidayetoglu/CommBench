@@ -1,5 +1,5 @@
 template <class Coll>
-void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &coll) {
+void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &coll, int source = 0, int dest = 1) {
 
   int myid = CommBench::myid;
   int numproc = CommBench::numproc;
@@ -26,8 +26,8 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
   switch(pattern) {
     case 0:
       {
-        if(myid == 0) printf("VERIFY P2P\n");
-        if(myid == 1) {
+        if(myid == source) printf("VERIFY P2P\n");
+        if(myid == dest) {
           for(size_t i = 0; i < count; i++) {
             // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
             if(recvbuf[i] != i)

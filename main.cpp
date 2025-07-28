@@ -56,8 +56,8 @@ template <typename... Args> void WARNING(const char *fmt, Args... args) {
 
 std::unordered_map<std::string, std::vector<std::string>>
 parseArgs(int argc, char *argv[]) {
-  static const std::array<std::string, 5> valid_args = {
-      "use", "pattern", "validate", "nbytes", "file"};
+  static const std::array<std::string, 7> valid_args = {
+      "use", "pattern", "validate", "nbytes", "file", "dest", "source"};
   int i = 1;
   std::unordered_map<std::string, std::vector<std::string>> args;
   std::string prev = "";
@@ -269,6 +269,25 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  int source = 0, dest = 1;
+
+  if (args.find("source") != args.end()) {
+    try {
+      source = std::stoi(args["source"][0]);
+    } catch (...) {
+      FATAL_ERROR("invalid input \"%s\" to --source.", args["source"][0].c_str());
+    }
+  }
+
+  if (args.find("dest") != args.end()) {
+    try {
+      dest = std::stoi(args["dest"][0]);
+    } catch (...) {
+      FATAL_ERROR("invalid input \"%s\" to --dest.", args["dest"][0].c_str());
+    }
+  }
+  
+
   allocate(sendbuf, numbytes * numproc);
   allocate(recvbuf, numbytes * numproc);
   for (int j = 0; j < steps.size(); j++) {
@@ -277,7 +296,7 @@ int main(int argc, char *argv[]) {
       Comm<int> test(steps[j].lib);
       switch (patterns[i]) {
       case pattern::p2p:
-        test.add(sendbuf, recvbuf, numbytes, 0, 1);
+        test.add(sendbuf, recvbuf, numbytes, source, dest);
         break;
       case pattern::broadcast:
         for (int p = 0; p < numproc; p++)
@@ -306,7 +325,7 @@ int main(int argc, char *argv[]) {
       default:; // error?
       }
       if (run_validate)
-        validate(sendbuf, recvbuf, numbytes, patterns[i], test);
+        validate(sendbuf, recvbuf, numbytes, patterns[i], test, source, dest);
       else {
 #ifdef BENCH_CALIPER
         test.measure_caliper(5, 10);

@@ -38,8 +38,6 @@ int main(int argc, char *argv[]) {
           bench.measure(5, 10);
           // bench.clear();
         }
-        double time = MPI_Wtime();
-        while (MPI_Wtime() < time + 1.0) ;
       }
     }
 

@@ -92,7 +92,11 @@
 
 namespace CommBench
 {
+#ifdef PRINT_DEBUG
   static int printid = 0;
+#else
+  static int printid = -1;
+#endif
   static int numbench = 0;
   static std::vector<void*> benchlist;
   static int mydevice = -1;
@@ -124,26 +128,26 @@ namespace CommBench
 
   static void print_data(size_t data) {
     if (data < 1e3)
-      printf("%d bytes", (int)data);
+      fprintf(stderr, "%d bytes", (int)data);
     else if (data < 1e6)
-      printf("%.4f KB", data / 1e3);
+      fprintf(stderr, "%.4f KB", data / 1e3);
     else if (data < 1e9)
-      printf("%.4f MB", data / 1e6);
+      fprintf(stderr, "%.4f MB", data / 1e6);
     else if (data < 1e12)
-      printf("%.4f GB", data / 1e9);
+      fprintf(stderr, "%.4f GB", data / 1e9);
     else
-      printf("%.4f TB", data / 1e12);
+      fprintf(stderr, "%.4f TB", data / 1e12);
   }
   static void print_lib(library lib) {
     switch(lib) {
-      case dummy      : printf("dummy");        break;
-      case IPC        : printf("IPC (PUT)");    break;
-      case IPC_get    : printf("IPC (GET)");    break;
-      case MPI        : printf("MPI");          break;
-      case NCCL       : printf("NCCL");         break;
-      case GEX        : printf("GASNET (PUT)"); break;
-      case GEX_get    : printf("GASNET (GET)"); break;
-      case numlib     : printf("numlib");       break;
+      case dummy      : fprintf(stderr, "dummy");        break;
+      case IPC        : fprintf(stderr, "IPC (PUT)");    break;
+      case IPC_get    : fprintf(stderr, "IPC (GET)");    break;
+      case MPI        : fprintf(stderr, "MPI");          break;
+      case NCCL       : fprintf(stderr, "NCCL");         break;
+      case GEX        : fprintf(stderr, "GASNET (PUT)"); break;
+      case GEX_get    : fprintf(stderr, "GASNET (GET)"); break;
+      case numlib     : fprintf(stderr, "numlib");       break;
     }
   }
 
@@ -289,12 +293,12 @@ namespace CommBench
       MPI_Comm_size(comm_mpi, &numproc);
       if(myid == printid) {
         if(!init_mpi) {
-          printf("#################### MPI IS INITIALIZED, it is user's responsibility to finalize.\n");
+          fprintf(stderr, "#################### MPI IS INITIALIZED, it is user's responsibility to finalize.\n");
           int provided;
           MPI_Query_thread(&provided);
-          printf("provided thread support: %d\n", provided);
+          fprintf(stderr, "provided thread support: %d\n", provided);
         }
-        printf("******************** MPI COMMUNICATOR IS CREATED\n");
+        fprintf(stderr, "******************** MPI COMMUNICATOR IS CREATED\n");
       }
     }
 #endif
@@ -307,7 +311,7 @@ namespace CommBench
       myep.push_back(ep_primordial); // primordial is index 0
       myep_ptr.push_back(nullptr); // primordial segment is 0
       if(myid == printid)
-        printf("******************** GASNET CLIENT IS CREATED\n");
+        fprintf(stderr, "******************** GASNET CLIENT IS CREATED\n");
 #ifdef USE_GASNET
       gex_AM_Entry_t handlers[] = {
         {am_recv_index, (gex_AM_Fn_t)am_recv, GEX_FLAG_AM_REQUEST | GEX_FLAG_AM_SHORT, 0},
@@ -371,19 +375,19 @@ namespace CommBench
     int numiter = times.size();
 
     if(myid == printid) {
-      printf("%d measurement iterations (sorted):\n", numiter);
+      fprintf(stderr, "%d measurement iterations (sorted):\n", numiter);
       for(int iter = 0; iter < numiter; iter++) {
-        printf("time: %.4e", times[iter] * 1e6);
+        fprintf(stderr, "time: %.4e", times[iter] * 1e6);
         if(iter == 0)
-          printf(" -> min\n");
+          fprintf(stderr, " -> min\n");
         else if(iter == numiter / 2)
-          printf(" -> median\n");
+          fprintf(stderr, " -> median\n");
         else if(iter == numiter - 1)
-          printf(" -> max\n");
+          fprintf(stderr, " -> max\n");
         else
-          printf("\n");
+          fprintf(stderr, "\n");
       }
-      printf("\n");
+      fprintf(stderr, "\n");
     }
     double minTime = times[0];
     double medTime = times[numiter / 2];
@@ -393,12 +397,12 @@ namespace CommBench
       avgTime += times[iter];
     avgTime /= numiter;
     if(myid == printid) {
-      printf("data: "); print_data(data); printf("\n");
-      printf("minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
-      printf("medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
-      printf("maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
-      printf("avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
-      printf("\n");
+      fprintf(stderr, "data: "); print_data(data); fprintf(stderr, "\n");
+      fprintf(stderr, "minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
+      fprintf(stderr, "medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
+      fprintf(stderr, "maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
+      fprintf(stderr, "avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
+      fprintf(stderr, "\n");
     }
   }
 
@@ -457,7 +461,7 @@ namespace CommBench
 
     }
     //for(int i = 0; i < numproc; i++)
-    //  printf("myid %d i: %d sendcount %d senddispl %d recvcount %d recvdispl %d\n", myid, i, sendcount[i], senddispl[i], recvcount[i], recvdispl[i]);
+    //  fprintf(stderr, "myid %d i: %d sendcount %d senddispl %d recvcount %d recvdispl %d\n", myid, i, sendcount[i], senddispl[i], recvcount[i], recvdispl[i]);
     T *sendbuf;
     T *recvbuf;
     allocate(sendbuf, senddispl[numproc]);
@@ -495,7 +499,7 @@ namespace CommBench
     double starts[numiter];
 
     if(myid == printid)
-      printf("%d warmup iterations (in order):\n", warmup);
+      fprintf(stderr, "%d warmup iterations (in order):\n", warmup);
     for (int iter = -warmup; iter < numiter; iter++) {
       for(int send = 0; send < comm.numsend; send++) {
 #if defined PORT_CUDA
@@ -519,7 +523,7 @@ namespace CommBench
       allreduce_max(&time);
       if(iter < 0) {
         if(myid == printid)
-          printf("startup %.2e warmup: %.2e\n", start * 1e6, time * 1e6);
+          fprintf(stderr, "startup %.2e warmup: %.2e\n", start * 1e6, time * 1e6);
       }
       else {
         starts[iter] = start;
@@ -530,19 +534,19 @@ namespace CommBench
     std::sort(starts, starts + numiter,  [](const double & a, const double & b) -> bool {return a < b;});
 
     if(myid == printid) {
-      printf("%d measurement iterations (sorted):\n", numiter);
+      fprintf(stderr, "%d measurement iterations (sorted):\n", numiter);
       for(int iter = 0; iter < numiter; iter++) {
-        printf("start: %.4e time: %.4e", starts[iter] * 1e6, times[iter] * 1e6);
+        fprintf(stderr, "start: %.4e time: %.4e", starts[iter] * 1e6, times[iter] * 1e6);
         if(iter == 0)
-          printf(" -> min\n");
+          fprintf(stderr, " -> min\n");
         else if(iter == numiter / 2)
-          printf(" -> median\n");
+          fprintf(stderr, " -> median\n");
         else if(iter == numiter - 1)
-          printf(" -> max\n");
+          fprintf(stderr, " -> max\n");
         else
-          printf("\n");
+          fprintf(stderr, "\n");
       }
-      printf("\n");
+      fprintf(stderr, "\n");
     }
     minTime = times[0];
     medTime = times[numiter / 2];
@@ -560,18 +564,18 @@ namespace CommBench
     allgather(&memory, memory_all.data());
     if(myid == printid) {
       size_t memory_total = 0;
-      printf("\n");
-      printf("CommBench memory report:\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "CommBench memory report:\n");
       for(int i = 0; i < numproc; i++) {
-        printf("proc: %d memory ", i);
+        fprintf(stderr, "proc: %d memory ", i);
         print_data(memory_all[i]);
-        printf("\n");
+        fprintf(stderr, "\n");
         memory_total += memory_all[i];
       }
-      printf("total memory: ");
+      fprintf(stderr, "total memory: ");
       print_data(memory_total);
-      printf("\n");
-      printf("\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "\n");
     }
   }
 

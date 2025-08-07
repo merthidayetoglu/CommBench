@@ -61,7 +61,7 @@ Once this is done, you run the script `parse.py`. At the bottom of the script fi
 Since CommBench does not work properly with MPI for the pattern benchmarks, we are supplementing the output with the OSU benchmarks. Run it like so:
 
 ```sh
-./osu_<pattern> -f -m 16:<max_bytes> -d rocm -x 5 -i 10 > <pattern>/<modality>/mpi/osu.out
+flux run -N1 -n<proc> -g1 -x -o mpibind=off ./get_local_rank ./mpi/collective/osu_<pattern> -f -m 16:<max_bytes> -d rocm -x 5 -i 10 > <pattern>/<modality>/mpi/osu.out
 ```
 
 since for MPI, the parse scripts expect a file `mpi/osu.out` to load that data for graphing. 
@@ -76,6 +76,10 @@ The bandwidth as graphed is not taken from the file outputs, but calculated from
 
 Since MPI does not play nicely for the TPX and CPX modalities, you need to "segment" the runs. Run the `bench_p2p` for `mpi` by itself and adjust the for loop in `bench_p2p.cpp` to be `for (int dest = 0; dest < 6; dest++)` and run again like that `for (int dest = 6; dest < 12; dest++)` to get the rest of the data. For CPX mode, do the same thing, but with 0 to 8, 8 to 16, and 16, 24.
 
-# XCCL/Flux
+## XCCL/Flux
 
 Typically this error is seen with XCCL, but it may occur other times where Flux gives some sqlite errors and says the disk/database is malformed. You need to exit out of the currently allocated session and start a new one first and then also you will need to "buffer" the runs like with MPI. It may work better to buffer the outer for loop through the sources in `bench_p2p.cpp` or you might need to buffer both. 
+
+## Flux Batch
+
+It would be easier to submit these jobs to Flux as batch jobs, but sometimes you might get strange errors like an "alarm clock error". This doesn't happen in interactive sessions, so it might be advisable to avoid Flux Batch.

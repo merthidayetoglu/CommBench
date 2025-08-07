@@ -287,9 +287,9 @@ int main(int argc, char *argv[]) {
     }
   }
   
-
   allocate(sendbuf, numbytes * numproc);
   allocate(recvbuf, numbytes * numproc);
+
   for (int j = 0; j < steps.size(); j++) {
     const auto &patterns = steps[j].patterns;
     for (int i = 0; i < patterns.size(); i++) {
@@ -300,11 +300,11 @@ int main(int argc, char *argv[]) {
         break;
       case pattern::broadcast:
         for (int p = 0; p < numproc; p++)
-          test.add(sendbuf, 0, recvbuf, 0, numbytes, ROOT, p);
+          test.add(sendbuf, 0, recvbuf, 0, numbytes, source, p);
         break;
       case pattern::gather:
         for (int p = 0; p < numproc; p++)
-          test.add(sendbuf, 0, recvbuf, p * numbytes, numbytes, p, ROOT);
+          test.add(sendbuf, 0, recvbuf, p * numbytes, numbytes, p, dest);
         break;
       case pattern::scatter:
         for (int p = 0; p < numproc; p++)
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
 #ifdef BENCH_CALIPER
         test.measure_caliper(5, 10);
 #else
-        test.measure(5, 10, numbytes * numproc);
+        test.measure(5, 10, numbytes);
 #endif
       }
     }

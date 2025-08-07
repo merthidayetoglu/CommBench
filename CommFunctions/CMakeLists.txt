@@ -8,6 +8,10 @@ else()
     target_compile_definitions(CommFunctions INTERFACE "USE_GASNET")
 endif()
 
+if (PRINT_DEBUG)
+    target_compile_definitions(CommFunctions INTERFACE "PRINT_DEBUG")
+endif()
+
 if (USE_GTL)
     target_link_libraries(CommFunctions INTERFACE mpi_gtl_hsa)
 

@@ -831,10 +831,10 @@
 
 #ifdef IPC_kernel
   template <typename T>
-  __global__ void copy_kernel(T *output, T *input, size_t count) {
+  __global__ void copy_kernel(T *output, const T *input) {
     const size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if(tid < count)
-      output[tid] = input[tid];
+    // if(tid < count)
+    output[tid] = input[tid];
   }
 #endif
 
@@ -902,7 +902,7 @@
         for(int send = 0; send < numsend; send++) {
 #ifdef IPC_kernel
   #if defined(PORT_CUDA) || defined(PORT_HIP)
-          copy_kernel<T><<<(sendcount[send] + 255) / 256, 256, 0, stream_ipc[send]>>>(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send]);
+          copy_kernel<T><<<dim3((sendcount[send] + 1023) / 1024), dim3(1024), 0, stream_ipc[send]>>>(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send]);
   #elif defined PORT_ONEAPI && !defined IPC_ze
           // q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
   #endif
@@ -931,7 +931,7 @@
         for(int recv = 0; recv < numrecv; recv++) {
 #ifdef IPC_kernel
   #if defined(PORT_CUDA) || defined(PORT_HIP)
-          copy_kernel<T><<<(recvcount[recv] + 255) / 256, 256, 0, stream_ipc[recv]>>>(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv]);
+          copy_kernel<T><<<dim3((recvcount[recv] + 1023) / 1024), dim3(1024), 0, stream_ipc[recv]>>>(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv]);
   #elif defined PORT_ONEAPI && !defined IPC_ze
           // q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
   #endif

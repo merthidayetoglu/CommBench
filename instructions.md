@@ -58,4 +58,24 @@ flux run -N1 -n4 -g1 -x -o mpibind=off ./build/bench_<pattern> pattern/SPX ipc_g
 
 Once this is done, you run the script `parse.py`. At the bottom of the script file, you can adjust the folder to `pattern` and then change the list to the modalities that you have. This script takes the text files and stores them in a pandas dataframe for visualization later.
 
+Since CommBench does not work properly with MPI for the pattern benchmarks, we are supplementing the output with the OSU benchmarks. Run it like so:
+
+```sh
+./osu_<pattern> -f -m 16:<max_bytes> -d rocm -x 5 -i 10 > <pattern>/<modality>/mpi/osu.out
+```
+
+since for MPI, the parse scripts expect a file `mpi/osu.out` to load that data for graphing. 
+
 Then the `visualize_df.py` script generates the graphs from this dataframe which would be stored in `pattern/SPX_data.pkl`. Adjust the function calls at the bottom for plotting different patterns with input folder corresponding to `pattern` where it can find `pattern/<modality>_data.pkl` and it will output to your desired folder. These scripts will create the folders as needed.
+
+The bandwidth as graphed is not taken from the file outputs, but calculated from the latency. If you modify any of the benchmarks, make sure to update how the size is calculated in either `parse.py` or `visualize_df.py` so that the number of bytes used for the bandwidth calculation is correct.
+
+# Known Issues
+
+## MPI
+
+Since MPI does not play nicely for the TPX and CPX modalities, you need to "segment" the runs. Run the `bench_p2p` for `mpi` by itself and adjust the for loop in `bench_p2p.cpp` to be `for (int dest = 0; dest < 6; dest++)` and run again like that `for (int dest = 6; dest < 12; dest++)` to get the rest of the data. For CPX mode, do the same thing, but with 0 to 8, 8 to 16, and 16, 24.
+
+# XCCL/Flux
+
+Typically this error is seen with XCCL, but it may occur other times where Flux gives some sqlite errors and says the disk/database is malformed. You need to exit out of the currently allocated session and start a new one first and then also you will need to "buffer" the runs like with MPI. It may work better to buffer the outer for loop through the sources in `bench_p2p.cpp` or you might need to buffer both. 

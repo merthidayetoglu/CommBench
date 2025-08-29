@@ -7,7 +7,7 @@ import os
 col_names = { "ipc_get": "IPC Get", "ipc_put": "IPC Put", "ipc_get_blit": "IPC Get BLIT Kernel", "ipc_put_blit": "IPC Put BLIT Kernel", "xccl": "XCCL", "mpi": "MPI", "ipc_get_no_sdma": "IPC Get SDMA Disabled",  "ipc_put_no_sdma": "IPC Put SDMA Disabled"}
 
 def heatmap(ax, arr, nbytes, nproc, bandwidth=False):
-    ax.imshow(arr, origin="lower")
+    ax.imshow(arr, origin="lower", vmin=np.nanmin(arr), vmax=np.nanmax(arr))
     ax.set_xticks(np.arange(nproc))
     ax.set_yticks(np.arange(nproc))
 
@@ -18,6 +18,8 @@ def heatmap(ax, arr, nbytes, nproc, bandwidth=False):
     # Loop over data dimensions and create text annotations.
     for i in range(nproc):
         for j in range(nproc):
+            if i == j:
+                continue
             entry = arr[i, j]
             if bandwidth:
                 entry_text = f"{entry:.4f}"
@@ -49,7 +51,7 @@ def plot_p2p(data_folder, graph_folder, modality):
             arr_bw = np.empty((nproc, nproc), dtype=np.float64)
 
             for i, j, val in df_size[["source", "dest", "min"]].itertuples(index=False):
-                arr_bw[i][j] = size / val * 1e-3
+                arr_bw[i][j] = size / val * 1e-3 if i != j else np.nan
             
             ax_bw = axes_bw[plot_i // 2][plot_i % 2]
 
@@ -62,7 +64,7 @@ def plot_p2p(data_folder, graph_folder, modality):
             arr_lat = np.empty((nproc, nproc), dtype=np.float64)
 
             for i, j, val in df_size[["source", "dest", "min"]].itertuples(index=False):
-                arr_lat[i][j] = val
+                arr_lat[i][j] = val if i != j else np.nan
             ax_lat = axes_lat[plot_i // 2][plot_i % 2]
             heatmap(ax_lat, arr_lat, size, nproc, False)
         
@@ -78,17 +80,20 @@ def plot_p2p(data_folder, graph_folder, modality):
 def plot_p2p_alt(data_folder, graph_folder, modality):
     cols = ("size", "source", "dest", "min", "med", "max", "avg")
     # modalities = [("SPX", 4, [1, 2]), ("TPX", 12, [1, 2, 8]), ("CPX", 24, [1, 2, 14])]
-    modalities = {"SPX": (4, [1, 2]), "TPX": (12, [1, 2, 8]), "CPX": (24, [1, 2, 14])}
+    modalities = {"SPX": (6, [2]), "TPX": (12, [2, 8]), "CPX": (12, [2, 14])}
     sizes_bw = (2 ** 18, 2 ** 22, 2 ** 26, 2 ** 30)
     sizes_lat = (2 ** 6, 2 ** 10, 2 ** 14, 2 ** 18)
-    nproc, dests = modalities[modality]
+    width, dests = modalities[modality]
     with open(f"{data_folder}/{modality}_data.pkl", mode="rb") as file:
         dfs = pkl.load(file)
 
     os.makedirs(graph_folder, exist_ok=True)
 
-    fig_lat, axes_lat = plt.subplots(1, len(dests), figsize=(14, 5), constrained_layout=True)
-    fig_bw, axes_bw = plt.subplots(1, len(dests), figsize=(14, 5), constrained_layout=True)
+    fig_lat, axes_lat = plt.subplots(1, len(dests), figsize=(width, 5), constrained_layout=True)
+    fig_bw, axes_bw = plt.subplots(1, len(dests), figsize=(width, 5), constrained_layout=True)
+    if len(dests) == 1:
+        axes_lat = [axes_lat]
+        axes_bw = [axes_bw]
     for col, df_loc in dfs.items():
         df_loc = df_loc.sort_values(by=["size"], ignore_index=True)
         groups = df_loc.groupby(["source", "dest"])
@@ -216,7 +221,7 @@ def plot_broadcast_gather(data_folder, graph_folder, modality, gather=False):
     plt.close(fig_lat)
 
 # plot_alltoall("/pscratch/agatram/alltoall-6.4.1", "vis_new/alltoall-6.4.1", "SPX")
-plot_p2p("data/bidir", "vis_new/bidir", "SPX")
+plot_p2p("data/p2p", "vis/p2p", "SPX")
 # plot_broadcast_gather("/pscratch/agatram/gather-6.4.1", "vis_new/gather-6.4.1", "SPX", True)
 # plot_broadcast_gather("data/broadcast", "vis/broadcast", "SPX", False)
-plot_p2p_alt("data/bidir", "vis_new/bidir", "SPX")
+plot_p2p_alt("data/p2p", "vis/p2p", "SPX")

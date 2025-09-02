@@ -473,7 +473,7 @@
 	    error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numsend]);
 #endif
             if(error)
-              printf("IpcOpenMemHandle error %d\n", error);
+              printf("comm.h:476 IpcOpenMemHandle error %d\n", error);
             recv(&remoteoffset[numsend], recvid);
           }
 #ifdef IPC_ze
@@ -508,7 +508,7 @@
             // send(&memhandle, sendid);
 #endif
             if(error)
-              printf("IpcGetMemHandle error %d\n", error);
+              printf("comm.h:511 IpcGetMemHandle error %d\n", error);
             send(&sendoffset, recvid);
           }
           break;
@@ -642,7 +642,7 @@
             error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numrecv]);
 #endif
             if(error)
-              printf("IpcOpenMemHandle error %d\n", error);
+              printf("comm.h:645 IpcOpenMemHandle error %d\n", error);
             recv(&remoteoffset[numrecv], sendid);
           }
 #ifdef IPC_ze

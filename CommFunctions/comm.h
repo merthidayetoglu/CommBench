@@ -131,28 +131,28 @@
     numrecv = 0;
 
     if(myid == printid) {
-      printf("printid: %d Create Bench %d with %d processors\n", printid, benchid, numproc);
-      printf("  Port: ");
+      fprintf(stderr, "printid: %d Create Bench %d with %d processors\n", printid, benchid, numproc);
+      fprintf(stderr, "  Port: ");
 #ifdef PORT_CUDA
-      printf("CUDA, ");
+      fprintf(stderr, "CUDA, ");
 #elif defined PORT_HIP
-      printf("HIP, ");
+      fprintf(stderr, "HIP, ");
 #elif defined PORT_ONEAPI
-      printf("ONEAPI, ");
+      fprintf(stderr, "ONEAPI, ");
 #else
-      printf("CPU, ");
+      fprintf(stderr, "CPU, ");
 #endif
 #ifdef CAP_NCCL
-      printf("NCCL, ");
+      fprintf(stderr, "NCCL, ");
 #elif CAP_ONECCL
-      printf("ONECCL, ");
+      fprintf(stderr, "ONECCL, ");
 #endif
 #ifdef IPC_kernel
-      printf("IPC will call a kernel, \n");
+      fprintf(stderr, "IPC will call a kernel, \n");
 #endif
-      printf("Library: ");
+      fprintf(stderr, "Library: ");
       print_lib(lib);
-      printf("\n");
+      fprintf(stderr, "\n");
     }
     if(lib == NCCL) {
 #ifdef CAP_NCCL
@@ -165,7 +165,7 @@
         broadcast(&id);
         ncclCommInitRank(&comm_nccl, numproc, id, myid); // this is where it the third gpu hangs
         if(myid == printid)
-          printf("******************** NCCL COMMUNICATOR IS CREATED\n");
+          fprintf(stderr, "******************** NCCL COMMUNICATOR IS CREATED\n");
       }
 #ifdef PORT_CUDA
       cudaStreamCreate(&stream_nccl);
@@ -195,7 +195,7 @@
         auto ctx = ccl::create_context(CommBench::q.get_context());
         comm_ccl = new ccl::communicator(ccl::create_communicator(numproc, myid, dev, ctx, kvs));
         if(myid == printid)
-          printf("******************** ONECCL COMMUNICATOR IS CREATED\n");
+          fprintf(stderr, "******************** ONECCL COMMUNICATOR IS CREATED\n");
         stream_ccl = new ccl::stream(ccl::create_stream(CommBench::q));
       }
 #endif
@@ -215,7 +215,7 @@
       zeDeviceGetCommandQueueGroupProperties(hDevice, &numQueueGroups, queueProperties.data());
       int n_commands_lists = 0;
       if(myid == printid)
-        printf("device descovery:\n");
+        fprintf(stderr, "device descovery:\n");
       for (uint32_t i = 0; i < numQueueGroups; i++) {
         bool isCompute = false;
         bool isCopy = false;
@@ -224,10 +224,10 @@
         if ((queueProperties[i].flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY))
           isCopy = true;
         if(myid == printid)
-          printf("group %d isCompute %d isCopy %d\n", i, isCompute, isCopy);
+          fprintf(stderr, "group %d isCompute %d isCopy %d\n", i, isCompute, isCopy);
         for (uint32_t j = 0; j < queueProperties[i].numQueues; j++) {
           if(myid == printid)
-            printf("  queue: %d\n", j);
+            fprintf(stderr, "  queue: %d\n", j);
           n_commands_lists++;
         }
       }
@@ -253,7 +253,7 @@
           }
         }
         if(myid == printid)
-          printf("number of command queues: %ld\n", command_queue.size());
+          fprintf(stderr, "number of command queues: %ld\n", command_queue.size());
       }
 #endif
     }
@@ -281,7 +281,7 @@
     buffer_list.clear();
     buffer_count.clear();
     if(myid == printid)
-      printf("memory freed.\n");
+      fprintf(stderr, "memory freed.\n");
   }
 
   template <typename T>
@@ -310,9 +310,9 @@
         T *ptr = nullptr;
         // MPI_Recv(&ptr, sizeof(T*), MPI_BYTE, i, 0, comm_mpi, MPI_STATUS_IGNORE);
         recv(&ptr, i);
-        printf("Bench %d proc %d allocate %p count %ld (", benchid, i, ptr, count);
+        fprintf(stderr, "Bench %d proc %d allocate %p count %ld (", benchid, i, ptr, count);
         print_data(count * sizeof(T));
-        printf(")\n");
+        fprintf(stderr, ")\n");
       }
     }
   }*/
@@ -334,7 +334,7 @@
     // OMIT ZERO MESSAGE SIZE
     if(count == 0) {
       if(myid == printid)
-        printf("Bench %d communication (%d->%d) count = 0 (skipped)\n", benchid, sendid, recvid);
+        fprintf(stderr, "Bench %d communication (%d->%d) count = 0 (skipped)\n", benchid, sendid, recvid);
       return;
     }
     // ADJUST MESSAGE SIZE
@@ -365,11 +365,11 @@
       pair(&sendoffset, &sendoffset_temp, sendid, printid);
       pair(&recvoffset, &recvoffset_temp, recvid, printid);
       if(myid == printid) {
-        printf("Bench %d comm %d (%d->%d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu (", benchid, numcomm, sendid, recvid, sendbuf_temp, sendoffset_temp, recvbuf_temp, recvoffset_temp, count);
+        fprintf(stderr, "Bench %d comm %d (%d->%d) sendbuf %p sendoffset %zu recvbuf %p recvoffset %zu count %zu (", benchid, numcomm, sendid, recvid, sendbuf_temp, sendoffset_temp, recvbuf_temp, recvoffset_temp, count);
         print_data(count * sizeof(T));
-        printf(") ");
+        fprintf(stderr, ") ");
         print_lib(lib);
-        printf("\n");
+        fprintf(stderr, "\n");
       }
     }
     numcomm++;
@@ -398,13 +398,13 @@
           // PUT (SENDER INITIALIZES)
           pair(&queue, queue_temp, sendid, printid);
           if(myid == printid)
-            printf("selected put queue: %d\n", queue_temp);
+            fprintf(stderr, "selected put queue: %d\n", queue_temp);
         }
         if(lib == IPC_get) {
           // GET (RECVER INITIALIZES)
           pair(&queue, queue_temp, recvid, printid);
           if(myid == printid)
-            printf("selected get queue: %d\n", queue_temp);
+            fprintf(stderr, "selected get queue: %d\n", queue_temp);
         }
       }
     }
@@ -448,7 +448,7 @@
           if(sendid != recvid) {
             int error = -1;
 #ifdef PORT_CUDA
-            printf("trying ipc \n");
+            fprintf(stderr, "trying ipc \n");
             cudaIpcMemHandle_t memhandle;
             recv(&memhandle, recvid);
             error = cudaIpcOpenMemHandle((void**)&remotebuf[numsend], memhandle, cudaIpcMemLazyEnablePeerAccess);
@@ -473,7 +473,7 @@
 	    error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numsend]);
 #endif
             if(error)
-              printf("comm.h:476 IpcOpenMemHandle error %d\n", error);
+              fprintf(stderr, "comm.h:476 IpcOpenMemHandle error %d\n", error);
             recv(&remoteoffset[numsend], recvid);
           }
 #ifdef IPC_ze
@@ -508,7 +508,7 @@
             // send(&memhandle, sendid);
 #endif
             if(error)
-              printf("comm.h:511 IpcGetMemHandle error %d\n", error);
+              fprintf(stderr, "comm.h:511 IpcGetMemHandle error %d\n", error);
             send(&sendoffset, recvid);
           }
           break;
@@ -596,7 +596,7 @@
             // send(&memhandle, sendid);
 #endif
             if(error)
-              printf("IpcGetMemHandle error %d\n", error);
+              fprintf(stderr, "IpcGetMemHandle error %d\n", error);
             send(&recvoffset, sendid);
           }
           break;
@@ -642,7 +642,7 @@
             error = zeMemOpenIpcHandle(zeContext, zeDevice, memhandle, 0, (void**)&remotebuf[numrecv]);
 #endif
             if(error)
-              printf("comm.h:645 IpcOpenMemHandle error %d\n", error);
+              fprintf(stderr, "comm.h:645 IpcOpenMemHandle error %d\n", error);
             recv(&remoteoffset[numrecv], sendid);
           }
 #ifdef IPC_ze
@@ -702,14 +702,14 @@
     double maxTime;
     double avgTime;
     CommBench::measure(warmup, numiter, minTime, medTime, maxTime, avgTime, *this);
-    if(myid == printid) {
+    if(myid == 0) {
       size_t data = count * sizeof(T);
-      printf("data: "); print_data(data); printf("\n");
-      printf("minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
-      printf("medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
-      printf("maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
-      printf("avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
-      printf("\n");
+      // fprintf(stderr, "data: "); print_data(data); fprintf(stderr, "\n");
+      fprintf(stdout, "minTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", minTime * 1e6, minTime / data * 1e12, data / minTime / 1e9);
+      fprintf(stdout, "medTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", medTime * 1e6, medTime / data * 1e12, data / medTime / 1e9);
+      fprintf(stdout, "maxTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", maxTime * 1e6, maxTime / data * 1e12, data / maxTime / 1e9);
+      fprintf(stdout, "avgTime: %.4e us, %.4e ms/GB, %.4e GB/s\n", avgTime * 1e6, avgTime / data * 1e12, data / avgTime / 1e9);
+      // fprintf(stderr, "\n");
     }
   };
 
@@ -735,19 +735,19 @@
     std::vector<size_t> matrix = getMatrix();
 
     if(myid == printid) {
-      printf("\nCommBench %d: ", benchid);
+      fprintf(stderr, "\nCommBench %d: ", benchid);
       print_lib(lib);
-      printf(" communication matrix (reciever x sender) nnz: %d\n", numcomm);
+      fprintf(stderr, " communication matrix (reciever x sender) nnz: %d\n", numcomm);
       for(int recver = 0; recver < numproc; recver++) {
         for(int sender = 0; sender < numproc; sender++) {
           size_t count = matrix[recver * numproc + sender];
           if(count)
-            printf("%ld ", count);
-            // printf("1 ");
+            fprintf(stderr, "%ld ", count);
+            // fprintf(stderr, "1 ");
           else
-            printf(". ");
+            fprintf(stderr, ". ");
         }
-        printf("\n");
+        fprintf(stderr, "\n");
       }
     }
     long sendTotal = 0;
@@ -775,24 +775,24 @@
       MPI_Allreduce(MPI_IN_PLACE, &total_count, 1, MPI_LONG, MPI_SUM, comm_mpi);
       if(myid == printid) {
         for(int p = 0; p < numproc; p++) {
-          printf("proc %d: %d pieces count %ld ", p, total_buffs[p], total_counts[p]);
+          fprintf(stderr, "proc %d: %d pieces count %ld ", p, total_buffs[p], total_counts[p]);
           print_data(total_counts[p] * sizeof(T));
-          printf("\n");
+          fprintf(stderr, "\n");
         }
-        printf("total pieces: %d count %ld ", total_buff, total_count);
+        fprintf(stderr, "total pieces: %d count %ld ", total_buff, total_count);
         print_data(total_count * sizeof(T));
-        printf("\n");
+        fprintf(stderr, "\n");
       }
     }*/
 
     if(myid == printid) {
-      printf("send footprint: %ld ", sendTotal);
+      fprintf(stderr, "send footprint: %ld ", sendTotal);
       print_data(sendTotal * sizeof(T));
-      printf("\n");
-      printf("recv footprint: %ld ", recvTotal);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "recv footprint: %ld ", recvTotal);
       print_data(recvTotal * sizeof(T));
-      printf("\n");
-      printf("\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "\n");
     }
   }
   template <typename T>
@@ -817,12 +817,12 @@
 
     /* if(myid == printid) {
       char filename[2048];
-      sprintf(filename, "matrix_%d.txt", benchid);
+      sfprintf(stderr, filename, "matrix_%d.txt", benchid);
       FILE *matfile = fopen(filename, "w");
       for(int recver = 0; recver < numproc; recver++) {
         for(int sender = 0; sender < numproc; sender++)
-          fprintf(matfile, "%ld ", matrix[sender * numproc + recver]);
-        fprintf(matfile, "\n");
+          ffprintf(stderr, matfile, "%ld ", matrix[sender * numproc + recver]);
+        ffprintf(stderr, matfile, "\n");
       }
       fclose(matfile);
     }*/
@@ -831,10 +831,10 @@
 
 #ifdef IPC_kernel
   template <typename T>
-  __global__ void copy_kernel(T *output, T *input, size_t count) {
+  __global__ void copy_kernel(T *output, const T *input) {
     const size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if(tid < count)
-      output[tid] = input[tid];
+    // if(tid < count)
+    output[tid] = input[tid];
   }
 #endif
 
@@ -902,7 +902,7 @@
         for(int send = 0; send < numsend; send++) {
 #ifdef IPC_kernel
   #if defined(PORT_CUDA) || defined(PORT_HIP)
-          copy_kernel<T><<<(sendcount[send] + 255) / 256, 256, 0, stream_ipc[send]>>>(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send]);
+          copy_kernel<T><<<dim3((sendcount[send] + 1023) / 1024), dim3(1024), 0, stream_ipc[send]>>>(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send]);
   #elif defined PORT_ONEAPI && !defined IPC_ze
           // q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
   #endif
@@ -931,7 +931,7 @@
         for(int recv = 0; recv < numrecv; recv++) {
 #ifdef IPC_kernel
   #if defined(PORT_CUDA) || defined(PORT_HIP)
-          copy_kernel<T><<<(recvcount[recv] + 255) / 256, 256, 0, stream_ipc[recv]>>>(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv], recvcount[recv]);
+          copy_kernel<T><<<dim3((recvcount[recv] + 1023) / 1024), dim3(1024), 0, stream_ipc[recv]>>>(recvbuf[recv] + recvoffset[recv], remotebuf[recv] + remoteoffset[recv]);
   #elif defined PORT_ONEAPI && !defined IPC_ze
           // q_ipc[send].memcpy(remotebuf[send] + remoteoffset[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T));
   #endif
@@ -969,7 +969,7 @@
 #endif
       default:
         print_lib(lib);
-        printf(" option is not implemented!\n");
+        fprintf(stderr, " option is not implemented!\n");
         break;
     }
   }
@@ -1038,7 +1038,7 @@
 #endif
       default:
         print_lib(lib);
-        printf(" option is not implemented!\n");
+        fprintf(stderr, " option is not implemented!\n");
         break;
     }
   }

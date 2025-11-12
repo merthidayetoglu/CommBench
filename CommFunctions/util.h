@@ -29,7 +29,7 @@ void setup_gpu() {
   cudaGetDeviceCount(&deviceCount);
   #ifdef CAP_NCCL
     if (numproc > deviceCount) {
-      printf("Warning: Using the same device for different ranks of a communicator for NCCL is not supported\n");
+      fprintf(stderr, "Warning: Using the same device for different ranks of a communicator for NCCL is not supported\n");
     }
   #endif
   int device = myid % deviceCount;
@@ -37,10 +37,10 @@ void setup_gpu() {
   set_device(device);
   if(!init) {
     if(myid == printid)
-      printf("CUDA PORT\n");
+      fprintf(stderr, "CUDA PORT\n");
     // SET DEVICE
     if(myid == printid)
-      printf("deviceCount: %d\n", deviceCount);
+      fprintf(stderr, "deviceCount: %d\n", deviceCount);
     // REPORT
     if(myid == printid){
       int error = system("nvidia-smi");
@@ -48,21 +48,21 @@ void setup_gpu() {
       int device;
       cudaGetDevice(&device);
       cudaGetDeviceCount(&deviceCount);
-      printf("Device %d Count: %d\n", device, deviceCount);
+      fprintf(stderr, "Device %d Count: %d\n", device, deviceCount);
       cudaDeviceProp deviceProp;
       cudaGetDeviceProperties(&deviceProp,0);
-      printf("Device %d name: %s\n",0,deviceProp.name);
-      printf("Clock Frequency: %f GHz\n",deviceProp.clockRate/1.e9);
-      printf("Computational Capabilities: %d, %d\n",deviceProp.major,deviceProp.minor);
-      printf("Maximum global memory size: %lu\n",deviceProp.totalGlobalMem);
-      printf("Maximum constant memory size: %lu\n",deviceProp.totalConstMem);
-      printf("Maximum shared memory size per block: %lu\n",deviceProp.sharedMemPerBlock);
-      printf("Maximum block dimensions: %dx%dx%d\n",deviceProp.maxThreadsDim[0],deviceProp.maxThreadsDim[1],deviceProp.maxThreadsDim[2]);
-      printf("Maximum grid dimensions: %dx%dx%d\n",deviceProp.maxGridSize[0],deviceProp.maxGridSize[1],deviceProp.maxGridSize[2]);
-      printf("Maximum threads per block: %d\n",deviceProp.maxThreadsPerBlock);
-      printf("Warp size: %d\n",deviceProp.warpSize);
-      printf("32-bit Reg. per block: %d\n",deviceProp.regsPerBlock);
-      printf("\n");
+      fprintf(stderr, "Device %d name: %s\n",0,deviceProp.name);
+      fprintf(stderr, "Clock Frequency: %f GHz\n",deviceProp.clockRate/1.e9);
+      fprintf(stderr, "Computational Capabilities: %d, %d\n",deviceProp.major,deviceProp.minor);
+      fprintf(stderr, "Maximum global memory size: %lu\n",deviceProp.totalGlobalMem);
+      fprintf(stderr, "Maximum constant memory size: %lu\n",deviceProp.totalConstMem);
+      fprintf(stderr, "Maximum shared memory size per block: %lu\n",deviceProp.sharedMemPerBlock);
+      fprintf(stderr, "Maximum block dimensions: %dx%dx%d\n",deviceProp.maxThreadsDim[0],deviceProp.maxThreadsDim[1],deviceProp.maxThreadsDim[2]);
+      fprintf(stderr, "Maximum grid dimensions: %dx%dx%d\n",deviceProp.maxGridSize[0],deviceProp.maxGridSize[1],deviceProp.maxGridSize[2]);
+      fprintf(stderr, "Maximum threads per block: %d\n",deviceProp.maxThreadsPerBlock);
+      fprintf(stderr, "Warp size: %d\n",deviceProp.warpSize);
+      fprintf(stderr, "32-bit Reg. per block: %d\n",deviceProp.regsPerBlock);
+      fprintf(stderr, "\n");
     }
   }
 #elif defined PORT_HIP
@@ -73,10 +73,10 @@ void setup_gpu() {
   set_device(device);
   if(!init) {
     if(myid == printid)
-      printf("HIP PORT\n");
+      fprintf(stderr, "HIP PORT\n");
     //DEVICE MANAGEMENT
     if(myid == printid)
-      printf("deviceCount: %d\n", deviceCount);
+      fprintf(stderr, "deviceCount: %d\n", deviceCount);
     // REPORT
     if(myid == printid) {
       system("rocm-smi");
@@ -84,34 +84,34 @@ void setup_gpu() {
       int device;
       hipGetDevice(&device);
       hipGetDeviceCount(&deviceCount);
-      printf("Device %d Count: %d\n", device, deviceCount);
+      fprintf(stderr, "Device %d Count: %d\n", device, deviceCount);
       hipDeviceProp_t deviceProp;
       hipGetDeviceProperties(&deviceProp,0);
-      printf("Device %d name: %s\n",0,deviceProp.name);
-      printf("Maximum global memory size: %lu\n",deviceProp.totalGlobalMem);
-      printf("Maximum shared memory size per block: %lu\n",deviceProp.sharedMemPerBlock);
-      printf("32-bit Reg. per block: %d\n",deviceProp.regsPerBlock);
-      printf("Warp size: %d\n",deviceProp.warpSize);
-      printf("Maximum threads per block: %d\n",deviceProp.maxThreadsPerBlock);
-      printf("Maximum block dimensions: %dx%dx%d\n",deviceProp.maxThreadsDim[0],deviceProp.maxThreadsDim[1],deviceProp.maxThreadsDim[2]);
-      printf("Maximum grid dimensions: %dx%dx%d\n",deviceProp.maxGridSize[0],deviceProp.maxGridSize[1],deviceProp.maxGridSize[2]);
-      printf("Clock frequency: %d khz\n",deviceProp.clockRate);
-      printf("Global memory frequency: %d khz\n", deviceProp.memoryClockRate);
-      printf("Global memory bus width: %d bits\n", deviceProp.memoryBusWidth);
-      printf("Maximum constant memory size: %lu\n",deviceProp.totalConstMem);
-      printf("Compute capability: %d.%d\n", deviceProp.major, deviceProp.minor);
-      printf("Number of multi-processors: %d\n", deviceProp.multiProcessorCount);
-      printf("L2 cache size: %d\n", deviceProp.l2CacheSize);
-      printf("Max. threads per multi-processor: %d\n", deviceProp.maxThreadsPerMultiProcessor);
-      printf("Compute mode: %d\n", deviceProp.computeMode);
-      printf("Device-side clock instruction rate: %d khz\n", deviceProp.clockInstructionRate);
-      printf("\n");
+      fprintf(stderr, "Device %d name: %s\n",0,deviceProp.name);
+      fprintf(stderr, "Maximum global memory size: %lu\n",deviceProp.totalGlobalMem);
+      fprintf(stderr, "Maximum shared memory size per block: %lu\n",deviceProp.sharedMemPerBlock);
+      fprintf(stderr, "32-bit Reg. per block: %d\n",deviceProp.regsPerBlock);
+      fprintf(stderr, "Warp size: %d\n",deviceProp.warpSize);
+      fprintf(stderr, "Maximum threads per block: %d\n",deviceProp.maxThreadsPerBlock);
+      fprintf(stderr, "Maximum block dimensions: %dx%dx%d\n",deviceProp.maxThreadsDim[0],deviceProp.maxThreadsDim[1],deviceProp.maxThreadsDim[2]);
+      fprintf(stderr, "Maximum grid dimensions: %dx%dx%d\n",deviceProp.maxGridSize[0],deviceProp.maxGridSize[1],deviceProp.maxGridSize[2]);
+      fprintf(stderr, "Clock frequency: %d khz\n",deviceProp.clockRate);
+      fprintf(stderr, "Global memory frequency: %d khz\n", deviceProp.memoryClockRate);
+      fprintf(stderr, "Global memory bus width: %d bits\n", deviceProp.memoryBusWidth);
+      fprintf(stderr, "Maximum constant memory size: %lu\n",deviceProp.totalConstMem);
+      fprintf(stderr, "Compute capability: %d.%d\n", deviceProp.major, deviceProp.minor);
+      fprintf(stderr, "Number of multi-processors: %d\n", deviceProp.multiProcessorCount);
+      fprintf(stderr, "L2 cache size: %d\n", deviceProp.l2CacheSize);
+      fprintf(stderr, "Max. threads per multi-processor: %d\n", deviceProp.maxThreadsPerMultiProcessor);
+      fprintf(stderr, "Compute mode: %d\n", deviceProp.computeMode);
+      fprintf(stderr, "Device-side clock instruction rate: %d khz\n", deviceProp.clockInstructionRate);
+      fprintf(stderr, "\n");
     }
   }
 #elif defined PORT_SYCL
   if(!init) {
     if(CommBench::myid == CommBench::printid)
-      printf("SYCL PORT\n");
+      fprintf(stderr, "SYCL PORT\n");
     // Initialize the driver
     zeInit(0);
     // Discover all the driver instances
@@ -134,34 +134,34 @@ void setup_gpu() {
         if(CommBench::myid == CommBench::printid)
         {
           if(ZE_DEVICE_TYPE_GPU == device_properties.type)
-            printf("driverCount %d deviceCount %d GPU\n", driverCount, deviceCount);
+            fprintf(stderr, "driverCount %d deviceCount %d GPU\n", driverCount, deviceCount);
           else
-            printf("GPU not found!\n");
-          printf("type %d\n", device_properties.type);
-          printf("vendorId %d\n", device_properties.vendorId);
-          printf("deviceId %d\n", device_properties.deviceId);
-          printf("flags %d\n", device_properties.flags);
-          printf("subdeviceId %d\n", device_properties.subdeviceId);
-          printf("coreClockRate %d\n", device_properties.coreClockRate);
-          printf("maxMemAllocSize %ld\n", device_properties.maxMemAllocSize);
-          printf("maxHardwareContexts %d\n", device_properties.maxHardwareContexts);
-          printf("maxCommandQueuePriority %d\n", device_properties.maxCommandQueuePriority);
-          printf("numThreadsPerEU %d\n", device_properties.numThreadsPerEU);
-          printf("physicalEUSimdWidth %d\n", device_properties.physicalEUSimdWidth);
-          printf("numSubslicesPerSlice %d\n", device_properties.numEUsPerSubslice);
-          printf("numSlices %d\n", device_properties.numSlices);
-          printf("timerResolution %ld\n", device_properties.timerResolution);
-          printf("timestampValidBits %d\n", device_properties.timestampValidBits);
-          printf("kernelTimestampValidBits %d\n", device_properties.kernelTimestampValidBits);
+            fprintf(stderr, "GPU not found!\n");
+          fprintf(stderr, "type %d\n", device_properties.type);
+          fprintf(stderr, "vendorId %d\n", device_properties.vendorId);
+          fprintf(stderr, "deviceId %d\n", device_properties.deviceId);
+          fprintf(stderr, "flags %d\n", device_properties.flags);
+          fprintf(stderr, "subdeviceId %d\n", device_properties.subdeviceId);
+          fprintf(stderr, "coreClockRate %d\n", device_properties.coreClockRate);
+          fprintf(stderr, "maxMemAllocSize %ld\n", device_properties.maxMemAllocSize);
+          fprintf(stderr, "maxHardwareContexts %d\n", device_properties.maxHardwareContexts);
+          fprintf(stderr, "maxCommandQueuePriority %d\n", device_properties.maxCommandQueuePriority);
+          fprintf(stderr, "numThreadsPerEU %d\n", device_properties.numThreadsPerEU);
+          fprintf(stderr, "physicalEUSimdWidth %d\n", device_properties.physicalEUSimdWidth);
+          fprintf(stderr, "numSubslicesPerSlice %d\n", device_properties.numEUsPerSubslice);
+          fprintf(stderr, "numSlices %d\n", device_properties.numSlices);
+          fprintf(stderr, "timerResolution %ld\n", device_properties.timerResolution);
+          fprintf(stderr, "timestampValidBits %d\n", device_properties.timestampValidBits);
+          fprintf(stderr, "kernelTimestampValidBits %d\n", device_properties.kernelTimestampValidBits);
           //for(int j = 0; j < ZE_MAX_DEVICE_UUID_SIZE; j++)
-          //  printf("uuid %d\n", device_properties.uuid.id[j]);
-          printf("name %s\n", device_properties.name);
-          printf("\n");
+          //  fprintf(stderr, "uuid %d\n", device_properties.uuid.id[j]);
+          fprintf(stderr, "name %s\n", device_properties.name);
+          fprintf(stderr, "\n");
         }
       }
       /*ze_bool_t test = false;
       zeDeviceCanAccessPeer(allDevices[0], allDevices[1], &test);
-      printf("can access peer %d\n", test);*/
+      fprintf(stderr, "can access peer %d\n", test);*/
       delete[] allDevices;
     }
     delete[] allDrivers;
@@ -169,7 +169,7 @@ void setup_gpu() {
 #else
   if(!init)
     if(CommBench::myid == CommBench::printid)
-      printf("CPU VERSION\n");
+      fprintf(stderr, "CPU VERSION\n");
 #endif
   init = true;
 }

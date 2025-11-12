@@ -53,6 +53,7 @@ option(USE_BLIT_KERNEL "Use Blit/Copy Kernel for IPC communication" OFF)
 
 option(USE_CALIPER "Enable Caliper benchmarking support" OFF)
 option(USE_JSONCPP "Enable support for passing a config file" OFF)
+option(PRINT_DEBUG "Enable debug output" OFF)
 
 
 # Create a variable for NCCL path
@@ -83,19 +84,31 @@ add_subdirectory(CommFunctions) # add subdirectory after all configuration, may 
 
 # Add your source files and executable here
 add_executable(${PROJECT_NAME} main.cpp)
-add_executable(scratch scratch.cpp)
+add_executable(bench_p2p bench_p2p.cpp)
+add_executable(bench_alltoall bench_alltoall.cpp)
+add_executable(bench_broadcast bench_broadcast.cpp)
+add_executable(bench_gather bench_gather.cpp)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC CommFunctions commbench_compiler_flags)
-target_link_libraries(scratch PUBLIC CommFunctions commbench_compiler_flags)
+target_link_libraries(bench_p2p PUBLIC CommFunctions commbench_compiler_flags)
+target_link_libraries(bench_alltoall PUBLIC CommFunctions commbench_compiler_flags)
+target_link_libraries(bench_broadcast PUBLIC CommFunctions commbench_compiler_flags)
+target_link_libraries(bench_gather PUBLIC CommFunctions commbench_compiler_flags)
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/CommFunctions DESTINATION include FILES_MATCHING PATTERN "*.h")
 
 if (USE_CUDA)
     set_source_files_properties(main.cpp PROPERTIES LANGUAGE CUDA)
-    set_source_files_properties(scratch.cpp PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(bench_p2p.cpp PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(bench_alltoall.cpp PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(bench_broadcast.cpp PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(bench_gather.cpp PROPERTIES LANGUAGE CUDA)
 elseif (USE_HIP)
     set_source_files_properties(main.cpp PROPERTIES LANGUAGE HIP)
-    set_source_files_properties(scratch.cpp PROPERTIES LANGUAGE HIP)
+    set_source_files_properties(bench_p2p.cpp PROPERTIES LANGUAGE HIP)
+    set_source_files_properties(bench_alltoall.cpp PROPERTIES LANGUAGE HIP)
+    set_source_files_properties(bench_broadcast.cpp PROPERTIES LANGUAGE HIP)
+    set_source_files_properties(bench_gather.cpp PROPERTIES LANGUAGE HIP)
 endif()
 
 if (USE_JSONCPP)
